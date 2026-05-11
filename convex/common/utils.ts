@@ -9,13 +9,14 @@ export async function isAdmin(ctx: QueryCtx | MutationCtx) {
   if (!userId) return false;
   const user = await ctx.db.get(userId);
   
-  // 1. Verificar por string directo
-  if (user?.role === "admin") return true;
+  const normalizedRole = (user?.role || "").trim().toLowerCase();
+  if (normalizedRole === "admin" || normalizedRole === "administrador") return true;
 
   // 2. Verificar por tabla de roles
   if (user?.roleId) {
     const roleDoc = await ctx.db.get(user.roleId);
-    if (roleDoc?.name.toLowerCase() === "admin") return true;
+    const normalizedRoleName = (roleDoc?.name || "").trim().toLowerCase();
+    if (normalizedRoleName === "admin" || normalizedRoleName === "administrador") return true;
   }
 
   return false;

@@ -45,6 +45,7 @@ export default defineSchema({
 
   // Tabla para información detallada de perfiles/empleados (RRHH)
   profiles: defineTable({
+    userId: v.optional(v.id("users")),
     fullName: v.string(),
     rfc: v.optional(v.string()),
     curp: v.optional(v.string()),
@@ -74,7 +75,7 @@ export default defineSchema({
     workEnd: v.optional(v.string()),   // Formato "HH:mm"
     workDays: v.optional(v.array(v.string())), // ["L", "M", "X", "J", "V", "S", "D"]
     image: v.optional(v.string()),
-  }),
+  }).index("by_userId", ["userId"]),
   // Tabla de Clientes
   clients: clientsTable,
 

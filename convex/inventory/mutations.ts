@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import { mutation } from "../_generated/server";
+import { requireIdentity } from "../common/utils";
 
 export const adjust = mutation({
   args: {
@@ -13,15 +14,13 @@ export const adjust = mutation({
     notes: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    const responsible = identity?.name || "Sistema";
-
+    await requireIdentity(ctx);
     for (const item of args.items) {
       // 1. Update/Create Inventory record for the specific bodega
       const existingInventory = await ctx.db
         .query("inventory")
-        .withIndex("by_bodega_product", (q) =>
-          q.eq("bodegaId", args.bodegaId).eq("productId", item.productId)
+        .withIndex("by_product_bodega", (q) =>
+          q.eq("productId", item.productId).eq("bodegaId", args.bodegaId)
         )
         .unique();
 
@@ -50,10 +49,11 @@ export const adjust = mutation({
       await ctx.db.insert("inventoryLogs", {
         productId: item.productId,
         bodegaId: args.bodegaId,
+        previousStock: existingInventory?.quantity || 0,
         quantity: item.quantity,
         type: "ajuste",
-        responsible,
-        notes: `${item.reason}${args.notes ? ` | ${args.notes}` : ""}`,
+        newStock: item.newStock,
+        reason: `${item.reason}${args.notes ? ` | ${args.notes}` : ""}`,
         date: new Date().toISOString(),
       });
     }

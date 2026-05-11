@@ -10,6 +10,7 @@
 
 import type * as assets_mutations from "../assets/mutations.js";
 import type * as assets_queries from "../assets/queries.js";
+import type * as audit_queries from "../audit/queries.js";
 import type * as auth from "../auth.js";
 import type * as bodega_transactions_mutations from "../bodega_transactions/mutations.js";
 import type * as bodega_transactions_queries from "../bodega_transactions/queries.js";
@@ -18,15 +19,16 @@ import type * as bodegas_queries from "../bodegas/queries.js";
 import type * as clients_mutations from "../clients/mutations.js";
 import type * as clients_queries from "../clients/queries.js";
 import type * as common_hashing from "../common/hashing.js";
+import type * as common_mutations from "../common/mutations.js";
 import type * as common_utils from "../common/utils.js";
 import type * as credits_functions from "../credits/functions.js";
 import type * as debug from "../debug.js";
 import type * as finance_accounts_functions from "../finance_accounts/functions.js";
 import type * as fixedAssetTypes from "../fixedAssetTypes.js";
 import type * as http from "../http.js";
-import type * as inventoryLogs_queries from "../inventoryLogs/queries.js";
 import type * as inventory_mutations from "../inventory/mutations.js";
 import type * as inventory_queries from "../inventory/queries.js";
+import type * as inventoryLogs_queries from "../inventoryLogs/queries.js";
 import type * as loans_functions from "../loans/functions.js";
 import type * as product_categories_functions from "../product_categories/functions.js";
 import type * as products_mutations from "../products/mutations.js";
@@ -62,6 +64,7 @@ import type {
 declare const fullApi: ApiFromModules<{
   "assets/mutations": typeof assets_mutations;
   "assets/queries": typeof assets_queries;
+  "audit/queries": typeof audit_queries;
   auth: typeof auth;
   "bodega_transactions/mutations": typeof bodega_transactions_mutations;
   "bodega_transactions/queries": typeof bodega_transactions_queries;
@@ -70,15 +73,16 @@ declare const fullApi: ApiFromModules<{
   "clients/mutations": typeof clients_mutations;
   "clients/queries": typeof clients_queries;
   "common/hashing": typeof common_hashing;
+  "common/mutations": typeof common_mutations;
   "common/utils": typeof common_utils;
   "credits/functions": typeof credits_functions;
   debug: typeof debug;
   "finance_accounts/functions": typeof finance_accounts_functions;
   fixedAssetTypes: typeof fixedAssetTypes;
   http: typeof http;
-  "inventoryLogs/queries": typeof inventoryLogs_queries;
   "inventory/mutations": typeof inventory_mutations;
   "inventory/queries": typeof inventory_queries;
+  "inventoryLogs/queries": typeof inventoryLogs_queries;
   "loans/functions": typeof loans_functions;
   "product_categories/functions": typeof product_categories_functions;
   "products/mutations": typeof products_mutations;

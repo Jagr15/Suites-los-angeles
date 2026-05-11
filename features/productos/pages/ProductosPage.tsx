@@ -10,6 +10,8 @@ import { useProducts, type Product } from "../hooks/use-products";
 import type { ProductoCreate } from "@/shared/types/producto";
 import * as XLSX from "xlsx";
 
+type ProductoRow = Product;
+
 function toProductoRow(data: ProductoCreate | Record<string, any>, id: string): ProductoRow {
   const base = {
     id,
@@ -272,7 +274,6 @@ export function ProductosPage() {
         cancelLabel="Cancelar"
         variant="danger"
         requirePassword={true}
-        adminPassword="admin123456"
       />
     </div>
   );

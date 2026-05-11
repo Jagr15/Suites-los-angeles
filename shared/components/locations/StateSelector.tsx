@@ -1,9 +1,9 @@
-import { Autocomplete, AutocompleteItem } from "@heroui/react";
+import { Select, SelectItem } from "@heroui/react";
 import { useStates } from "@/shared/hooks/useLocations";
 
 interface StateSelectorProps {
   selectedKey?: string;
-  onSelectionChange: (stateId: string) => void;
+  onSelectionChange: (stateId: string, stateName: string) => void;
   label?: string;
   placeholder?: string;
   className?: string;
@@ -17,26 +17,30 @@ export const StateSelector = ({
   className
 }: StateSelectorProps) => {
   const { data, isLoading } = useStates();
+  const states = data?.states || [];
 
   return (
-    <Autocomplete
+    <Select
       label={label}
       placeholder={isLoading ? "Cargando estados..." : placeholder}
       variant="bordered"
       labelPlacement="outside"
       isLoading={isLoading}
-      selectedKey={selectedKey}
-      onSelectionChange={(key) => {
-        if (key) onSelectionChange(key.toString());
+      selectedKeys={selectedKey ? [selectedKey] : []}
+      onSelectionChange={(keys) => {
+        const id = Array.from(keys)[0] as string;
+        const state = states.find((s) => s.id.toString() === id);
+        if (id && state) {
+          onSelectionChange(id, state.name);
+        }
       }}
       className={className}
-      items={data?.states || []}
     >
-      {(state) => (
-        <AutocompleteItem key={state.id.toString()} textValue={state.name}>
+      {states.map((state) => (
+        <SelectItem key={state.id.toString()} textValue={state.name}>
           {state.name}
-        </AutocompleteItem>
-      )}
-    </Autocomplete>
+        </SelectItem>
+      ))}
+    </Select>
   );
 };

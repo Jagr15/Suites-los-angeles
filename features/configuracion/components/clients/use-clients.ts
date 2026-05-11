@@ -23,9 +23,11 @@ export function useClients() {
     townName: c.townName,
     municipalityId: c.municipalityId,
     municipalityName: c.municipalityName,
+    stateId: c.stateId,
+    stateName: c.stateName,
     visitFrequency: c.visitFrequency,
-    assignedRouteId: c.assignedRouteId,
-    assignedRouteName: c.assignedRouteName,
+    assignedRouteId: c.assignedRouteId ? String(c.assignedRouteId) : "",
+    assignedRouteName: c.assignedRouteName || "",
     creditLimit: c.creditLimit,
     creditDays: c.creditDays,
     availableScheduleStart: c.availableScheduleStart,
@@ -34,7 +36,7 @@ export function useClients() {
 
   const addClient = async (client: Omit<Client, "id">) => {
     // Extraer campos que no existen en el validador del servidor
-    const { _id, _creationTime, stateId, stateName, ...fields } = client as any;
+    const { _id, _creationTime, ...fields } = client as any;
     
     const cleanData = {
       ...fields,
@@ -43,6 +45,8 @@ export function useClients() {
       buyerName: fields.buyerName || "",
       municipalityId: fields.municipalityId || "",
       municipalityName: fields.municipalityName || "",
+      stateId: fields.stateId || "",
+      stateName: fields.stateName || "",
       townId: fields.townId || "",
       townName: fields.townName || "",
       mapsUrl: fields.mapsUrl || "",

@@ -6,17 +6,18 @@ import { ConvexReactClient } from "convex/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useState } from "react";
 
-// Instancia del cliente de Convex (Fija para producción)
-const convexUrl = "https://fantastic-spoonbill-554.convex.cloud";
+const convexUrl = process.env.NEXT_PUBLIC_CONVEX_URL;
 
-// Instancia del cliente de Convex
+if (!convexUrl) {
+  throw new Error("Missing NEXT_PUBLIC_CONVEX_URL. Define it in .env.local");
+}
+
 const convex = new ConvexReactClient(convexUrl);
 
 /**
  * Envuelve la app con todos los proveedores necesarios.
  */
 export function Providers({ children }: { children: React.ReactNode }) {
-  // Inicializamos QueryClient con un hook
   const [queryClient] = useState(() => new QueryClient());
 
   return (

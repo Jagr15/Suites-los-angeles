@@ -1,6 +1,7 @@
 import { mutation } from "../_generated/server";
 import { v } from "convex/values";
 import { assetFields } from "./schema";
+import { requireAdmin } from "../common/utils";
 
 /**
  * Crea un nuevo activo fijo.
@@ -8,6 +9,7 @@ import { assetFields } from "./schema";
 export const create = mutation({
   args: assetFields,
   handler: async (ctx, args) => {
+    await requireAdmin(ctx);
     return await ctx.db.insert("assets", args);
   },
 });
@@ -21,6 +23,7 @@ export const update = mutation({
     ...assetFields,
   },
   handler: async (ctx, args) => {
+    await requireAdmin(ctx);
     const { id, ...data } = args;
     await ctx.db.patch(id, data);
     return id;
@@ -33,6 +36,7 @@ export const update = mutation({
 export const remove = mutation({
   args: { id: v.id("assets") },
   handler: async (ctx, args) => {
+    await requireAdmin(ctx);
     // Si el activo está vinculado a un vehículo, lo desvinculamos
     const asset = await ctx.db.get(args.id);
     if (asset?.vehicleId) {

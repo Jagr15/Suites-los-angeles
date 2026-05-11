@@ -1,7 +1,7 @@
 "use client";
 
 import { useConvexAuth } from "convex/react";
-import { Spinner } from "@heroui/react";
+import { Button, Spinner } from "@heroui/react";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { DashboardSidebar } from "./DashboardSidebar";
@@ -11,6 +11,7 @@ import { useAuthActions } from "@convex-dev/auth/react";
 
 const SIDEBAR_WIDTH = 272;
 const SIDEBAR_WIDTH_COLLAPSED = 80;
+const DEBUG_AUTH = process.env.NODE_ENV !== "production";
 
 function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
   const { collapsed } = useSidebarContext();
@@ -36,8 +37,24 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
   const isLoading = isAuthLoading || isRolesLoading;
 
   useEffect(() => {
+    if (DEBUG_AUTH) {
+      console.log("[AUTH][DashboardLayout] state", {
+        isAuthLoading,
+        isRolesLoading,
+        isLoading,
+        isAuthenticated,
+        isActive,
+        isVendedor,
+      });
+    }
+  }, [isAuthLoading, isRolesLoading, isLoading, isAuthenticated, isActive, isVendedor]);
+
+  useEffect(() => {
     // Solo redirigimos si ya terminó de cargar Y estamos seguros de que NO hay sesión
     if (!isLoading && !isAuthenticated) {
+      if (DEBUG_AUTH) {
+        console.warn("[AUTH][DashboardLayout] unauthenticated -> /login");
+      }
       router.replace("/login");
     }
   }, [isLoading, isAuthenticated, router]);

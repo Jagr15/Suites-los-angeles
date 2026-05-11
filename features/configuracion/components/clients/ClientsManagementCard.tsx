@@ -111,7 +111,6 @@ export function ClientsManagementCard() {
           items={clients} 
           onEdit={handleEdit} 
           onDelete={handleDeleteRequest} 
-          isLoading={isLoading}
         />
 
         <ClientModal
@@ -132,7 +131,6 @@ export function ClientsManagementCard() {
           confirmLabel="Eliminar"
           variant="danger"
           requirePassword={true}
-          adminPassword="admin123456"
         />
       </CardBody>
     </Card>

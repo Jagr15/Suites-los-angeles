@@ -55,7 +55,7 @@ const MOVIMIENTOS_MOCK_DETALLE: Record<string, MovimientoDetalle[]> = {
 
 export function EstadoCuentaModal({ isOpen, onClose, estadoCuenta }: EstadoCuentaModalProps) {
   // 1. Llamar a los datos reales de Convex
-  const movimientos = useQuery(api.supplierTransactions.listBySupplier, 
+  const movimientos = useQuery(api.supplierTransactions.queries.listBySupplier, 
     estadoCuenta?.id ? { supplierId: estadoCuenta.id as Id<"suppliers"> } : "skip"
   );
 

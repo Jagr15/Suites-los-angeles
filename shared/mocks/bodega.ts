@@ -6,12 +6,14 @@ import { type BodegaProducto } from "../schemas/bodega";
  */
 
 export type BodegaRow = {
+  _id?: string;
   id: string;
   numeroCarga: string;
   folio?: string; // Para consistencia con compras
   fecha: string;
   serie: string;
   status: string;
+  receptionStatus?: "Completa" | "Faltante" | "Pendiente";
   proveedor?: string; // Para entradas
   recepcion?: "Completa" | "Faltante"; // Para entradas
   monto?: string; // Para entradas
@@ -28,6 +30,7 @@ export type BodegaRow = {
   responsable: string;
   tipoEntrega: "sucursal" | "pedido";
   productos: BodegaProducto[];
+  items?: Array<Record<string, unknown>>;
 };
 
 const rutas = ["001", "002", "003", "005", "006", "009"];
@@ -124,5 +127,4 @@ export const mockBodega: BodegaRow[] = rutas.map((ruta, idx) => {
     }),
   };
 });
-
 

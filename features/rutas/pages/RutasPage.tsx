@@ -167,7 +167,7 @@ export function RutasPage() {
                 />
               )}
 
-              {activeTab === "mapa" && <RutasMapa selectedRuta={selectedRuta} />}
+              {activeTab === "mapa" && <RutasMapa selectedRuta={selectedRuta as any} />}
             </div>
           </div>
         )}

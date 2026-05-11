@@ -35,7 +35,7 @@ export function EstadosDeCuentaCards({ items, proveedorSeleccionado, onSelect }:
             key={item.id}
             isPressable
             onPress={() => onSelect?.(item)}
-            ref={(el) => {
+            ref={(el: Element | null) => {
               if (el) cardRefs.current[item.proveedor] = el as unknown as HTMLDivElement;
             }}
             className={`border-none shadow-sm hover:shadow-xl transition-all duration-300 group ${

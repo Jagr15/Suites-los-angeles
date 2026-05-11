@@ -1,6 +1,7 @@
 import { query } from "../_generated/server";
 import { v } from "convex/values";
-import { requireAdmin } from "../common/utils";
+
+const ALLOWED_ROLE_NAMES = new Set(["Administrador", "Vendedor", "Bodeguero"]);
 
 /**
  * Lista todos los roles disponibles.
@@ -8,9 +9,8 @@ import { requireAdmin } from "../common/utils";
 export const listAll = query({
   args: {},
   handler: async (ctx) => {
-    // Puedes permitir que todos vean los nombres de los roles 
-    // o restringirlo a admins.
-    return await ctx.db.query("roles").collect();
+    const roles = await ctx.db.query("roles").collect();
+    return roles.filter((role) => ALLOWED_ROLE_NAMES.has(role.name));
   },
 });
 

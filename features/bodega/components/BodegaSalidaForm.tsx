@@ -85,7 +85,7 @@ function toSalidaRow(data: CargaBodegaFormValues, id: string): any {
         numeroSalida: data.numeroCarga,
         lugarRuta: "Bodega",
         valor: (data.productos || []).reduce((acc, p) => acc + (p.precio || 0) * (p.cantidad || 0), 0),
-        tipo: data.tipoEntrega === "carga" ? "carga" : "venta",
+        tipo: data.tipoEntrega === "pedido" ? "venta" : "carga",
     };
 }
 

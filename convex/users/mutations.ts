@@ -20,6 +20,7 @@ export const upsertUser = mutation({
     password: v.optional(v.string()), // Nueva contraseña opcional
   },
   handler: async (ctx, args) => {
+    await requireAdmin(ctx);
     const { id, email, password, ...userData } = args;
     
     let userId: any = id;
@@ -88,7 +89,7 @@ export const upsertUser = mutation({
 export const removeUser = mutation({
   args: { id: v.id("users") },
   handler: async (ctx, args) => {
-    // await requireAdmin(ctx);
+    await requireAdmin(ctx);
     await ctx.db.delete(args.id);
   },
 });

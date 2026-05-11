@@ -37,7 +37,8 @@ const columns = [
 
 export function BodegaTable({ items, onEdit, onDelete, isLoading }: BodegaTableProps) {
   const renderCell = (bodega: Almacen, columnKey: React.Key) => {
-    switch (columnKey) {
+    const key = String(columnKey);
+    switch (key) {
       case "name":
         return (
           <div className="flex items-center gap-3">
@@ -102,7 +103,7 @@ export function BodegaTable({ items, onEdit, onDelete, isLoading }: BodegaTableP
           </div>
         );
       default:
-        return (bodega as any)[columnKey]?.toString() || "";
+        return (bodega as any)[key]?.toString() || "";
     }
   };
 

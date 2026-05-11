@@ -3,7 +3,7 @@
 import { useState, useCallback } from "react";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
-import { addToast, useDisclosure } from "@heroui/react";
+import { addToast, Button, useDisclosure } from "@heroui/react";
 import { ConfirmModal } from "@/shared/components";
 import { DashboardHeader } from "@/features/dashboard/components";
 import { BodegaHeader, BodegaToolbar, BodegaTable, BodegaEntradasTable, BodegaSalidaForm, BodegaEntradaForm, BodegaInventory, BodegaNominas, BodegaSalidas, BodegaGastos, BodegaIngresos, BodegaDeudas, BodegaInventoryForm } from "../components";
@@ -263,7 +263,7 @@ export function BodegaPage() {
             )}
             {activeTab === "entradas" ? (
               <BodegaEntradasTable 
-                items={purchases || []} 
+                items={(purchases || []) as any} 
                 onPasarASalida={handlePasarASalida}
                 onBorrar={(item) => setBodegaToDelete(item)}
                 onEditar={(item) => setSalidaToEdit(item as any)}

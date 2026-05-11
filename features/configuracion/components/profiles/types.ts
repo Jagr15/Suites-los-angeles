@@ -1,6 +1,6 @@
 export interface Profile {
   id: string; // En el frontend usamos 'id' para mapear '_id'
-  userId: string;
+  userId?: string;
   fullName: string;
   rfc?: string;
   curp?: string;

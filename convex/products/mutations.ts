@@ -1,10 +1,12 @@
 import { mutation } from "../_generated/server";
 import { v } from "convex/values";
 import { productFields } from "./schema";
+import { requireIdentity } from "../common/utils";
 
 export const create = mutation({
   args: productFields,
   handler: async (ctx, args) => {
+    await requireIdentity(ctx);
     return await ctx.db.insert("products", args);
   },
 });
@@ -38,6 +40,7 @@ export const update = mutation({
     image: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    await requireIdentity(ctx);
     const { id, ...fields } = args;
     await ctx.db.patch(id, fields as any);
   },
@@ -46,6 +49,7 @@ export const update = mutation({
 export const remove = mutation({
   args: { id: v.id("products") },
   handler: async (ctx, args) => {
+    await requireIdentity(ctx);
     await ctx.db.delete(args.id);
   },
 });
@@ -55,6 +59,7 @@ export const bulkUpsert = mutation({
     items: v.array(v.object(productFields)),
   },
   handler: async (ctx, args) => {
+    await requireIdentity(ctx);
     let created = 0;
     let updated = 0;
 

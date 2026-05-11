@@ -1,10 +1,12 @@
 import { mutation } from "../_generated/server";
 import { v } from "convex/values";
 import { salidaFields } from "./schema";
+import { requireIdentity } from "../common/utils";
 
 export const create = mutation({
   args: salidaFields,
   handler: async (ctx, args) => {
+    await requireIdentity(ctx);
     const id = await ctx.db.insert("salidas", args);
     
     // Opcional: Descontar del inventario si es una carga/salida real
@@ -25,6 +27,7 @@ export const update = mutation({
     ...salidaFields,
   },
   handler: async (ctx, { id, ...args }) => {
+    await requireIdentity(ctx);
     await ctx.db.patch(id, args);
     return id;
   },
@@ -33,6 +36,7 @@ export const update = mutation({
 export const remove = mutation({
   args: { id: v.id("salidas") },
   handler: async (ctx, { id }) => {
+    await requireIdentity(ctx);
     await ctx.db.delete(id);
   },
 });

@@ -20,7 +20,7 @@ import type { EstadoCuentaRow } from "@/shared/mocks";
 type EstadoCuentaViewProps = {
   estadoCuenta: EstadoCuentaRow;
   onBack: () => void;
-  onProviderChange?: (provider: string) => void;
+  onProviderChange?: (supplierId: string) => void;
 };
 
 type MovimientoDetalle = {
@@ -38,8 +38,8 @@ export function EstadoCuentaView({ estadoCuenta, onBack, onProviderChange }: Est
   const suppliers = useQuery(api.suppliers.queries.list);
   
   const selectedSupplier = useMemo(() => {
-    return (suppliers || []).find(s => (s.name || s.businessName) === estadoCuenta.proveedor);
-  }, [suppliers, estadoCuenta.proveedor]);
+    return (suppliers || []).find((s) => s._id === estadoCuenta.id);
+  }, [suppliers, estadoCuenta.id]);
 
   const transactions = useQuery(
     api.supplierTransactions.queries.listBySupplier,
@@ -107,12 +107,12 @@ export function EstadoCuentaView({ estadoCuenta, onBack, onProviderChange }: Est
               tab: "max-w-fit px-0 h-12",
               tabContent: "group-data-[selected=true]:text-primary font-bold text-default-500 uppercase text-xs tracking-widest"
             }}
-            selectedKey={estadoCuenta.proveedor}
+            selectedKey={estadoCuenta.id}
             onSelectionChange={(key) => onProviderChange?.(key as string)}
           >
             {(suppliers || []).map((p) => {
               const name = p.name || p.businessName;
-              return <Tab key={name} title={name} />;
+              return <Tab key={p._id} title={name} />;
             })}
           </Tabs>
         </div>

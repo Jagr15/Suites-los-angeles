@@ -1,7 +1,6 @@
 "use client";
 
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect } from "react";
 import { Button, Avatar, Tooltip } from "@heroui/react";
 import {
   ArrowRightOnRectangleIcon,
@@ -41,29 +40,10 @@ export function DashboardSidebar() {
   const user = useQuery(api.users.queries.current);
   const { 
     isAdmin, 
-    isFinanzas, 
     isBodega, 
-    isRutas, 
+    isVendedor,
     role,
-    hasPermission 
   } = useRoles();
-
-  // DEBUG: Para ver qué usuario y qué rol está detectando el sistema
-  useEffect(() => {
-    if (user) {
-      console.log("DEBUG - Usuario Autenticado:", {
-        id: user._id,
-        email: user.email,
-        name: user.name,
-        roleField: user.role,
-        roleId: user.roleId,
-        roleDataName: user.roleData?.name,
-        calculatedRole: role,
-        isAdmin,
-        isBodega
-      });
-    }
-  }, [user, role, isAdmin, isBodega]);
 
   const handleLogout = async () => {
     try {
@@ -134,7 +114,7 @@ export function DashboardSidebar() {
                   collapsed={collapsed}
                 />
               )}
-              {(isAdmin || isFinanzas) && (
+              {(isAdmin || isBodega) && (
                 <SidebarItem
                   title="Proveedores"
                   icon={<UserGroupIcon className="size-5" />}
@@ -152,7 +132,7 @@ export function DashboardSidebar() {
                   collapsed={collapsed}
                 />
               )}
-              {(isAdmin || isRutas) && (
+              {(isAdmin || isVendedor) && (
                 <SidebarItem
                   title="Rutas"
                   icon={<MapPinIcon className="size-5" />}
@@ -161,7 +141,7 @@ export function DashboardSidebar() {
                   collapsed={collapsed}
                 />
               )}
-              {(isAdmin || isFinanzas) && (
+              {isAdmin && (
                 <SidebarItem
                   title="Finanzas"
                   icon={<ChartBarIcon className="size-5" />}
@@ -170,7 +150,7 @@ export function DashboardSidebar() {
                   collapsed={collapsed}
                 />
               )}
-              {(isAdmin || isRutas || isFinanzas) && (
+              {(isAdmin || isVendedor) && (
                 <SidebarItem
                   title="Clientes"
                   icon={<UserGroupIcon className="size-5" />}

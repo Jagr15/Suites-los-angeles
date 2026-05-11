@@ -1,8 +1,17 @@
 import { query, mutation } from "./_generated/server";
+import { requireAdmin } from "./common/utils";
+
+function assertDebugToolsEnabled() {
+  if (process.env.DEBUG_TOOLS_ENABLED !== "true") {
+    throw new Error("Debug tools are disabled");
+  }
+}
 
 export const listAuthData = query({
   args: {},
   handler: async (ctx) => {
+    await requireAdmin(ctx);
+    assertDebugToolsEnabled();
     const accounts = await ctx.db.query("authAccounts").collect();
     const sessions = await ctx.db.query("authSessions").collect();
     const users = await ctx.db.query("users").collect();
@@ -13,6 +22,8 @@ export const listAuthData = query({
 export const cleanupOrphans = mutation({
   args: {},
   handler: async (ctx) => {
+    await requireAdmin(ctx);
+    assertDebugToolsEnabled();
     const accounts = await ctx.db.query("authAccounts").collect();
     const users = await ctx.db.query("users").collect();
     const userIds = new Set(users.map(u => u._id));

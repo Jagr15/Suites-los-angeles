@@ -15,6 +15,7 @@ export function useProfiles() {
   // Mapeamos los perfiles de Convex a nuestro formato de UI
   const profiles: Profile[] = (rawProfiles || []).map((p) => ({
     id: p._id,
+    userId: p.userId ? String(p.userId) : undefined,
     fullName: p.fullName,
     rfc: p.rfc,
     curp: p.curp,
@@ -38,8 +39,12 @@ export function useProfiles() {
 
   const addProfile = async (profile: Omit<Profile, "id">) => {
     return await createProfileMutation({
-      ...profile,
-    });
+      ...(profile as any),
+      userId: undefined,
+      assignedBodegaId: (profile as any).assignedBodegaId
+        ? ((profile as any).assignedBodegaId as any)
+        : undefined,
+    } as any);
   };
 
   const updateProfile = async (id: string, profile: Partial<Profile>) => {
@@ -47,7 +52,7 @@ export function useProfiles() {
     return await updateProfileMutation({
       id: id as Id<"profiles">,
       // Pasamos los campos que existen en la mutación
-      fullName: data.fullName!,
+      fullName: data.fullName || "",
       rfc: data.rfc,
       curp: data.curp,
       nss: data.nss,
@@ -57,16 +62,16 @@ export function useProfiles() {
       hireDate: data.hireDate,
       position: data.position,
       baseSalary: data.baseSalary,
-      status: data.status!,
+      status: data.status || "Activo",
       isEmployee: data.isEmployee ?? true,
       workStart: data.workStart,
       workEnd: data.workEnd,
       workDays: data.workDays,
       group: data.group,
       workplaceType: data.workplaceType,
-      assignedBodegaId: data.assignedBodegaId,
+      assignedBodegaId: data.assignedBodegaId ? (data.assignedBodegaId as any) : undefined,
       image: data.image,
-    });
+    } as any);
   };
 
   const deleteProfile = async (id: string) => {

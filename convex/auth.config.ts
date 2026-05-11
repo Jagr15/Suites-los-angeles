@@ -1,8 +1,16 @@
-export default {
+const convexSiteUrl = process.env.CONVEX_SITE_URL;
+
+if (!convexSiteUrl) {
+  throw new Error("Missing CONVEX_SITE_URL in environment variables");
+}
+
+const authConfig = {
   providers: [
     {
-      domain: process.env.CONVEX_SITE_URL,
+      domain: convexSiteUrl,
       applicationID: "convex",
     },
   ],
 };
+
+export default authConfig;

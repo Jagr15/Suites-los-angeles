@@ -12,6 +12,45 @@ export const list = query({
 });
 
 /**
+ * Lista proveedores con métricas financieras consolidadas.
+ */
+export const listWithMetrics = query({
+  args: {},
+  handler: async (ctx) => {
+    const suppliers = await ctx.db.query("suppliers").collect();
+
+    return await Promise.all(
+      suppliers.map(async (supplier) => {
+        const purchases = await ctx.db
+          .query("purchases")
+          .withIndex("by_supplierId", (q) => q.eq("supplierId", supplier._id))
+          .collect();
+
+        const transactions = await ctx.db
+          .query("supplierTransactions")
+          .withIndex("by_supplierId", (q) => q.eq("supplierId", supplier._id))
+          .collect();
+
+        const totalPurchases = purchases.reduce((acc, purchase) => acc + purchase.totalAmount, 0);
+        const totalPayments = transactions
+          .filter((trx) => trx.type === "Abono")
+          .reduce((acc, trx) => acc + trx.amount, 0);
+        const outstandingBalance = totalPurchases - totalPayments;
+
+        return {
+          ...supplier,
+          metrics: {
+            totalPurchases,
+            totalPayments,
+            outstandingBalance,
+          },
+        };
+      })
+    );
+  },
+});
+
+/**
  * Obtiene un proveedor por su ID.
  */
 export const getById = query({

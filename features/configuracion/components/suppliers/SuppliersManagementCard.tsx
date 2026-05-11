@@ -166,7 +166,6 @@ export function SuppliersManagementCard() {
         confirmLabel="Eliminar"
         variant="danger"
         requirePassword={true}
-        adminPassword="admin123456"
         isConfirming={isDeleting}
       />
     </Card>

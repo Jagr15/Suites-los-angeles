@@ -289,10 +289,13 @@ export function ClientModal({
                         render={({ field }) => (
                           <StateSelector 
                             selectedKey={field.value}
-                            onSelectionChange={(id) => {
+                            onSelectionChange={(id, name) => {
                               field.onChange(id);
+                              setValue("stateName", name);
                               setValue("municipalityId", "");
+                              setValue("municipalityName", "");
                               setValue("townId", "");
+                              setValue("townName", "");
                             }}
                           />
                         )}
@@ -302,7 +305,7 @@ export function ClientModal({
                         control={control}
                         render={({ field }) => (
                           <MunicipalitySelector 
-                            stateId={stateId}
+                            stateId={stateId ?? undefined}
                             selectedKey={field.value}
                             onSelectionChange={(id, name) => {
                               field.onChange(id);
@@ -320,9 +323,9 @@ export function ClientModal({
                         control={control}
                         render={({ field }) => (
                           <LocalitySelector 
-                            stateId={stateId}
+                            stateId={stateId ?? null}
                             municipalityId={municipalityId}
-                            selectedKey={field.value}
+                            selectedKey={field.value ?? undefined}
                             onSelectionChange={(id, name) => {
                               field.onChange(id);
                               setValue("townName", name);
@@ -402,18 +405,18 @@ export function ClientModal({
                             hideTimeZone
                             granularity="minute"
                             visibleMonths={1}
-                            value={
+                            value={(
                               field.value && end
                                 ? {
                                     start: parseAbsoluteToLocal(field.value),
                                     end: parseAbsoluteToLocal(end),
                                   }
                                 : null
-                            }
-                            onChange={(value) => {
+                            ) as any}
+                            onChange={(value: any) => {
                               if (value) {
-                                field.onChange(value.start.toDate().toISOString());
-                                setValue("availableScheduleEnd", value.end.toDate().toISOString());
+                                field.onChange(value.start?.toDate?.().toISOString?.() || "");
+                                setValue("availableScheduleEnd", value.end?.toDate?.().toISOString?.() || "");
                               } else {
                                 field.onChange(undefined);
                                 setValue("availableScheduleEnd", undefined);

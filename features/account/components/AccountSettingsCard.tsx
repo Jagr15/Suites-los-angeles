@@ -204,7 +204,7 @@ export function AccountSettingsCard() {
           </div>
           <div className="flex-1">
             <h3 className="text-2xl font-bold tracking-tight text-foreground">Configuración de Cuenta</h3>
-            <p className="text-default-500 font-medium italic">@{currentUser.email?.split("@")[0]}</p>
+            <p className="text-default-500 font-medium italic">@{currentUser?.email?.split("@")[0] || "usuario"}</p>
           </div>
           <div className="hidden md:flex flex-col items-end">
             <div className="flex items-center gap-1 text-success font-semibold px-3 py-1 bg-success-50 rounded-full border border-success-100">
@@ -332,10 +332,10 @@ export function AccountSettingsCard() {
           <Button 
             variant="light" 
             onPress={() => {
-              setTempName(currentUser.name || "");
-              setTempEmail(currentUser.email || "");
-              setTempPhone(currentUser.phone || "");
-              setTempImage(currentUser.image || null);
+              setTempName(currentUser?.name || "");
+              setTempEmail(currentUser?.email || "");
+              setTempPhone(currentUser?.phone || "");
+              setTempImage(currentUser?.image || null);
               setCurrentPassword("");
               setNewPassword("");
               setConfirmPassword("");

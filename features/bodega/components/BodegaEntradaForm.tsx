@@ -54,7 +54,7 @@ const parseCurrency = (val: string | number) => {
 };
 
 type BodegaEntradaFormProps = {
-    entrada?: BodegaRow | null;
+    entrada?: (BodegaRow & { _id?: string; receptionStatus?: string; items?: any[] }) | null;
     onSubmit: (data: any, editId?: string) => void;
     onCancel: () => void;
 };

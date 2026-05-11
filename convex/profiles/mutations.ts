@@ -41,7 +41,7 @@ const profileFields = {
 export const create = mutation({
   args: profileFields,
   handler: async (ctx, args) => {
-    // await requireAdmin(ctx);
+    await requireAdmin(ctx);
     return await ctx.db.insert("profiles", args);
   },
 });
@@ -57,7 +57,7 @@ export const update = mutation({
     ),
   },
   handler: async (ctx, args) => {
-    // await requireAdmin(ctx);
+    await requireAdmin(ctx);
     const { id, ...data } = args;
     await ctx.db.patch(id, data);
     return id;
@@ -70,7 +70,7 @@ export const update = mutation({
 export const remove = mutation({
   args: { id: v.id("profiles") },
   handler: async (ctx, args) => {
-    // await requireAdmin(ctx);
+    await requireAdmin(ctx);
     await ctx.db.patch(args.id, { status: "Inactivo" });
   },
 });

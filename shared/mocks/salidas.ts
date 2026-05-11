@@ -1,4 +1,5 @@
 export type SalidaRow = {
+    _id?: string;
     id: string;
     numeroSalida: string;
     responsable: string;

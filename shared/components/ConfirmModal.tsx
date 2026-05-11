@@ -18,7 +18,7 @@ type ConfirmModalProps = {
   isConfirming?: boolean;
   /** Si true, requiere que el usuario ingrese la contraseña de administrador. */
   requirePassword?: boolean;
-  /** La contraseña correcta para validar (en un caso real vendría de un backend/auth context). */
+  /** Contraseña de confirmación opcional; si no se define, no se valida por contraseña. */
   adminPassword?: string;
 };
 
@@ -33,7 +33,7 @@ export function ConfirmModal({
   variant = "default",
   isConfirming = false,
   requirePassword = false,
-  adminPassword = "admin123456", // Valor por defecto para el mock
+  adminPassword
 }: ConfirmModalProps) {
   const [password, setPassword] = useState("");
   const [error, setError] = useState(false);
@@ -46,7 +46,7 @@ export function ConfirmModal({
   }, [isOpen]);
 
   const handleConfirm = async () => {
-    if (requirePassword && password !== adminPassword) {
+    if (requirePassword && adminPassword && password !== adminPassword) {
       setError(true);
       return;
     }

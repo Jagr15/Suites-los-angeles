@@ -42,7 +42,7 @@ export function UserManagementCard() {
     setSelectedUser(null);
     setFormState({
       isActive: true,
-      role: firstRole?.name || "Rutas",
+      role: firstRole?.name || "Vendedor",
       profileName: "",
       email: "",
       roleId: firstRole?._id,
@@ -56,7 +56,7 @@ export function UserManagementCard() {
     const validation = userSchema.safeParse(formState);
     
     if (!validation.success) {
-      const firstError = validation.error.errors[0].message;
+      const firstError = validation.error.issues[0]?.message || "Datos inválidos";
       addToast({
         title: "Error de validación",
         description: firstError,
@@ -165,7 +165,6 @@ export function UserManagementCard() {
           confirmLabel="Borrar Acceso"
           variant="danger"
           requirePassword={true}
-          adminPassword="admin123456"
         />
       </CardBody>
     </Card>

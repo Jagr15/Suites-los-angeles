@@ -20,6 +20,8 @@ import {
 import { useAuthActions } from "@convex-dev/auth/react";
 import { useRouter } from "next/navigation";
 
+const DEBUG_AUTH = process.env.NODE_ENV !== "production";
+
 // Esquema de validación con Zod
 const loginSchema = z.object({
   email: z.string().email("Correo electrónico inválido"),
@@ -42,8 +44,8 @@ export function LoginForm() {
   } = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
     defaultValues: {
-      email: "admin@gmail.com",
-      password: "admin123456",
+      email: "",
+      password: "",
       remember: true,
     },
   });
@@ -51,35 +53,82 @@ export function LoginForm() {
   const toggleVisibility = () => setIsVisible(!isVisible);
 
   const onSubmit = async (data: LoginFormValues) => {
+    console.log("[AUTH] entering handleSubmit");
     setIsLoading(true);
+    let timeoutId: ReturnType<typeof setTimeout> | null = null;
     
     try {
-      // Solo permitimos Iniciar Sesión (signIn). La cuenta DEBE existir previamente (creada por Admin o Seed).
-      await signIn("password", { 
-        email: data.email, 
-        password: data.password, 
-        flow: "signIn" 
+      console.log("[AUTH] before signIn");
+
+      const loginPromise = signIn("password", {
+        email: data.email,
+        password: data.password,
+        flow: "signIn",
       });
+      const timeoutPromise = new Promise((_, reject) => {
+        timeoutId = setTimeout(() => {
+          reject(new Error("Tiempo de espera agotado. Verifica conexión con Convex."));
+        }, 12000);
+      });
+
+      // Solo permitimos Iniciar Sesión (signIn). La cuenta DEBE existir previamente (creada por Admin o Seed).
+      const response = await Promise.race([loginPromise, timeoutPromise]);
+      if (timeoutId) clearTimeout(timeoutId);
+
+      console.log("[AUTH] signIn response", response);
 
       addToast({
         title: "¡Bienvenido de nuevo!",
         description: "Has iniciado sesión correctamente.",
         color: "success",
       });
+
+      if (DEBUG_AUTH) {
+        console.log("[AUTH][LoginForm] before router.replace", { target: "/dashboard" });
+      }
+      router.replace("/dashboard");
+
+      if (DEBUG_AUTH) {
+        console.log("[AUTH][LoginForm] after router.replace call");
+      }
+
+      // Diagnóstico de fallback para casos donde App Router no navega por estado intermedio.
+      setTimeout(() => {
+        if (window.location.pathname.startsWith("/login")) {
+          console.warn("[AUTH][LoginForm] router.replace no cambió ruta. Aplicando fallback hard redirect.");
+          window.location.href = "/dashboard";
+        }
+      }, 900);
     } catch (error) {
+      console.log("[AUTH] signIn error", error);
       console.error("Login failed:", error);
       addToast({
         title: "Error de acceso",
-        description: "Revisa tus credenciales e intenta de nuevo. Si eres nuevo, el administrador debe habilitar tu cuenta.",
+        description:
+          error instanceof Error
+            ? error.message
+            : "Revisa tus credenciales e intenta de nuevo. Si eres nuevo, el administrador debe habilitar tu cuenta.",
         color: "danger",
       });
     } finally {
+      if (timeoutId) clearTimeout(timeoutId);
       setIsLoading(false);
     }
   };
 
+  const onInvalid = (errors: unknown) => {
+    console.log("[AUTH] entering handleSubmit");
+    console.log("[AUTH] signIn error", errors);
+  };
+
   return (
-    <form className="space-y-6" onSubmit={handleSubmit(onSubmit)}>
+    <form
+      className="space-y-6"
+      onSubmit={(event) => {
+        console.log("[AUTH] entering handleSubmit");
+        void handleSubmit(onSubmit, onInvalid)(event);
+      }}
+    >
       <div className="space-y-4">
         <Input
           {...register("email")}
@@ -143,6 +192,9 @@ export function LoginForm() {
         className="w-full h-14 text-lg font-bold"
         size="lg"
         isLoading={isLoading}
+        onPress={() => {
+          console.log("[AUTH] submit clicked");
+        }}
       >
         Iniciar Sesión
       </Button>

@@ -37,7 +37,7 @@ export function VehicleModal({ isOpen, onOpenChange, onSuccess }: VehicleModalPr
     reset,
     formState: { errors },
   } = useForm<VehicleSchema>({
-    resolver: zodResolver(vehicleSchema),
+    resolver: zodResolver(vehicleSchema) as any,
     defaultValues: {
       name: "",
       brand: "",
@@ -65,7 +65,6 @@ export function VehicleModal({ isOpen, onOpenChange, onSuccess }: VehicleModalPr
         acquisitionValue: 0, // Default for logistics
         acquisitionDate: new Date().toISOString(), // Default for logistics
         usefulLifeYears: 5, // Default for logistics
-        serialNumber: data.serialNumber || undefined,
         status: data.status,
       });
       
@@ -79,9 +78,11 @@ export function VehicleModal({ isOpen, onOpenChange, onSuccess }: VehicleModalPr
       onOpenChange(false);
       reset();
     } catch (error) {
+      const message = error instanceof Error ? error.message : "No se pudo registrar el transporte.";
+      console.error("Error creating transport asset:", error);
       addToast({
         title: "Error",
-        description: "No se pudo registrar el transporte.",
+        description: message,
         color: "danger",
       });
     } finally {
@@ -96,7 +97,7 @@ export function VehicleModal({ isOpen, onOpenChange, onSuccess }: VehicleModalPr
           <>
             <ModalHeader>Registrar Nuevo Transporte (Activo Fijo)</ModalHeader>
             <ModalBody>
-              <form id="vehicle-form" onSubmit={handleSubmit(onSubmit)} className="grid grid-cols-1 md:grid-cols-2 gap-4 py-2">
+              <form id="vehicle-form" onSubmit={handleSubmit(onSubmit as any)} className="grid grid-cols-1 md:grid-cols-2 gap-4 py-2">
                 <Controller
                   name="name"
                   control={control}
@@ -169,20 +170,6 @@ export function VehicleModal({ isOpen, onOpenChange, onSuccess }: VehicleModalPr
                 <div className="md:col-span-2 pt-2">
                   <Divider />
                 </div>
-
-                <Controller
-                  name="serialNumber"
-                  control={control}
-                  render={({ field }) => (
-                    <Input
-                      {...field}
-                      label="Número de Serie / VIN"
-                      placeholder="Ej. VIN12345678"
-                      variant="bordered"
-                      labelPlacement="outside"
-                    />
-                  )}
-                />
 
                 <div className="flex flex-col gap-2 pt-4">
                   <span className="text-small font-medium">Estado del Activo</span>

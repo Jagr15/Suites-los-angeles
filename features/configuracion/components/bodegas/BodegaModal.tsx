@@ -37,7 +37,7 @@ export function BodegaModal({
     reset,
     formState: { errors },
   } = useForm<AlmacenFormValues>({
-    resolver: zodResolver(almacenSchema),
+    resolver: zodResolver(almacenSchema) as any,
     defaultValues: {
       name: "",
       description: "",
@@ -78,7 +78,7 @@ export function BodegaModal({
   return (
     <Modal isOpen={isOpen} onOpenChange={onClose} size="md">
       <ModalContent>
-        <form onSubmit={handleSubmit(onFormSubmit)}>
+        <form onSubmit={handleSubmit(onFormSubmit as any)}>
           <ModalHeader className="flex flex-col gap-1">
             {bodega ? "Editar Bodega" : "Nueva Bodega"}
           </ModalHeader>

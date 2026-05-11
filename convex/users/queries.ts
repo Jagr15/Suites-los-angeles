@@ -1,12 +1,10 @@
-import { v } from "convex/values";
 import { query } from "../_generated/server";
-import { getAuthUserId } from "@convex-dev/auth/server";
+import { requireAdmin, requireIdentity } from "../common/utils";
 
 export const current = query({
   args: {},
   handler: async (ctx) => {
-    const userId = await getAuthUserId(ctx);
-    if (!userId) return null;
+    const userId = await requireIdentity(ctx);
 
     let user = await ctx.db.get(userId);
     
@@ -39,6 +37,7 @@ export const current = query({
 export const listAll = query({
   args: {},
   handler: async (ctx) => {
+    await requireAdmin(ctx);
     const users = await ctx.db.query("users").collect();
     
     const usersWithRoles = await Promise.all(

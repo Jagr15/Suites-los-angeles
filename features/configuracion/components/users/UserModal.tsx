@@ -20,6 +20,12 @@ import {
 import { RoleSelect } from "./RoleSelect";
 import { User, PROFILES } from "./types";
 
+const ROLE_PERMISSIONS: Record<string, User["permissions"]> = {
+  Administrador: { ventas: true, inventario: true, rutas: true, finanzas: true, configuracion: true },
+  Vendedor: { ventas: true, inventario: false, rutas: true, finanzas: false, configuracion: false },
+  Bodeguero: { ventas: false, inventario: true, rutas: false, finanzas: false, configuracion: false },
+};
+
 interface UserModalProps {
   isOpen: boolean;
   onOpenChange: () => void;
@@ -132,7 +138,12 @@ export function UserModal({
                     <RoleSelect
                       selectedRoleId={formState.roleId}
                       onRoleChange={(roleId, roleName) => {
-                        setFormState({ ...formState, roleId, role: roleName });
+                        setFormState({
+                          ...formState,
+                          roleId,
+                          role: roleName,
+                          permissions: ROLE_PERMISSIONS[roleName] || formState.permissions,
+                        });
                       }}
                     />
                     {formState.role === "Vendedor" && (
@@ -143,7 +154,7 @@ export function UserModal({
                   </div>
                 </div>
 
-                {!["SuperAdmin", "Admin"].includes(formState.role || "") ? (
+                {formState.role !== "Administrador" ? (
                   <>
                     <Divider />
                     <div className="space-y-4">

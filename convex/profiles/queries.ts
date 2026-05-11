@@ -8,7 +8,7 @@ import { requireAdmin } from "../common/utils";
 export const listAll = query({
   args: {},
   handler: async (ctx) => {
-    // await requireAdmin(ctx); // Opcional: restringir a admin
+    await requireAdmin(ctx);
     return await ctx.db.query("profiles").collect();
   },
 });
@@ -19,7 +19,7 @@ export const listAll = query({
 export const getById = query({
   args: { id: v.id("profiles") },
   handler: async (ctx, args) => {
+    await requireAdmin(ctx);
     return await ctx.db.get(args.id);
   },
 });
-

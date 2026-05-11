@@ -23,7 +23,7 @@ import { api } from "@/convex/_generated/api";
 import { useDisclosure } from "@heroui/react";
 import { CategoryModal } from "../transactions/CategoryModal";
 import { PlusIcon, PencilIcon } from "@heroicons/react/24/solid";
-import { Id } from "@/convex/_generated/api";
+import { Id } from "@/convex/_generated/dataModel";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { bodegaEgresoSchema, type BodegaEgresoFormValues } from "../../schemas/egreso";

@@ -1,6 +1,7 @@
 import { mutation } from "../_generated/server";
 import { v } from "convex/values";
 import { supplierFields } from "./schema";
+import { requireAdmin } from "../common/utils";
 
 /**
  * Crea un nuevo proveedor.
@@ -8,6 +9,7 @@ import { supplierFields } from "./schema";
 export const create = mutation({
   args: supplierFields,
   handler: async (ctx, args) => {
+    await requireAdmin(ctx);
     return await ctx.db.insert("suppliers", args);
   },
 });
@@ -21,6 +23,7 @@ export const update = mutation({
     ...supplierFields,
   },
   handler: async (ctx, { id, ...args }) => {
+    await requireAdmin(ctx);
     await ctx.db.patch(id, args);
     return id;
   },
@@ -32,6 +35,7 @@ export const update = mutation({
 export const remove = mutation({
   args: { id: v.id("suppliers") },
   handler: async (ctx, args) => {
+    await requireAdmin(ctx);
     await ctx.db.delete(args.id);
   },
 });

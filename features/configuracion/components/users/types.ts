@@ -1,4 +1,4 @@
-export type Role = "SuperAdmin" | "Admin" | "Bodega" | "Rutas" | "Finanzas" | string;
+export type Role = "Administrador" | "Vendedor" | "Bodeguero" | string;
 
 export interface UserPermissions {
   ventas: boolean;

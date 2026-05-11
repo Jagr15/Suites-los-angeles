@@ -71,7 +71,7 @@ export function RouteModal({
     watch,
     formState: { errors },
   } = useForm<RouteSchema>({
-    resolver: zodResolver(routeSchema),
+    resolver: zodResolver(routeSchema) as any,
     defaultValues: {
       name: "",
       destination: "",
@@ -147,9 +147,10 @@ export function RouteModal({
   }, [selectedRoute, reset, isOpen]);
 
   const handleVehicleCreated = (vehicleId: string) => {
+    setValue("assetId", vehicleId, { shouldValidate: true });
     addToast({
       title: "Vehículo y Activo Creados",
-      description: "El nuevo transporte ya aparece en la lista de activos.",
+      description: "El nuevo transporte fue seleccionado en esta ruta.",
       color: "success",
     });
   };
@@ -218,9 +219,10 @@ export function RouteModal({
       }
       onClose();
     } catch (error) {
+      console.error("Error saving route:", error);
       addToast({
         title: "Error",
-        description: "Falla al procesar los datos de la ruta.",
+        description: error instanceof Error ? error.message : "Falla al procesar los datos de la ruta.",
         color: "danger",
       });
     } finally {
@@ -264,7 +266,7 @@ export function RouteModal({
                 </span>
               </ModalHeader>
               <ModalBody>
-                <form id="route-form" onSubmit={handleSubmit(onSubmit)} className="space-y-6 py-2">
+                <form id="route-form" onSubmit={handleSubmit(onSubmit as any)} className="space-y-6 py-2">
                   <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
                     {/* Panel Izquierdo: Configuración General (7 cols) */}
                     <div className="lg:col-span-7 space-y-6">
@@ -281,7 +283,7 @@ export function RouteModal({
                               labelPlacement="outside"
                               isRequired
                               isInvalid={!!errors.name}
-                              errorMessage={errors.name?.message}
+                              errorMessage={errors.name?.message?.toString()}
                             />
                           )}
                         />
@@ -298,7 +300,7 @@ export function RouteModal({
                               labelPlacement="outside"
                               isRequired
                               isInvalid={!!errors.destination}
-                              errorMessage={errors.destination?.message}
+                              errorMessage={errors.destination?.message?.toString()}
                             />
                           )}
                         />
@@ -635,7 +637,9 @@ export function RouteModal({
                                 size="sm"
                                 labelPlacement="outside"
                                 isInvalid={!!errors.gpsRadiusLimit}
-                                errorMessage={errors.gpsRadiusLimit?.message}
+                                errorMessage={errors.gpsRadiusLimit?.message?.toString()}
+                                value={field.value?.toString() ?? ""}
+                                onValueChange={(value) => field.onChange(Number(value) || 0)}
                               />
                             )}
                           />
@@ -651,7 +655,9 @@ export function RouteModal({
                                 size="sm"
                                 labelPlacement="outside"
                                 isInvalid={!!errors.minVisitTimeMinutes}
-                                errorMessage={errors.minVisitTimeMinutes?.message}
+                                errorMessage={errors.minVisitTimeMinutes?.message?.toString()}
+                                value={field.value?.toString() ?? ""}
+                                onValueChange={(value) => field.onChange(Number(value) || 0)}
                               />
                             )}
                           />

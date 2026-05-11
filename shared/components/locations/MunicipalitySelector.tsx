@@ -1,4 +1,4 @@
-import { Autocomplete, AutocompleteItem } from "@heroui/react";
+import { Select, SelectItem } from "@heroui/react";
 import { useMunicipalities } from "@/shared/hooks/useLocations";
 
 interface MunicipalitySelectorProps {
@@ -24,30 +24,28 @@ export const MunicipalitySelector = ({
   const municipalities = data?.municipalities || [];
 
   return (
-    <Autocomplete
+    <Select
       label={label}
       placeholder={!stateId ? "Primero selecciona un estado" : isLoading ? "Cargando municipios..." : placeholder}
       variant="bordered"
       labelPlacement="outside"
       isLoading={isLoading}
       isDisabled={!stateId}
-      selectedKey={selectedKey}
-      onSelectionChange={(key) => {
-        if (!key) return;
-        const id = key.toString();
+      selectedKeys={selectedKey ? [selectedKey] : []}
+      onSelectionChange={(keys) => {
+        const id = Array.from(keys)[0] as string;
         const mun = municipalities.find(m => m.id.toString() === id);
-        if (mun) {
+        if (id && mun) {
           onSelectionChange(id, mun.name);
         }
       }}
       className={className}
-      items={municipalities}
     >
-      {(mun) => (
-        <AutocompleteItem key={mun.id.toString()} textValue={mun.name}>
+      {municipalities.map((mun) => (
+        <SelectItem key={mun.id.toString()} textValue={mun.name}>
           {mun.name}
-        </AutocompleteItem>
-      )}
-    </Autocomplete>
+        </SelectItem>
+      ))}
+    </Select>
   );
 };

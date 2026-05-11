@@ -187,7 +187,7 @@ export function BodegaModal({ isOpen, onClose, bodega, onSubmit }: BodegaModalPr
   // Cleanup: removed old status options sync logic
 
   const onFormSubmit = (data: any) => {
-    const row = toBodegaRow(data as BodegaFormValues, bodega?.id ?? "");
+    const row = toBodegaRow(data as CargaBodegaFormValues, bodega?.id ?? "");
     onSubmit?.(row, bodega?.id);
     reset(defaultValues);
     onClose();

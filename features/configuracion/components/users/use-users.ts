@@ -3,6 +3,11 @@ import { api } from "@/convex/_generated/api";
 import { User as UserUI } from "./types";
 import { Id } from "@/convex/_generated/dataModel";
 
+const hasAnyPermission = (permissions: string[] | undefined, keys: string[]) => {
+  if (!permissions) return false;
+  return keys.some((key) => permissions.includes(key));
+};
+
 export function useUsers() {
   const rawUsers = useQuery(api.users.queries.listAll);
   const roles = useQuery(api.roles.queries.listAll);
@@ -11,6 +16,7 @@ export function useUsers() {
   const removeUserMutation = useMutation(api.users.mutations.removeUser);
 
   const users: UserUI[] = (rawUsers || []).map((u) => ({
+    // Mapeamos permisos del backend (llaves técnicas) a módulos de UI.
     id: u._id,
     profileId: u.profileId || "",
     profileName: u.name || "Sin nombre",
@@ -18,11 +24,11 @@ export function useUsers() {
     role: (u.roleData?.name || u.role || "Sin Rol") as string,
     isActive: u.isActive ?? true,
     permissions: {
-      ventas: u.roleData?.permissions.includes("ventas") || false,
-      inventario: u.roleData?.permissions.includes("inventario") || false,
-      rutas: u.roleData?.permissions.includes("rutas") || false,
-      finanzas: u.roleData?.permissions.includes("finanzas") || false,
-      configuracion: u.roleData?.permissions.includes("configuracion") || false,
+      ventas: hasAnyPermission(u.roleData?.permissions, ["all", "sales:view", "sales:edit"]),
+      inventario: hasAnyPermission(u.roleData?.permissions, ["all", "inventory:view", "inventory:edit", "warehouse:view"]),
+      rutas: hasAnyPermission(u.roleData?.permissions, ["all", "routes:view"]),
+      finanzas: hasAnyPermission(u.roleData?.permissions, ["all", "finances:view"]),
+      configuracion: hasAnyPermission(u.roleData?.permissions, ["all", "settings:view", "users:view", "users:edit"]),
     },
   }));
 

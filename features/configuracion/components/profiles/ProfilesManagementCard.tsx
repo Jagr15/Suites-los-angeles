@@ -21,7 +21,7 @@ import { useProfiles } from "./use-profiles";
 
 export function ProfilesManagementCard() {
   const { isOpen, onOpen, onOpenChange, onClose } = useDisclosure();
-  const { profiles, isLoading, addProfile, updateProfile, deleteProfile, usersAvailable } = useProfiles();
+  const { profiles, isLoading, addProfile, updateProfile, deleteProfile } = useProfiles();
   const [selectedProfile, setSelectedProfile] = useState<Profile | null>(null);
   const [profileToDelete, setProfileToDelete] = useState<Profile | null>(null);
   
@@ -211,7 +211,6 @@ export function ProfilesManagementCard() {
         confirmLabel="Confirmar Baja"
         variant="warning"
         requirePassword={true}
-        adminPassword="admin123456"
       />
     </div>
   );

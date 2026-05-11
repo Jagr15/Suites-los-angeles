@@ -19,7 +19,7 @@ export const CitySelector = ({
   placeholder = "Selecciona un municipio",
   className
 }: CitySelectorProps) => {
-  const { data, isLoading } = useCities(stateId ? parseInt(stateId) : null);
+  const { data, isLoading } = useCities(stateId ?? null);
 
   return (
     <Select

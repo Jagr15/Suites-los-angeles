@@ -218,6 +218,7 @@ export function AssetModal({
                         isInvalid={!!errors.acquisitionValue}
                         errorMessage={errors.acquisitionValue?.message}
                         onChange={(e) => field.onChange(parseFloat(e.target.value))}
+                        value={field.value?.toString() ?? ""}
                       />
                     )}
                   />
@@ -255,6 +256,7 @@ export function AssetModal({
                         isInvalid={!!errors.usefulLifeYears}
                         errorMessage={errors.usefulLifeYears?.message}
                         onChange={(e) => field.onChange(parseInt(e.target.value))}
+                        value={field.value?.toString() ?? ""}
                       />
                     )}
                   />

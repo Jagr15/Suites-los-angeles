@@ -18,23 +18,23 @@ import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { usePurchases } from "../hooks/use-purchases";
 import { Purchase } from "../hooks/use-purchases";
-import { mockEstadosDeCuenta, mockPresupuestoCompras, type CompraRow, type EstadoCuentaRow } from "@/shared/mocks";
+import { mockPresupuestoCompras, type CompraRow, type EstadoCuentaRow } from "@/shared/mocks";
 import * as XLSX from "xlsx";
 
 type TabKey = "compras" | "presupuesto-compras" | "estados-de-cuenta";
 
 export function ProveedoresPage() {
-  const suppliers = useQuery(api.suppliers.queries.list);
+  const suppliers = useQuery(api.suppliers.queries.listWithMetrics);
   const [activeTab, setActiveTab] = useState<TabKey>("compras");
   const { purchases, isLoading: loadingPurchases, addPurchase, updatePurchase, deletePurchase } = usePurchases();
 
   const realEstadosDeCuenta = useMemo(() => {
     return (suppliers || []).map(s => ({
       id: s._id,
-      proveedor: s.name || s.businessName,
-      total: `$${(s.currentBalance || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}`,
+      proveedor: s.businessName,
+      total: `$${(s.metrics?.outstandingBalance || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}`,
       fechaPago: "Próximo vencimiento",
-      montoAPagar: `$${(s.currentBalance || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}` // Por ahora mostramos el total como pendiente
+      montoAPagar: `$${(s.metrics?.outstandingBalance || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}`
     })) as EstadoCuentaRow[];
   }, [suppliers]);
   
@@ -93,7 +93,6 @@ export function ProveedoresPage() {
 
   const handleSubmitCompra = useCallback(
     async (row: any, editId?: string) => {
-      console.log("📦 PURCHASE PAYLOAD:", { row, editId });
       try {
         if (editId) {
           await updatePurchase(editId, {
@@ -166,19 +165,12 @@ export function ProveedoresPage() {
     setSelectedEstadoCuentaDetails(item);
   }, []);
 
-  const handleProviderChange = useCallback((providerName: string) => {
-    const details = realEstadosDeCuenta.find(m => m.proveedor === providerName);
+  const handleProviderChange = useCallback((supplierId: string) => {
+    const details = realEstadosDeCuenta.find(m => m.id === supplierId);
     if (details) {
       setSelectedEstadoCuentaDetails(details);
     } else {
-      // Mock details for other providers not in the initial mock list
-      setSelectedEstadoCuentaDetails({
-        id: providerName,
-        proveedor: providerName,
-        total: "$15,240.00",
-        fechaPago: "25 de feb",
-        montoAPagar: "$8,500.00"
-      });
+      setSelectedEstadoCuentaDetails(null);
     }
   }, []);
 
@@ -247,7 +239,7 @@ export function ProveedoresPage() {
 
         {isFormVisible ? (
           <CompraForm
-            compra={compraToEdit}
+            compra={compraToEdit as any}
             onSubmit={handleSubmitCompra}
             onCancel={() => {
               setIsFormVisible(false);

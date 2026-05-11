@@ -1,5 +1,6 @@
 import { mutation } from "../_generated/server";
 import { v } from "convex/values";
+import { requireIdentity } from "../common/utils";
 
 const clientFields = {
   commercialName: v.string(),
@@ -34,6 +35,7 @@ const clientFields = {
 export const create = mutation({
   args: clientFields,
   handler: async (ctx, args) => {
+    await requireIdentity(ctx);
     return await ctx.db.insert("clients", args);
   },
 });
@@ -47,6 +49,7 @@ export const update = mutation({
     ...clientFields,
   },
   handler: async (ctx, args) => {
+    await requireIdentity(ctx);
     const { id, ...data } = args;
     await ctx.db.patch(id, data);
     return id;
@@ -59,6 +62,7 @@ export const update = mutation({
 export const remove = mutation({
   args: { id: v.id("clients") },
   handler: async (ctx, args) => {
+    await requireIdentity(ctx);
     await ctx.db.delete(args.id);
   },
 });
@@ -70,6 +74,7 @@ export const updateVisitOrder = mutation({
     orderedIds: v.array(v.id("clients")),
   },
   handler: async (ctx, args) => {
+    await requireIdentity(ctx);
     for (let i = 0; i < args.orderedIds.length; i++) {
       await ctx.db.patch(args.orderedIds[i], { visitOrder: i + 1 });
     }

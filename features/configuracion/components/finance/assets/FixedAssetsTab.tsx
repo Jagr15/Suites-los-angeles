@@ -95,7 +95,7 @@ export function FixedAssetsTab() {
       </div>
 
       <AssetTable 
-        assets={assets || []} 
+        assets={(assets || []).map((a) => ({ ...a, id: String(a._id) })) as any} 
         onDelete={(asset) => setAssetToDelete(asset)} 
       />
 
@@ -121,7 +121,6 @@ export function FixedAssetsTab() {
         confirmLabel="Eliminar"
         variant="danger"
         requirePassword={true}
-        adminPassword="admin123456"
       />
     </div>
   );

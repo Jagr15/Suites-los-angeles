@@ -40,7 +40,7 @@ export function UserTable({ items, onEdit, onDelete }: UserTableProps) {
         return (
           <Chip
             className="capitalize"
-            color={user.role === "SuperAdmin" ? "warning" : "primary"}
+            color={user.role === "Administrador" ? "warning" : "primary"}
             size="sm"
             variant="flat"
           >

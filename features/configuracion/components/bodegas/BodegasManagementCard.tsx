@@ -61,7 +61,7 @@ export function BodegasManagementCard() {
     setIsSubmitting(true);
     try {
       if (bodegaToEdit) {
-        await updateBodega({ id: bodegaToEdit._id, ...values });
+        await updateBodega({ id: bodegaToEdit._id as any, ...values });
         addToast({
           title: "Bodega actualizada",
           description: `Se guardaron los cambios en ${values.name}.`,
@@ -92,7 +92,7 @@ export function BodegasManagementCard() {
     if (!bodegaToDelete) return;
     setIsDeleting(true);
     try {
-      await removeBodega({ id: bodegaToDelete._id });
+      await removeBodega({ id: bodegaToDelete._id as any });
       addToast({
         title: "Bodega eliminada",
         description: `Se eliminó la bodega ${bodegaToDelete.name}.`,
@@ -238,7 +238,6 @@ export function BodegasManagementCard() {
         description={`¿Estás seguro de que deseas eliminar la bodega "${bodegaToDelete?.name}"? Esta acción no se puede deshacer.`}
         confirmLabel="Eliminar"
         variant="danger"
-        isLoading={isDeleting}
       />
     </>
   );

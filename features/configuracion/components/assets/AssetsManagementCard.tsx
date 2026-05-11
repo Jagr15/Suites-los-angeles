@@ -159,7 +159,6 @@ export function AssetsManagementCard() {
           confirmLabel="Eliminar"
           variant="danger"
           requirePassword={true}
-          adminPassword="admin123456"
         />
       </CardBody>
     </Card>

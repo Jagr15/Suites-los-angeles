@@ -9,7 +9,7 @@ import { requireAdmin } from "../common/utils";
 export const listDetailedStaff = query({
   args: {},
   handler: async (ctx) => {
-    // await requireAdmin(ctx);
+    await requireAdmin(ctx);
 
     const users = await ctx.db.query("users").collect();
 
@@ -35,7 +35,7 @@ export const listDetailedStaff = query({
 export const getStaffById = query({
   args: { userId: v.id("users") },
   handler: async (ctx, args) => {
-    // await requireAdmin(ctx);
+    await requireAdmin(ctx);
 
     const user = await ctx.db.get(args.userId);
     if (!user) return null;

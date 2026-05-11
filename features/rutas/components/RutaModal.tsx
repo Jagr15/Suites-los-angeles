@@ -102,7 +102,7 @@ export function RutaModal({ isOpen, onClose, ruta, onSubmit }: RutaModalProps) {
                     onValueChange={field.onChange}
                     onBlur={field.onBlur}
                     isInvalid={!!errors.name}
-                    errorMessage={errors.name?.message}
+                    errorMessage={errors.name?.message?.toString()}
                   />
                 )}
               />
@@ -117,7 +117,7 @@ export function RutaModal({ isOpen, onClose, ruta, onSubmit }: RutaModalProps) {
                     onValueChange={field.onChange}
                     onBlur={field.onBlur}
                     isInvalid={!!errors.destination}
-                    errorMessage={errors.destination?.message}
+                    errorMessage={errors.destination?.message?.toString()}
                   />
                 )}
               />

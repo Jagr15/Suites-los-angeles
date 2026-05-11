@@ -5,6 +5,12 @@ export const list = query({
   args: {},
   handler: async (ctx) => {
     const products = await ctx.db.query("products").collect();
+
+    const getNameFromDoc = (doc: unknown): string | null => {
+      if (!doc || typeof doc !== "object") return null;
+      const maybeName = (doc as { name?: unknown }).name;
+      return typeof maybeName === "string" ? maybeName : null;
+    };
     
     return await Promise.all(
       products.map(async (p) => {
@@ -15,7 +21,8 @@ export const list = query({
         try {
           if (p.categoria && p.categoria.length > 10) {
             const cat = await ctx.db.get(p.categoria as any);
-            if (cat) categoriaLabel = cat.name;
+            const categoryName = getNameFromDoc(cat);
+            if (categoryName) categoriaLabel = categoryName;
           }
         } catch (e) {}
 
@@ -23,7 +30,8 @@ export const list = query({
         try {
           if (p.subcategoria && p.subcategoria.length > 10) {
             const sub = await ctx.db.get(p.subcategoria as any);
-            if (sub) subcategoriaLabel = sub.name;
+            const subcategoryName = getNameFromDoc(sub);
+            if (subcategoryName) subcategoriaLabel = subcategoryName;
           }
         } catch (e) {}
 
