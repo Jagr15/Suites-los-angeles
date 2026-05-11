@@ -1,56 +1,61 @@
-import mexicoApi from '../api/mexicoApi';
+import axios from 'axios';
 import { StatesResponse, MunicipalitiesResponse } from '../types/location';
 
 export const locationService = {
   getStates: async (): Promise<StatesResponse> => {
-    // Listar todos los estados: /api/estados
-    const response = await mexicoApi.get('/estados');
+    const response = await axios.get('/api/locations', {
+      params: { type: 'states' }
+    });
     
-    // Basado en la respuesta anterior: {"pais":"México","total":32,"estados":["Aguascalientes",...]}
-    const estados = response.data.estados || [];
+    const states = response.data || [];
     
     return {
-      states: estados.map((name: string) => ({
-        id: name,
-        name: name,
+      states: states.map((s: any) => ({
+        id: s.id,
+        name: s.name,
         cities_count: 0
       })),
       meta: {
         pagination: {
           per_page: 50,
           total_pages: 1,
-          total_objects: estados.length,
+          total_objects: states.length,
           links: { first: "", last: "", next: null, prev: null }
         }
       }
     };
   },
 
-  getMunicipalitiesByState: async (stateName: string): Promise<MunicipalitiesResponse> => {
-    // Obtener municipios de un estado: /api/estado/:nombre
-    const response = await mexicoApi.get(`/estado/${stateName}`);
+  getMunicipalitiesByState: async (stateId: string): Promise<MunicipalitiesResponse> => {
+    const response = await axios.get('/api/locations', {
+      params: { type: 'municipalities', stateId }
+    });
     
-    // Basado en el patrón esperado: {"estado":"...","total":...,"municipios":["...",...]}
-    const municipios = response.data.municipios || [];
+    const municipalities = response.data || [];
     
-    const uniqueMunicipalities = municipios.map((name: string, index: number) => ({
-      id: name,
-      name: name,
-      municipality_key: (index + 1).toString(),
-      zip_code: "",
-      state_id: 0
-    }));
-
     return {
-      municipalities: uniqueMunicipalities,
+      municipalities: municipalities.map((m: any) => ({
+        id: m.id,
+        name: m.name,
+        municipality_key: m.id,
+        zip_code: "",
+        state_id: 0
+      })),
       meta: {
         pagination: {
           per_page: 100,
           total_pages: 1,
-          total_objects: uniqueMunicipalities.length,
+          total_objects: municipalities.length,
           links: { first: "", last: "", next: null, prev: null }
         }
       }
     };
+  },
+
+  getLocalitiesByMunicipality: async (stateId: string, municipalityId: string): Promise<any> => {
+    const response = await axios.get('/api/locations', {
+      params: { type: 'localities', stateId, municipalityId }
+    });
+    return response.data || [];
   },
 };

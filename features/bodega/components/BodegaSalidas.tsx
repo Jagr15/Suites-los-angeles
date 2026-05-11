@@ -26,6 +26,8 @@ import {
     CheckIcon,
     XMarkIcon
 } from "@heroicons/react/24/outline";
+import { useMutation } from "convex/react";
+import { api } from "@/convex/_generated/api";
 import type { SalidaRow } from "@/shared/mocks";
 
 const ROWS_PER_PAGE = 8;
@@ -78,22 +80,55 @@ export function BodegaSalidas({ items: initialItems, onAgregar, onEditar, onBorr
     const [editingId, setEditingId] = useState<string | null>(null);
     const [editForm, setEditForm] = useState<Partial<SalidaRow>>({});
 
+    const updateSalida = useMutation(api.salidas.mutations.update);
+
     // Sincronizar con cambios externos
     useEffect(() => {
         setLocalItems(initialItems);
     }, [initialItems]);
 
-    const handleSaveInline = () => {
+    const handleSaveInline = async () => {
         if (!editingId) return;
-        const updatedItems = localItems.map(p => p.id === editingId ? { ...p, ...editForm } as SalidaRow : p);
-        setLocalItems(updatedItems);
-        setEditingId(null);
-        setEditForm({});
-        addToast({ 
-            title: "Salida actualizada", 
-            description: "Los cambios se guardaron localmente.",
-            color: "success" 
-        });
+        const itemToUpdate = localItems.find(p => p.id === editingId);
+        if (!itemToUpdate) return;
+
+        try {
+            const cleanItem = { ...itemToUpdate, ...editForm };
+            // @ts-ignore - Convex IDs and extra fields
+            const id = (itemToUpdate as any)._id || itemToUpdate.id;
+
+            await updateSalida({
+                id: id as any,
+                numeroSalida: cleanItem.numeroSalida,
+                responsable: cleanItem.responsable,
+                fecha: cleanItem.fecha,
+                status: cleanItem.status,
+                tipo: cleanItem.tipo,
+                totalAmount: (cleanItem as any).totalAmount || (cleanItem as any).valor || 0,
+                tipoEntrega: (cleanItem as any).tipoEntrega || "Local",
+                items: (cleanItem as any).items || [],
+                // Campos opcionales
+                almacen: (cleanItem as any).almacen,
+                agente: (cleanItem as any).agente,
+                clienteDireccion: (cleanItem as any).clienteDireccion,
+                serie: (cleanItem as any).serie,
+                clienteCodigo: (cleanItem as any).clienteCodigo,
+                clienteNombre: (cleanItem as any).clienteNombre,
+                numeroDocumento: (cleanItem as any).numeroDocumento,
+                ruta: (cleanItem as any).ruta,
+                destino: (cleanItem as any).destino,
+            });
+
+            setEditingId(null);
+            setEditForm({});
+            addToast({ 
+                title: "Salida actualizada", 
+                description: "Los cambios se guardaron correctamente.",
+                color: "success" 
+            });
+        } catch (error) {
+            addToast({ title: "Error", description: "No se pudo actualizar la salida", color: "danger" });
+        }
     };
 
     const handleCancelInline = () => {
@@ -101,7 +136,7 @@ export function BodegaSalidas({ items: initialItems, onAgregar, onEditar, onBorr
         setEditForm({});
     };
 
-    const handleAvanzarEstado = (item: SalidaRow) => {
+    const handleAvanzarEstado = async (item: SalidaRow) => {
         let nextStatus: string | null = null;
         
         if (item.tipo === "venta") {
@@ -116,13 +151,34 @@ export function BodegaSalidas({ items: initialItems, onAgregar, onEditar, onBorr
         }
 
         if (nextStatus) {
-            const updatedItems = localItems.map(p => p.id === item.id ? { ...p, status: nextStatus } as SalidaRow : p);
-            setLocalItems(updatedItems);
-            addToast({
-                title: "Estado actualizado",
-                description: `La salida ${item.numeroSalida} pasó a: ${nextStatus}`,
-                color: "success"
-            });
+            try {
+                // @ts-ignore
+                const id = (item as any)._id || item.id;
+                
+                await updateSalida({
+                    id: id as any,
+                    numeroSalida: item.numeroSalida,
+                    responsable: item.responsable,
+                    fecha: item.fecha,
+                    status: nextStatus,
+                    tipo: item.tipo,
+                    totalAmount: (item as any).totalAmount || (item as any).valor || 0,
+                    tipoEntrega: (item as any).tipoEntrega || "Local",
+                    items: (item as any).items || [],
+                    // Campos opcionales
+                    almacen: (item as any).almacen,
+                    agente: (item as any).agente,
+                    clienteDireccion: (item as any).clienteDireccion,
+                });
+
+                addToast({
+                    title: "Estado actualizado",
+                    description: `La salida ${item.numeroSalida} pasó a: ${nextStatus}`,
+                    color: "success"
+                });
+            } catch (error) {
+                addToast({ title: "Error", description: "No se pudo actualizar el estado", color: "danger" });
+            }
         }
     };
 

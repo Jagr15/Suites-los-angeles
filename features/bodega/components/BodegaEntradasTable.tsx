@@ -12,7 +12,7 @@ import {
   Button,
   Tooltip,
 } from "@heroui/react";
-import { EyeIcon, PencilSquareIcon, TrashIcon, ArrowRightCircleIcon } from "@heroicons/react/24/outline";
+import { EyeIcon, PencilSquareIcon, TrashIcon, ArrowRightCircleIcon, CheckIcon } from "@heroicons/react/24/outline";
 import type { BodegaRow } from "@/shared/mocks";
 
 const ROWS_PER_PAGE = 8;
@@ -33,9 +33,17 @@ type BodegaEntradasTableProps = {
   onEditar?: (item: BodegaRow) => void;
   onBorrar?: (item: BodegaRow) => void;
   onPasarASalida?: (item: BodegaRow) => void;
+  onAvanzarEstado?: (item: BodegaRow) => void;
 };
 
-export function BodegaEntradasTable({ items, onVer, onEditar, onBorrar, onPasarASalida }: BodegaEntradasTableProps) {
+export function BodegaEntradasTable({ 
+  items, 
+  onVer, 
+  onEditar, 
+  onBorrar, 
+  onPasarASalida,
+  onAvanzarEstado 
+}: BodegaEntradasTableProps) {
   const [page, setPage] = useState(1);
   const paginatedRows = useMemo(() => {
     const start = (page - 1) * ROWS_PER_PAGE;
@@ -104,6 +112,20 @@ export function BodegaEntradasTable({ items, onVer, onEditar, onBorrar, onPasarA
                         <ArrowRightCircleIcon className="size-4" />
                       </Button>
                     </Tooltip>
+                    {(item.receptionStatus === "Pendiente" || !item.receptionStatus) && (
+                      <Tooltip content="Marcar como Completa">
+                        <Button 
+                          isIconOnly 
+                          size="sm" 
+                          variant="flat" 
+                          color="success" 
+                          className="bg-success/10"
+                          onPress={() => onAvanzarEstado?.(item)}
+                        >
+                          <CheckIcon className="size-4" />
+                        </Button>
+                      </Tooltip>
+                    )}
                     <Tooltip content="Borrar">
                       <Button isIconOnly size="sm" variant="light" color="danger" onPress={() => onBorrar?.(item)}>
                         <TrashIcon className="size-4" />

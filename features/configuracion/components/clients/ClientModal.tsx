@@ -29,8 +29,8 @@ import {
   EyeIcon,
   EyeSlashIcon,
 } from "@heroicons/react/24/outline";
-import { Client, MUNICIPALITIES, TOWNS, ROUTES } from "./types";
-import { StateSelector, MunicipalitySelector } from "@/shared/components/locations";
+import { Client, ROUTES } from "./types";
+import { StateSelector, MunicipalitySelector, LocalitySelector } from "@/shared/components/locations";
 
 interface ClientModalProps {
   isOpen: boolean;
@@ -319,24 +319,15 @@ export function ClientModal({
                         name="townId"
                         control={control}
                         render={({ field }) => (
-                          <Select
-                            label="Localidad / Pueblo"
-                            placeholder={municipalityId ? "Selecciona localidad" : "Primero selecciona municipio"}
-                            variant="bordered"
-                            labelPlacement="outside"
-                            isDisabled={!municipalityId}
-                            selectedKeys={field.value ? [field.value] : []}
-                            onSelectionChange={(keys) => {
-                              const id = Array.from(keys)[0] as string;
-                              const t = TOWNS.find(t => t.id === id);
+                          <LocalitySelector 
+                            stateId={stateId}
+                            municipalityId={municipalityId}
+                            selectedKey={field.value}
+                            onSelectionChange={(id, name) => {
                               field.onChange(id);
-                              setValue("townName", t?.name || "");
+                              setValue("townName", name);
                             }}
-                          >
-                            {TOWNS.filter(t => t.municipalityId === municipalityId).map((t) => (
-                              <SelectItem key={t.id} textValue={t.name}>{t.name}</SelectItem>
-                            ))}
-                          </Select>
+                          />
                         )}
                       />
                     </div>

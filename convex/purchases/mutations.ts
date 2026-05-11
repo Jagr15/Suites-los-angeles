@@ -193,3 +193,13 @@ export const remove = mutation({
     await ctx.db.delete(args.id);
   },
 });
+export const updateReceptionStatus = mutation({
+  args: {
+    id: v.id("purchases"),
+    receptionStatus: v.union(v.literal("Completa"), v.literal("Faltante"), v.literal("Pendiente")),
+  },
+  handler: async (ctx, args) => {
+    await ctx.db.patch(args.id, { receptionStatus: args.receptionStatus });
+    return args.id;
+  },
+});

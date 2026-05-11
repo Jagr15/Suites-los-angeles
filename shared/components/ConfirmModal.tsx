@@ -1,14 +1,14 @@
 "use client";
 
 import { Modal, ModalContent, ModalHeader, ModalBody, ModalFooter, Button, Input } from "@heroui/react";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 
 export type ConfirmModalVariant = "default" | "danger" | "warning";
 
 type ConfirmModalProps = {
   isOpen: boolean;
   onClose: () => void;
-  onConfirm: () => void;
+  onConfirm: () => void | Promise<void>;
   title: string;
   description: string;
   confirmLabel?: string;
@@ -45,13 +45,24 @@ export function ConfirmModal({
     }
   }, [isOpen]);
 
-  const handleConfirm = () => {
+  const handleConfirm = async () => {
     if (requirePassword && password !== adminPassword) {
       setError(true);
       return;
     }
-    onConfirm();
-    onClose();
+    
+    try {
+      await onConfirm();
+      onClose();
+    } catch (e: any) {
+      console.error("Error in confirmation:", e);
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter" && !isConfirming) {
+      handleConfirm();
+    }
   };
 
   const confirmColor = variant === "danger" ? "danger" : variant === "warning" ? "warning" : "primary";
@@ -76,6 +87,7 @@ export function ConfirmModal({
                 }}
                 isInvalid={error}
                 errorMessage={error ? "Contraseña incorrecta" : ""}
+                onKeyDown={handleKeyDown}
                 autoFocus
               />
               <p className="text-[10px] text-default-400 italic font-medium">

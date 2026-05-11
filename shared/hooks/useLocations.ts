@@ -10,19 +10,28 @@ export const useStates = (): UseQueryResult<StatesResponse, Error> => {
   });
 };
 
-export const useMunicipalities = (stateName: string | null): UseQueryResult<MunicipalitiesResponse | null, Error> => {
+export const useMunicipalities = (stateId: string | null): UseQueryResult<MunicipalitiesResponse | null, Error> => {
   return useQuery({
-    queryKey: ['municipalities', stateName],
-    queryFn: () => stateName ? locationService.getMunicipalitiesByState(stateName) : null,
-    enabled: !!stateName,
+    queryKey: ['municipalities', stateId],
+    queryFn: () => stateId ? locationService.getMunicipalitiesByState(stateId) : null,
+    enabled: !!stateId,
     staleTime: 1000 * 60 * 60,
   });
 };
 
-export const useCities = (stateName: string | null): UseQueryResult<CitiesResponse | null, Error> => {
+export const useLocalities = (stateId: string | null, municipalityId: string | null): UseQueryResult<any[] | null, Error> => {
   return useQuery({
-    queryKey: ['cities', stateName],
+    queryKey: ['localities', stateId, municipalityId],
+    queryFn: () => (stateId && municipalityId) ? locationService.getLocalitiesByMunicipality(stateId, municipalityId) : null,
+    enabled: !!stateId && !!municipalityId,
+    staleTime: 1000 * 60 * 60,
+  });
+};
+
+export const useCities = (stateId: string | null): UseQueryResult<CitiesResponse | null, Error> => {
+  return useQuery({
+    queryKey: ['cities', stateId],
     queryFn: () => null,
-    enabled: !!stateName,
+    enabled: !!stateId,
   });
 };

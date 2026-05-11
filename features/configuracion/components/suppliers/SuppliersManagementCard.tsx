@@ -23,6 +23,7 @@ export function SuppliersManagementCard() {
   const [supplierToDelete, setSupplierToDelete] = useState<Supplier | null>(null);
   const [formState, setFormState] = useState<Partial<Supplier>>({});
   const [isSaving, setIsSaving] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const handleEdit = (supplier: Supplier) => {
     setSelectedSupplier(supplier);
@@ -49,6 +50,7 @@ export function SuppliersManagementCard() {
 
   const handleConfirmDelete = async () => {
     if (!supplierToDelete) return;
+    setIsDeleting(true);
     try {
       await deleteSupplier(supplierToDelete.id);
       addToast({
@@ -59,11 +61,14 @@ export function SuppliersManagementCard() {
       setSupplierToDelete(null);
       onClose();
     } catch (error) {
+      console.error("Error deleting supplier:", error);
       addToast({
         title: "Error",
         description: "No se pudo eliminar el proveedor.",
         color: "danger",
       });
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -138,31 +143,32 @@ export function SuppliersManagementCard() {
           onDelete={handleDeleteRequest}
           isLoading={isLoading}
         />
-
-        <SupplierModal 
-          isOpen={isOpen}
-          onOpenChange={onOpenChange}
-          selectedSupplier={selectedSupplier}
-          formState={formState}
-          setFormState={setFormState}
-          onSave={handleSave}
-          onClose={onClose}
-          onDelete={handleDeleteRequest}
-          isLoading={isSaving}
-        />
-
-        <ConfirmModal
-          isOpen={!!supplierToDelete}
-          onClose={() => setSupplierToDelete(null)}
-          onConfirm={handleConfirmDelete}
-          title="¿Eliminar proveedor?"
-          description={`Esta acción eliminará permanentemente a "${supplierToDelete?.businessName}".`}
-          confirmLabel="Eliminar"
-          variant="danger"
-          requirePassword={true}
-          adminPassword="admin123456"
-        />
       </CardBody>
+
+      <SupplierModal 
+        isOpen={isOpen}
+        onOpenChange={onOpenChange}
+        selectedSupplier={selectedSupplier}
+        formState={formState}
+        setFormState={setFormState}
+        onSave={handleSave}
+        onClose={onClose}
+        onDelete={handleDeleteRequest}
+        isLoading={isSaving}
+      />
+
+      <ConfirmModal
+        isOpen={!!supplierToDelete}
+        onClose={() => setSupplierToDelete(null)}
+        onConfirm={handleConfirmDelete}
+        title="¿Eliminar proveedor?"
+        description={`Esta acción eliminará permanentemente a "${supplierToDelete?.businessName}".`}
+        confirmLabel="Eliminar"
+        variant="danger"
+        requirePassword={true}
+        adminPassword="admin123456"
+        isConfirming={isDeleting}
+      />
     </Card>
   );
 }

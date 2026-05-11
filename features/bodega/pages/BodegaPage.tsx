@@ -35,6 +35,7 @@ export function BodegaPage() {
   const createSalida = useMutation(api.salidas.mutations.create);
   const updateSalida = useMutation(api.salidas.mutations.update);
   const removeSalida = useMutation(api.salidas.mutations.remove);
+  const updateReceptionStatus = useMutation(api.purchases.mutations.updateReceptionStatus);
 
   const [nominas] = useState<NominaRow[]>(() => mockNominas);
   const [gastos] = useState<GastoRow[]>(() => mockGastos);
@@ -228,6 +229,22 @@ export function BodegaPage() {
     });
   }, [createSalida, setActiveTab]);
 
+  const handleAvanzarEntrada = useCallback(async (item: any) => {
+    try {
+      await updateReceptionStatus({
+        id: item._id,
+        receptionStatus: "Completa"
+      });
+      addToast({
+        title: "Recepción Completa",
+        description: `La entrada ${item.folio || "seleccionada"} se marcó como completa.`,
+        color: "success"
+      });
+    } catch (error) {
+      addToast({ title: "Error", description: "No se pudo actualizar el estado", color: "danger" });
+    }
+  }, [updateReceptionStatus]);
+
   return (
     <div className="flex flex-col">
       <DashboardHeader />
@@ -245,12 +262,12 @@ export function BodegaPage() {
               />
             )}
             {activeTab === "entradas" ? (
-              <BodegaEntradasTable
-                items={(purchases || []) as any}
-                onVer={handleVer}
-                onEditar={handleEditar}
-                onBorrar={setBodegaToDelete}
+              <BodegaEntradasTable 
+                items={purchases || []} 
                 onPasarASalida={handlePasarASalida}
+                onBorrar={(item) => setBodegaToDelete(item)}
+                onEditar={(item) => setSalidaToEdit(item as any)}
+                onAvanzarEstado={handleAvanzarEntrada}
               />
             ) : activeTab === "catalogo" ? (
               <div className="space-y-4">
