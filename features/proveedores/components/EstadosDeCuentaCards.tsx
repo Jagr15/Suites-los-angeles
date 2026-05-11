@@ -7,28 +7,26 @@ import type { EstadoCuentaRow } from "@/shared/mocks";
 
 type EstadosDeCuentaCardsProps = {
   items: EstadoCuentaRow[];
-  /** Nombre del proveedor a resaltar (ej. al venir desde Compras) */
-  proveedorSeleccionado?: string | null;
+  /** supplierId a resaltar (ej. al venir desde Compras) */
+  supplierIdSeleccionado?: string | null;
   onSelect?: (item: EstadoCuentaRow) => void;
 };
 
-export function EstadosDeCuentaCards({ items, proveedorSeleccionado, onSelect }: EstadosDeCuentaCardsProps) {
+export function EstadosDeCuentaCards({ items, supplierIdSeleccionado, onSelect }: EstadosDeCuentaCardsProps) {
   const cardRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
   useEffect(() => {
-    if (!proveedorSeleccionado) return;
-    const ref = cardRefs.current[proveedorSeleccionado];
+    if (!supplierIdSeleccionado) return;
+    const ref = cardRefs.current[supplierIdSeleccionado];
     if (ref) {
       ref.scrollIntoView({ behavior: "smooth", block: "center" });
     }
-  }, [proveedorSeleccionado]);
+  }, [supplierIdSeleccionado]);
 
   return (
     <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
       {items.map((item) => {
-        const isSelected =
-          proveedorSeleccionado &&
-          item.proveedor.toLowerCase() === proveedorSeleccionado.toLowerCase();
+        const isSelected = supplierIdSeleccionado === item.id;
         
         return (
           <Card
@@ -36,7 +34,7 @@ export function EstadosDeCuentaCards({ items, proveedorSeleccionado, onSelect }:
             isPressable
             onPress={() => onSelect?.(item)}
             ref={(el: Element | null) => {
-              if (el) cardRefs.current[item.proveedor] = el as unknown as HTMLDivElement;
+              if (el) cardRefs.current[item.id] = el as unknown as HTMLDivElement;
             }}
             className={`border-none shadow-sm hover:shadow-xl transition-all duration-300 group ${
               isSelected 

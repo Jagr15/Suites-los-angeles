@@ -54,19 +54,23 @@ export function VehicleModal({ isOpen, onOpenChange, onSuccess }: VehicleModalPr
 
   const onSubmit = async (data: VehicleSchema) => {
     setIsLoading(true);
+    const payload = {
+      name: data.name,
+      category: "Equipo de Transporte" as const,
+      brand: data.brand || undefined,
+      model: data.model || undefined,
+      plate: data.plate,
+      year: data.year || undefined,
+      acquisitionValue: 0,
+      acquisitionDate: new Date().toISOString(),
+      usefulLifeYears: 5,
+      status: data.status,
+    };
+
     try {
-      const id = await createAsset({
-        name: data.name,
-        category: "Equipo de Transporte",
-        brand: data.brand || undefined,
-        model: data.model || undefined,
-        plate: data.plate,
-        year: data.year || undefined,
-        acquisitionValue: 0, // Default for logistics
-        acquisitionDate: new Date().toISOString(), // Default for logistics
-        usefulLifeYears: 5, // Default for logistics
-        status: data.status,
-      });
+      console.log("[VEHICLE] submit payload", payload);
+      const id = await createAsset(payload);
+      console.log("[VEHICLE] mutation success", id);
       
       addToast({
         title: "Transporte Registrado",
@@ -79,7 +83,7 @@ export function VehicleModal({ isOpen, onOpenChange, onSuccess }: VehicleModalPr
       reset();
     } catch (error) {
       const message = error instanceof Error ? error.message : "No se pudo registrar el transporte.";
-      console.error("Error creating transport asset:", error);
+      console.error("[VEHICLE] mutation error", error);
       addToast({
         title: "Error",
         description: message,

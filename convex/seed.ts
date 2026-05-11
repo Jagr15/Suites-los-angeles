@@ -1,6 +1,8 @@
 import { mutation } from "./_generated/server";
 import { v } from "convex/values";
 import { hashPassword } from "./common/hashing";
+import type { MutationCtx } from "./_generated/server";
+import type { Id } from "./_generated/dataModel";
 
 function requireProdBootstrapToken(token?: string) {
   const expected = process.env.BOOTSTRAP_ADMIN_TOKEN;
@@ -16,6 +18,31 @@ function assertDevSeedEnabled() {
   if (process.env.ALLOW_DEV_SEED !== "true") {
     throw new Error("Dev seed is disabled. Set ALLOW_DEV_SEED=true to enable.");
   }
+}
+
+async function ensureProfileForUser(
+  ctx: MutationCtx,
+  userId: Id<"users">,
+  fullName: string,
+  group: "Administración" | "Ventas" | "Bodega"
+) {
+  const existing = await ctx.db
+    .query("profiles")
+    .withIndex("by_userId", (q) => q.eq("userId", userId))
+    .first();
+
+  if (existing) {
+    await ctx.db.patch(existing._id, { fullName, status: "Activo", group, isEmployee: true });
+    return existing._id;
+  }
+
+  return await ctx.db.insert("profiles", {
+    userId,
+    fullName,
+    status: "Activo",
+    isEmployee: true,
+    group,
+  });
 }
 
 /**
@@ -71,6 +98,9 @@ export const createFirstAdmin = mutation({
     if (!userId) {
       throw new Error("Unable to create or update admin user");
     }
+
+    const adminProfileId = await ensureProfileForUser(ctx, userId, args.name, "Administración");
+    await ctx.db.patch(userId, { profileId: adminProfileId });
 
     const secret = await hashPassword(args.password);
     const account = await ctx.db
@@ -153,6 +183,8 @@ export const bootstrapAdmin = mutation({
 
     // 3. Crear Cuenta Auth (admin123456)
     if (adminId) {
+      const adminProfileId = await ensureProfileForUser(ctx, adminId, "Admin Principal", "Administración");
+      await ctx.db.patch(adminId, { profileId: adminProfileId });
       const adminSecret = await hashPassword("admin123456");
       
       const account = await ctx.db.query("authAccounts").filter(q => q.eq(q.field("userId"), adminId)).first();
@@ -185,6 +217,8 @@ export const bootstrapAdmin = mutation({
     }
 
     if (sellerId) {
+      const sellerProfileId = await ensureProfileForUser(ctx, sellerId, "Vendedor Demo", "Ventas");
+      await ctx.db.patch(sellerId, { profileId: sellerProfileId });
       const sellerSecret = await hashPassword("vendedor123");
       const sellerAccount = await ctx.db.query("authAccounts").filter(q => q.eq(q.field("userId"), sellerId)).first();
       if (!sellerAccount) {
@@ -216,6 +250,8 @@ export const bootstrapAdmin = mutation({
     }
 
     if (warehouseUserId) {
+      const warehouseProfileId = await ensureProfileForUser(ctx, warehouseUserId, "Bodeguero Demo", "Bodega");
+      await ctx.db.patch(warehouseUserId, { profileId: warehouseProfileId });
       const warehouseSecret = await hashPassword("bodeguero123");
       const warehouseAccount = await ctx.db.query("authAccounts").filter(q => q.eq(q.field("userId"), warehouseUserId)).first();
       if (!warehouseAccount) {
@@ -244,5 +280,66 @@ export const bootstrapAdmin = mutation({
     }
 
     return adminId;
+  },
+});
+
+/**
+ * Backfill puntual: vincula perfiles faltantes para usuarios seed conocidos.
+ * Idempotente y protegido por ALLOW_DEV_SEED=true.
+ */
+export const backfillSeedUserProfiles = mutation({
+  args: {},
+  handler: async (ctx) => {
+    assertDevSeedEnabled();
+
+    const seedUsers = [
+      { email: "admin@gmail.com", fullName: "Admin Principal", group: "Administración" as const },
+      { email: "vendedor@gmail.com", fullName: "Vendedor Demo", group: "Ventas" as const },
+      { email: "bodeguero@gmail.com", fullName: "Bodeguero Demo", group: "Bodega" as const },
+    ];
+
+    const results: Array<{
+      email: string;
+      userId?: Id<"users">;
+      profileId?: Id<"profiles">;
+      status: "linked" | "already_linked" | "missing_user";
+    }> = [];
+
+    for (const item of seedUsers) {
+      const user = await ctx.db
+        .query("users")
+        .withIndex("by_email", (q) => q.eq("email", item.email))
+        .first();
+
+      if (!user) {
+        results.push({ email: item.email, status: "missing_user" });
+        continue;
+      }
+
+      if (user.profileId) {
+        results.push({
+          email: item.email,
+          userId: user._id,
+          profileId: user.profileId,
+          status: "already_linked",
+        });
+        continue;
+      }
+
+      const profileId = await ensureProfileForUser(ctx, user._id, item.fullName, item.group);
+      await ctx.db.patch(user._id, {
+        profileId,
+        name: item.fullName,
+      });
+
+      results.push({
+        email: item.email,
+        userId: user._id,
+        profileId,
+        status: "linked",
+      });
+    }
+
+    return results;
   },
 });

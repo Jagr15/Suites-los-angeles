@@ -18,12 +18,23 @@ import {
   EyeSlashIcon,
 } from "@heroicons/react/24/outline";
 import { RoleSelect } from "./RoleSelect";
-import { User, PROFILES } from "./types";
+import { User } from "./types";
 
 const ROLE_PERMISSIONS: Record<string, User["permissions"]> = {
   Administrador: { ventas: true, inventario: true, rutas: true, finanzas: true, configuracion: true },
   Vendedor: { ventas: true, inventario: false, rutas: true, finanzas: false, configuracion: false },
   Bodeguero: { ventas: false, inventario: true, rutas: false, finanzas: false, configuracion: false },
+};
+
+const mapRolePermissionsToUi = (permissions: string[]): User["permissions"] => {
+  const has = (keys: string[]) => permissions.includes("all") || keys.some((k) => permissions.includes(k));
+  return {
+    ventas: has(["sales:view", "sales:edit"]),
+    inventario: has(["inventory:view", "inventory:edit", "warehouse:view"]),
+    rutas: has(["routes:view"]),
+    finanzas: has(["finances:view"]),
+    configuracion: has(["settings:view", "users:view", "users:edit"]),
+  };
 };
 
 interface UserModalProps {
@@ -35,7 +46,7 @@ interface UserModalProps {
   onSave: () => void;
   onClose: () => void;
   isLoading?: boolean;
-  profiles: any[];
+  profiles: Array<{ id: string; fullName: string }>;
 }
 
 export function UserModal({
@@ -51,23 +62,8 @@ export function UserModal({
 }: UserModalProps) {
   const [isVisible, setIsVisible] = useState(false);
   const toggleVisibility = () => setIsVisible(!isVisible);
-
-  const togglePermission = (key: keyof User["permissions"]) => {
-    const currentPermissions = formState.permissions || {
-      ventas: false,
-      inventario: false,
-      rutas: false,
-      finanzas: false,
-      configuracion: false,
-    };
-    setFormState({
-      ...formState,
-      permissions: {
-        ...currentPermissions,
-        [key]: !currentPermissions[key],
-      },
-    });
-  };
+  const hasProfiles = profiles.length > 0;
+  const isAdminRole = (formState.role || "").trim().toLowerCase() === "administrador";
 
   return (
     <Modal
@@ -87,9 +83,11 @@ export function UserModal({
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <Select
                     label="Perfil Vinculado"
-                    placeholder="Selecciona un perfil"
+                    placeholder={hasProfiles ? "Selecciona un perfil" : "No hay perfiles disponibles"}
                     variant="bordered"
                     labelPlacement="outside"
+                    isDisabled={!hasProfiles}
+                    isRequired
                     selectedKeys={formState.profileId ? [formState.profileId] : []}
                     onSelectionChange={(keys) => {
                       const id = Array.from(keys)[0] as string;
@@ -97,12 +95,17 @@ export function UserModal({
                       setFormState({ ...formState, profileId: id, profileName: profile?.fullName || "" });
                     }}
                   >
-                    {(profiles || []).map((profile) => (
+                    {profiles.map((profile) => (
                       <SelectItem key={profile.id} textValue={profile.fullName}>
                         {profile.fullName}
                       </SelectItem>
                     ))}
                   </Select>
+                  {!hasProfiles && (
+                    <p className="text-tiny text-warning md:col-span-2">
+                      No hay perfiles disponibles. Crea primero un perfil de personal.
+                    </p>
+                  )}
                   <Input
                     label="Correo Electrónico / Usuario"
                     placeholder="ejemplo@correo.com"
@@ -137,12 +140,15 @@ export function UserModal({
                   <div className="flex flex-col gap-1">
                     <RoleSelect
                       selectedRoleId={formState.roleId}
-                      onRoleChange={(roleId, roleName) => {
+                      onRoleChange={(roleId, roleName, rolePermissions) => {
                         setFormState({
                           ...formState,
                           roleId,
                           role: roleName,
-                          permissions: ROLE_PERMISSIONS[roleName] || formState.permissions,
+                          permissions:
+                            mapRolePermissionsToUi(rolePermissions) ||
+                            ROLE_PERMISSIONS[roleName] ||
+                            formState.permissions,
                         });
                       }}
                     />
@@ -154,7 +160,7 @@ export function UserModal({
                   </div>
                 </div>
 
-                {formState.role !== "Administrador" ? (
+                {!isAdminRole ? (
                   <>
                     <Divider />
                     <div className="space-y-4">
@@ -168,7 +174,7 @@ export function UserModal({
                           <Switch
                             size="sm"
                             isSelected={formState.permissions?.ventas}
-                            onValueChange={() => togglePermission("ventas")}
+                            isDisabled
                           />
                         </div>
                         <div className="flex items-center justify-between">
@@ -176,7 +182,7 @@ export function UserModal({
                           <Switch
                             size="sm"
                             isSelected={formState.permissions?.inventario}
-                            onValueChange={() => togglePermission("inventario")}
+                            isDisabled
                           />
                         </div>
                         <div className="flex items-center justify-between">
@@ -184,7 +190,7 @@ export function UserModal({
                           <Switch
                             size="sm"
                             isSelected={formState.permissions?.rutas}
-                            onValueChange={() => togglePermission("rutas")}
+                            isDisabled
                           />
                         </div>
                         <div className="flex items-center justify-between">
@@ -192,7 +198,7 @@ export function UserModal({
                           <Switch
                             size="sm"
                             isSelected={formState.permissions?.finanzas}
-                            onValueChange={() => togglePermission("finanzas")}
+                            isDisabled
                           />
                         </div>
                         <div className="flex items-center justify-between">
@@ -200,7 +206,7 @@ export function UserModal({
                           <Switch
                             size="sm"
                             isSelected={formState.permissions?.configuracion}
-                            onValueChange={() => togglePermission("configuracion")}
+                            isDisabled
                           />
                         </div>
                       </div>
@@ -223,7 +229,12 @@ export function UserModal({
               <Button color="danger" variant="light" onPress={onClose}>
                 Cancelar
               </Button>
-              <Button color="primary" onPress={onSave} isLoading={isLoading}>
+              <Button
+                color="primary"
+                onPress={onSave}
+                isLoading={isLoading}
+                isDisabled={!hasProfiles || !formState.profileId || !formState.roleId || !formState.email}
+              >
                 {selectedUser ? "Actualizar" : "Crear"}
               </Button>
             </ModalFooter>

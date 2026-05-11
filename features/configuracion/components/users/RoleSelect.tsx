@@ -5,7 +5,7 @@ import { api } from "@/convex/_generated/api";
 
 interface RoleSelectProps {
   selectedRoleId?: string;
-  onRoleChange: (roleId: string, roleName: string) => void;
+  onRoleChange: (roleId: string, roleName: string, rolePermissions: string[]) => void;
   label?: string;
   placeholder?: string;
   className?: string;
@@ -33,7 +33,7 @@ export function RoleSelect({
         const roleId = Array.from(keys)[0] as string;
         const role = roles?.find((r) => r._id === roleId);
         if (role) {
-          onRoleChange(roleId, role.name);
+          onRoleChange(roleId, role.name, role.permissions || []);
         }
       }}
     >

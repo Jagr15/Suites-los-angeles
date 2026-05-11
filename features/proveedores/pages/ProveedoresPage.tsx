@@ -41,7 +41,7 @@ export function ProveedoresPage() {
   const [isFormVisible, setIsFormVisible] = useState(false);
   const [compraToEdit, setCompraToEdit] = useState<Purchase | null>(null);
   const [compraToDelete, setCompraToDelete] = useState<Purchase | null>(null);
-  const [proveedorParaEstadoCuenta, setProveedorParaEstadoCuenta] = useState<string | null>(null);
+  const [supplierIdForEstadoCuenta, setSupplierIdForEstadoCuenta] = useState<string | null>(null);
   const [selectedEstadoCuentaDetails, setSelectedEstadoCuentaDetails] = useState<EstadoCuentaRow | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
 
@@ -148,11 +148,11 @@ export function ProveedoresPage() {
 
   const handleTabChange = useCallback((key: React.Key) => {
     setActiveTab(key as TabKey);
-    if (key !== "estados-de-cuenta") setProveedorParaEstadoCuenta(null);
+    if (key !== "estados-de-cuenta") setSupplierIdForEstadoCuenta(null);
   }, []);
 
   const handleVerEstadoCuenta = useCallback((item: Purchase) => {
-    setProveedorParaEstadoCuenta(item.supplierName);
+    setSupplierIdForEstadoCuenta(item.supplierId);
     setActiveTab("estados-de-cuenta");
     // Buscar automáticamente los detalles para abrir la vista
     const details = realEstadosDeCuenta.find(m => m.id === item.supplierId);
@@ -271,6 +271,7 @@ export function ProveedoresPage() {
               <>
                 {selectedEstadoCuentaDetails ? (
                   <EstadoCuentaView 
+                    key={selectedEstadoCuentaDetails.id}
                     estadoCuenta={selectedEstadoCuentaDetails} 
                     onBack={handleBackFromEstadoCuenta} 
                     onProviderChange={handleProviderChange}
@@ -278,7 +279,7 @@ export function ProveedoresPage() {
                 ) : (
                   <EstadosDeCuentaCards
                     items={realEstadosDeCuenta}
-                    proveedorSeleccionado={proveedorParaEstadoCuenta}
+                    supplierIdSeleccionado={supplierIdForEstadoCuenta}
                     onSelect={handleSelectEstadoCuenta}
                   />
                 )}

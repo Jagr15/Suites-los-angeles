@@ -38,6 +38,14 @@ export function UserManagementCard() {
   };
 
   const handleAdd = () => {
+    if (!profiles || profiles.length === 0) {
+      addToast({
+        title: "Perfiles requeridos",
+        description: "No hay perfiles disponibles. Crea primero un perfil de personal.",
+        color: "warning",
+      });
+      return;
+    }
     const firstRole = roles?.[0];
     setSelectedUser(null);
     setFormState({
@@ -81,9 +89,13 @@ export function UserManagementCard() {
       onOpenChange(); // Close modal
     } catch (error) {
       console.error("Error saving user:", error);
+      const message =
+        error instanceof Error
+          ? error.message
+          : "No se pudo guardar la configuración del usuario.";
       addToast({
         title: "Error",
-        description: "No se pudo guardar la configuración del usuario.",
+        description: message,
         color: "danger",
       });
     } finally {

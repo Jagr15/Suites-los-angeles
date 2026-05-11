@@ -19,7 +19,7 @@ export function useUsers() {
     // Mapeamos permisos del backend (llaves técnicas) a módulos de UI.
     id: u._id,
     profileId: u.profileId || "",
-    profileName: u.name || "Sin nombre",
+    profileName: u.profileData?.fullName || u.name || "Sin nombre",
     email: u.email || "",
     role: (u.roleData?.name || u.role || "Sin Rol") as string,
     isActive: u.isActive ?? true,
@@ -34,11 +34,9 @@ export function useUsers() {
 
   const addUser = async (data: Partial<UserUI> & { roleId?: string; password?: string }) => {
     return await upsertUserMutation({
-      name: data.profileName,
       email: data.email,
       roleId: data.roleId as Id<"roles">,
       profileId: data.profileId as Id<"profiles">,
-      role: data.role as string,
       isActive: data.isActive,
       password: data.password, // Pasamos la contraseña al backend
     });
@@ -47,11 +45,9 @@ export function useUsers() {
   const updateUser = async (id: string, data: Partial<UserUI> & { roleId?: string; password?: string }) => {
     return await upsertUserMutation({
       id: id as Id<"users">,
-      name: data.profileName,
       email: data.email,
       roleId: data.roleId as Id<"roles">,
       profileId: data.profileId as Id<"profiles">,
-      role: data.role as string,
       isActive: data.isActive,
       password: data.password, // Pasamos la contraseña si se está cambiando
     });

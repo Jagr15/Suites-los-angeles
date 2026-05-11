@@ -21,36 +21,58 @@ export const upsertUser = mutation({
   },
   handler: async (ctx, args) => {
     await requireAdmin(ctx);
-    const { id, email, password, ...userData } = args;
+    const { id, email, password, roleId, role: _clientRole, ...userData } = args;
+
+    if (!email) {
+      throw new Error("El correo electrónico es obligatorio");
+    }
+    if (!roleId) {
+      throw new Error("Debe seleccionar un rol válido");
+    }
+    if (!args.profileId) {
+      throw new Error("Debe vincular un perfil");
+    }
+
+    const profile = await ctx.db.get(args.profileId);
+    if (!profile) {
+      throw new Error("Perfil vinculado inválido");
+    }
+
+    let canonicalRole: string | undefined = undefined;
+    const roleDoc = await ctx.db.get(roleId);
+    if (!roleDoc) {
+      throw new Error("Rol inválido");
+    }
+    canonicalRole = roleDoc.name;
+
+    const normalizedUserData = {
+      ...userData,
+      roleId,
+      role: canonicalRole,
+      profileId: args.profileId,
+    };
     
     let userId: any = id;
+    const existingByEmail = await ctx.db
+      .query("users")
+      .withIndex("by_email", (q) => q.eq("email", email))
+      .first();
 
     if (id) {
-       await ctx.db.patch(id, { ...userData, email });
-    } else {
-      // Buscamos si ya existe por email para evitar duplicados
-      if (email) {
-        const existing = await ctx.db
-          .query("users")
-          .withIndex("by_email", q => q.eq("email", email))
-          .unique();
-
-        if (existing) {
-          await ctx.db.patch(existing._id, userData);
-          userId = existing._id;
-        } else {
-          userId = await ctx.db.insert("users", {
-            ...userData,
-            email,
-            isActive: userData.isActive ?? true,
-          });
-        }
-      } else {
-        userId = await ctx.db.insert("users", {
-          ...userData,
-          isActive: userData.isActive ?? true,
-        });
+      if (existingByEmail && existingByEmail._id !== id) {
+        throw new Error("Ya existe un usuario con este correo.");
       }
+      await ctx.db.patch(id, { ...normalizedUserData, email });
+    } else {
+      if (existingByEmail) {
+        throw new Error("Ya existe un usuario con este correo.");
+      }
+      userId = await ctx.db.insert("users", {
+          ...normalizedUserData,
+          name: profile.fullName,
+          email,
+          isActive: normalizedUserData.isActive ?? true,
+      });
     }
 
     // SI hay password y email, vinculamos la cuenta de autenticación

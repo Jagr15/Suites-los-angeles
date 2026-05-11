@@ -147,7 +147,9 @@ export function RouteModal({
   }, [selectedRoute, reset, isOpen]);
 
   const handleVehicleCreated = (vehicleId: string) => {
+    console.log("[ROUTE] vehicle created assetId", vehicleId);
     setValue("assetId", vehicleId, { shouldValidate: true });
+    console.log("[ROUTE] assetId auto-selected in form", vehicleId);
     addToast({
       title: "Vehículo y Activo Creados",
       description: "El nuevo transporte fue seleccionado en esta ruta.",

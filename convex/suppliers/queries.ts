@@ -35,7 +35,16 @@ export const listWithMetrics = query({
         const totalPayments = transactions
           .filter((trx) => trx.type === "Abono")
           .reduce((acc, trx) => acc + trx.amount, 0);
-        const outstandingBalance = totalPurchases - totalPayments;
+        const outstandingBalance = purchases.reduce((acc, purchase) => {
+          if (purchase.status === "Pagado" || purchase.status === "Cancelado") {
+            return acc;
+          }
+          const remaining =
+            purchase.remainingAmount !== undefined
+              ? purchase.remainingAmount
+              : purchase.totalAmount;
+          return acc + remaining;
+        }, 0);
 
         return {
           ...supplier,

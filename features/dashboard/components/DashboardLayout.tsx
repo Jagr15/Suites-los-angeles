@@ -3,6 +3,7 @@
 import { useConvexAuth } from "convex/react";
 import { Button, Spinner } from "@heroui/react";
 import { useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { useEffect } from "react";
 import { DashboardSidebar } from "./DashboardSidebar";
 import { SidebarProvider, useSidebarContext } from "./layout/layout-context";
@@ -30,9 +31,10 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
 
 export function DashboardLayout({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, isLoading: isAuthLoading } = useConvexAuth();
-  const { isActive, isVendedor, isLoading: isRolesLoading } = useRoles();
+  const { isActive, isVendedor, isLoading: isRolesLoading, canAccessPath } = useRoles();
   const { signOut } = useAuthActions();
   const router = useRouter();
+  const pathname = usePathname();
 
   const isLoading = isAuthLoading || isRolesLoading;
 
@@ -59,6 +61,12 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
     }
   }, [isLoading, isAuthenticated, router]);
 
+  useEffect(() => {
+    if (!isLoading && isAuthenticated && !canAccessPath(pathname)) {
+      router.replace("/dashboard");
+    }
+  }, [isLoading, isAuthenticated, canAccessPath, pathname, router]);
+
   // Pantalla de carga mientras verificamos la identidad
   if (isLoading) {
     return (
@@ -71,6 +79,10 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
 
   // Si no está autenticado, no mostramos nada mientras ocurre la redirección del useEffect
   if (!isAuthenticated) {
+    return null;
+  }
+
+  if (!canAccessPath(pathname)) {
     return null;
   }
 
