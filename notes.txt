@@ -1,0 +1,41 @@
+-agregar administracion(cambiar columnas precios etc)
+-agregar configuracion
+
+-modificar columna de cantidad de empaque  que no ocupe tanto espaio
+
+-en comrpas agergar numero de compra 
+-en form de agregar compras agregar manejo con teclado al agregar PRODUCTOS DESPEUS A CANTIDAD DESPEUS PRECIO QUE S EGUARDE EL REGISTRO CONE ENTER  DESPUES QUE MANDE A LA BSUQUEDA 
+-AGREGAR NUMEROD E COMPRA 
+-CAMBIAR COLUMNA DE REVISION POR ESTADO
+-AGREAR INPUT DE ESTADO A CREAR COMPRA
+
+-EM PRESUPEUSTPS DE COPMPRAR ALM DARLE CLICK A UNO debe salir como una compra 
+-en estados de cuenta al darle a las tarjetitas tiene que salir el estado de ceunta del porveedor slecionado
+
+-bodega solo maneja personal de bodegas, cambiar gastos por egresos y agregar ingresos, quitar deudas
+
+
+-bodega nueva entrada es iguala nueva compra iigual en el form 
+-entradas pasar a salidas min 12
+- en sladias cambiar columna de vendero por responsble
+
+
+-que slagan tood lose stados con o sin envio y agregar minorista min15
+-agerear editar a salidas de bodega 
+
+
+
+-nueva salida que sea iguala  nueva entrada 
+- en form de salida cambiar odigo a numeroi de saldia 
+-cambiar estados 
+-agregar check para cmaibar estados de salida , quitar agetne almacen direciond e entrega min 20
+-agregar teclado al crear salidas y entradas 
+
+-cambiar gastos agregar subgatefgoria als elecionar categoria 
+-agregar input de evidencia
+
+-nominas que se igual de estado deceutnas de proveedores
+-en deudas xcambiar a pagar por nomina de dia ald arle click a tarjeta d enomina que meuste su deuda quitar tab de deuda pasar a form
+
+-al selecionar tarjeta de ruta que me salgan los tabs 
+-camabiar olumna de procentaje de gasto de ruta al aldo del nombre de la ruta 

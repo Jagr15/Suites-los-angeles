@@ -1,0 +1,2 @@
+export { ProveedoresPage } from "./ProveedoresPage";
+

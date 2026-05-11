@@ -1,0 +1,5 @@
+@import "tailwindcss";
+@config "../tailwind.config.js";
+
+/* dark mode con clase .dark en html */
+@custom-variant dark (&:is(.dark *));

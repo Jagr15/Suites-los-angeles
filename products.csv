@@ -1,0 +1,4 @@
+Sku,Código,Producto,Cantidad,Categoría,Subcategoría,Status,Precio 1,Precio 2,Precio 3,Precio 4,Precio 5,Precio 6,Precio 7,Precio 8,Precio 9,Precio 10,Precio 11,Precio 12,Precio 13,Precio 14,Precio 15
+PROD-001,1001,Aceite de Oliva 1L,1,Despensa,Aceites,Activo,45.00,42.50,40.00,38.50,37.00,55.00,54.00,53.00,52.00,51.00,65.00,64.00,63.00,62.00,60.00
+PROD-002,1002,Arroz Integral 1kg,1,Despensa,Granos,Activo,18.00,17.00,16.50,16.00,15.50,22.00,21.50,21.00,20.50,20.00,28.00,27.50,27.00,26.50,25.00
+PROD-003,1003,Detergente Líquido 3L,1,Limpieza,Ropa,Inactivo,120.00,115.00,110.00,108.00,105.00,140.00,138.00,136.00,134.00,130.00,160.00,158.00,156.00,154.00,150.00
