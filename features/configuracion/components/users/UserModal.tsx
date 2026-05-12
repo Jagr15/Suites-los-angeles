@@ -37,6 +37,13 @@ const mapRolePermissionsToUi = (permissions: string[]): User["permissions"] => {
   };
 };
 
+const hasAnyEnabled = (permissions: User["permissions"]) =>
+  permissions.ventas ||
+  permissions.inventario ||
+  permissions.rutas ||
+  permissions.finanzas ||
+  permissions.configuracion;
+
 interface UserModalProps {
   isOpen: boolean;
   onOpenChange: () => void;
@@ -143,14 +150,14 @@ export function UserModal({
                     <RoleSelect
                       selectedRoleId={formState.roleId}
                       onRoleChange={(roleId, roleName, rolePermissions) => {
+                        const mappedPermissions = mapRolePermissionsToUi(rolePermissions || []);
                         setFormState((prev) => ({
                           ...prev,
                           roleId,
                           role: roleName,
-                          permissions:
-                            mapRolePermissionsToUi(rolePermissions) ||
-                            ROLE_PERMISSIONS[roleName] ||
-                            prev.permissions,
+                          permissions: hasAnyEnabled(mappedPermissions)
+                            ? mappedPermissions
+                            : ROLE_PERMISSIONS[roleName] || prev.permissions,
                         }));
                       }}
                     />
