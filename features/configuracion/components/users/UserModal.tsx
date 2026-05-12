@@ -42,7 +42,7 @@ interface UserModalProps {
   onOpenChange: () => void;
   selectedUser: User | null;
   formState: Partial<User & { roleId?: string }>;
-  setFormState: (state: Partial<User & { roleId?: string }>) => void;
+  setFormState: React.Dispatch<React.SetStateAction<Partial<User & { roleId?: string }>>>;
   onSave: () => void;
   onClose: () => void;
   isLoading?: boolean;
@@ -90,7 +90,9 @@ export function UserModal({
                     isRequired
                     selectedKeys={formState.profileId ? [formState.profileId] : []}
                     onSelectionChange={(keys) => {
-                      const id = Array.from(keys)[0] as string;
+                      const selectedKeys = keys === "all" ? [] : Array.from(keys);
+                      const id = selectedKeys[0] as string | undefined;
+                      if (!id) return;
                       const profile = profiles?.find(p => p.id === id);
                       setFormState({ ...formState, profileId: id, profileName: profile?.fullName || "" });
                     }}
@@ -141,15 +143,15 @@ export function UserModal({
                     <RoleSelect
                       selectedRoleId={formState.roleId}
                       onRoleChange={(roleId, roleName, rolePermissions) => {
-                        setFormState({
-                          ...formState,
+                        setFormState((prev) => ({
+                          ...prev,
                           roleId,
                           role: roleName,
                           permissions:
                             mapRolePermissionsToUi(rolePermissions) ||
                             ROLE_PERMISSIONS[roleName] ||
-                            formState.permissions,
-                        });
+                            prev.permissions,
+                        }));
                       }}
                     />
                     {formState.role === "Vendedor" && (

@@ -19,6 +19,7 @@ export function RoleSelect({
   className,
 }: RoleSelectProps) {
   const roles = useQuery(api.roles.queries.listAll);
+  const roleItems = roles || [];
 
   return (
     <Select
@@ -30,14 +31,16 @@ export function RoleSelect({
       selectedKeys={selectedRoleId ? [selectedRoleId] : []}
       className={className}
       onSelectionChange={(keys) => {
-        const roleId = Array.from(keys)[0] as string;
-        const role = roles?.find((r) => r._id === roleId);
+        const selectedKeys = keys === "all" ? [] : Array.from(keys);
+        const roleId = selectedKeys[0] as string | undefined;
+        if (!roleId) return;
+        const role = roleItems.find((r) => r._id === roleId);
         if (role) {
           onRoleChange(roleId, role.name, role.permissions || []);
         }
       }}
     >
-      {(roles || []).map((role) => (
+      {roleItems.map((role) => (
         <SelectItem key={role._id} textValue={role.name}>
           <div className="flex flex-col">
             <span className="text-small font-medium">{role.name}</span>

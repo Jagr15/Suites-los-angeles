@@ -49,7 +49,7 @@ export function ProveedoresPage() {
     const q = searchQuery.toLowerCase().trim();
     if (!q) return purchases;
     return purchases.filter(c => 
-      c.supplierName.toLowerCase().includes(q) || 
+      (c.supplierName || "").toLowerCase().includes(q) || 
       (c.folio && c.folio.toLowerCase().includes(q))
     );
   }, [purchases, searchQuery]);
