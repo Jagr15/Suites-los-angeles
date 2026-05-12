@@ -29,6 +29,36 @@ const clientFields = {
   visitOrder: v.optional(v.number()),
 };
 
+function normalizeText(value?: string) {
+  return (value ?? "").trim();
+}
+
+function assertLocationConsistency(args: {
+  stateId?: string;
+  stateName?: string;
+  municipalityId: string;
+  municipalityName: string;
+  townId: string;
+  townName: string;
+}) {
+  const stateId = normalizeText(args.stateId);
+  const stateName = normalizeText(args.stateName);
+  const municipalityId = normalizeText(args.municipalityId);
+  const municipalityName = normalizeText(args.municipalityName);
+  const townId = normalizeText(args.townId);
+  const townName = normalizeText(args.townName);
+
+  if (!stateId || !stateName) {
+    throw new Error("Debe seleccionar un estado válido.");
+  }
+  if (!municipalityId || !municipalityName) {
+    throw new Error("Debe seleccionar un municipio válido.");
+  }
+  if (!townId || !townName) {
+    throw new Error("Debe seleccionar una localidad válida.");
+  }
+}
+
 /**
  * Crea un nuevo cliente.
  */
@@ -36,6 +66,7 @@ export const create = mutation({
   args: clientFields,
   handler: async (ctx, args) => {
     await requireIdentity(ctx);
+    assertLocationConsistency(args);
     return await ctx.db.insert("clients", args);
   },
 });
@@ -50,6 +81,7 @@ export const update = mutation({
   },
   handler: async (ctx, args) => {
     await requireIdentity(ctx);
+    assertLocationConsistency(args);
     const { id, ...data } = args;
     await ctx.db.patch(id, data);
     return id;

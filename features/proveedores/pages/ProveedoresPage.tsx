@@ -172,7 +172,7 @@ export function ProveedoresPage() {
     } else {
       setSelectedEstadoCuentaDetails(null);
     }
-  }, []);
+  }, [realEstadosDeCuenta]);
 
   const handleBackFromEstadoCuenta = useCallback(() => {
     setSelectedEstadoCuentaDetails(null);

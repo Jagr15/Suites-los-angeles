@@ -291,11 +291,11 @@ export function ClientModal({
                             selectedKey={field.value}
                             onSelectionChange={(id, name) => {
                               field.onChange(id);
-                              setValue("stateName", name);
-                              setValue("municipalityId", "");
-                              setValue("municipalityName", "");
-                              setValue("townId", "");
-                              setValue("townName", "");
+                              setValue("stateName", name, { shouldValidate: true, shouldDirty: true });
+                              setValue("municipalityId", "", { shouldValidate: true, shouldDirty: true });
+                              setValue("municipalityName", "", { shouldValidate: true, shouldDirty: true });
+                              setValue("townId", "", { shouldValidate: true, shouldDirty: true });
+                              setValue("townName", "", { shouldValidate: true, shouldDirty: true });
                             }}
                           />
                         )}
@@ -309,9 +309,9 @@ export function ClientModal({
                             selectedKey={field.value}
                             onSelectionChange={(id, name) => {
                               field.onChange(id);
-                              setValue("municipalityName", name);
-                              setValue("townId", "");
-                              setValue("townName", "");
+                              setValue("municipalityName", name, { shouldValidate: true, shouldDirty: true });
+                              setValue("townId", "", { shouldValidate: true, shouldDirty: true });
+                              setValue("townName", "", { shouldValidate: true, shouldDirty: true });
                             }}
                           />
                         )}
@@ -328,7 +328,7 @@ export function ClientModal({
                             selectedKey={field.value ?? undefined}
                             onSelectionChange={(id, name) => {
                               field.onChange(id);
-                              setValue("townName", name);
+                              setValue("townName", name, { shouldValidate: true, shouldDirty: true });
                             }}
                           />
                         )}
