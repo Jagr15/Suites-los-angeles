@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   Modal,
   ModalContent,
@@ -82,6 +82,16 @@ export function UserModal({
   const toggleVisibility = () => setIsVisible(!isVisible);
   const hasProfiles = profiles.length > 0;
   const isAdminRole = (formState.role || "").trim().toLowerCase() === "administrador";
+  const debugEnabled = typeof window !== "undefined" && window.location.search.includes("debugRoles=1");
+
+  useEffect(() => {
+    if (!debugEnabled) return;
+    console.info("[UserModal] formState updated", {
+      roleId: formState.roleId,
+      role: formState.role,
+      permissions: formState.permissions,
+    });
+  }, [debugEnabled, formState.roleId, formState.role, formState.permissions]);
 
   return (
     <Modal
@@ -160,18 +170,33 @@ export function UserModal({
                   <div className="flex flex-col gap-1">
                     <RoleSelect
                       selectedRoleId={formState.roleId}
-                      onRoleChange={(roleId, roleName, rolePermissions) => {
+                      onRoleChange={(roleId, roleName, rolePermissions, selectedRole) => {
                         const mappedPermissions = mapRolePermissionsToUi(rolePermissions || []);
                         const normalizedRole = normalizeRoleKey(roleName);
                         const fallbackPermissions = ROLE_PERMISSIONS[normalizedRole];
                         const usingFallback = !hasAnyEnabled(mappedPermissions);
+                        const finalPermissions = !usingFallback
+                          ? mappedPermissions
+                          : fallbackPermissions || formState.permissions;
+                        if (debugEnabled) {
+                          console.info("[UserModal] onRoleChange", {
+                            selectedRoleId: roleId,
+                            rolesDisponibles: "Ver [RoleSelect] onSelectionChange raw",
+                            selectedRole,
+                            selectedRoleName: selectedRole?.name,
+                            selectedRolePermissions: selectedRole?.permissions,
+                            normalizeRoleKey: normalizedRole,
+                            mappedPermissions,
+                            fallbackPermissions,
+                            usingFallback,
+                            finalPermissions,
+                          });
+                        }
                         setFormState((prev) => ({
                           ...prev,
                           roleId,
                           role: roleName,
-                          permissions: !usingFallback
-                            ? mappedPermissions
-                            : fallbackPermissions || prev.permissions,
+                          permissions: !usingFallback ? mappedPermissions : fallbackPermissions || prev.permissions,
                         }));
                       }}
                     />
