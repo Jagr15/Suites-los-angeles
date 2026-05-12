@@ -23,6 +23,8 @@ import { User } from "./types";
 const ROLE_PERMISSIONS: Record<string, User["permissions"]> = {
   administrador: { ventas: true, inventario: true, rutas: true, finanzas: true, configuracion: true },
   admin: { ventas: true, inventario: true, rutas: true, finanzas: true, configuracion: true },
+  superadmin: { ventas: true, inventario: true, rutas: true, finanzas: true, configuracion: true },
+  "super admin": { ventas: true, inventario: true, rutas: true, finanzas: true, configuracion: true },
   vendedor: { ventas: true, inventario: false, rutas: false, finanzas: false, configuracion: false },
   bodeguero: { ventas: false, inventario: true, rutas: true, finanzas: false, configuracion: false },
   bodega: { ventas: false, inventario: true, rutas: true, finanzas: false, configuracion: false },
@@ -163,17 +165,6 @@ export function UserModal({
                         const normalizedRole = normalizeRoleKey(roleName);
                         const fallbackPermissions = ROLE_PERMISSIONS[normalizedRole];
                         const usingFallback = !hasAnyEnabled(mappedPermissions);
-                        if (typeof window !== "undefined" && window.location.search.includes("debugRoles=1")) {
-                          console.info("[UserModal role debug]", {
-                            roleId,
-                            roleName,
-                            normalizedRole,
-                            rolePermissions,
-                            mappedPermissions,
-                            usingFallback,
-                            fallbackPermissions,
-                          });
-                        }
                         setFormState((prev) => ({
                           ...prev,
                           roleId,
