@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   Modal,
   ModalContent,
@@ -17,6 +17,8 @@ import {
   EyeIcon,
   EyeSlashIcon,
 } from "@heroicons/react/24/outline";
+import { useQuery } from "convex/react";
+import { api } from "@/convex/_generated/api";
 import { RoleSelect } from "./RoleSelect";
 import { User } from "./types";
 
@@ -55,6 +57,15 @@ const normalizeRoleKey = (roleName?: string) =>
     .replace(/[\u0300-\u036f]/g, "")
     .toLowerCase();
 
+const arePermissionsEqual = (a?: User["permissions"], b?: User["permissions"]) =>
+  !!a &&
+  !!b &&
+  a.ventas === b.ventas &&
+  a.inventario === b.inventario &&
+  a.rutas === b.rutas &&
+  a.finanzas === b.finanzas &&
+  a.configuracion === b.configuracion;
+
 interface UserModalProps {
   isOpen: boolean;
   onOpenChange: () => void;
@@ -78,10 +89,41 @@ export function UserModal({
   isLoading,
   profiles,
 }: UserModalProps) {
+  const roles = useQuery(api.roles.queries.listAll) || [];
   const [isVisible, setIsVisible] = useState(false);
   const toggleVisibility = () => setIsVisible(!isVisible);
   const hasProfiles = profiles.length > 0;
-  const isAdminRole = (formState.role || "").trim().toLowerCase() === "administrador";
+  const isAdminRole = ["administrador", "admin", "superadmin", "super admin"].includes(
+    normalizeRoleKey(formState.role)
+  );
+
+  useEffect(() => {
+    if (!formState.roleId || roles.length === 0) return;
+    const selectedRole = roles.find((role) => role._id === formState.roleId);
+    if (!selectedRole) return;
+
+    const mappedPermissions = mapRolePermissionsToUi(selectedRole.permissions || []);
+    const normalizedRole = normalizeRoleKey(selectedRole.name);
+    const fallbackPermissions = ROLE_PERMISSIONS[normalizedRole];
+    const nextPermissions = hasAnyEnabled(mappedPermissions)
+      ? mappedPermissions
+      : fallbackPermissions || formState.permissions;
+
+    if (!nextPermissions) return;
+
+    setFormState((prev) => {
+      const roleChanged = prev.role !== selectedRole.name;
+      const permissionsChanged = !arePermissionsEqual(prev.permissions, nextPermissions);
+      if (!roleChanged && !permissionsChanged) {
+        return prev;
+      }
+      return {
+        ...prev,
+        role: selectedRole.name,
+        permissions: nextPermissions,
+      };
+    });
+  }, [formState.roleId, roles, setFormState, formState.permissions]);
 
   return (
     <Modal
@@ -160,16 +202,10 @@ export function UserModal({
                   <div className="flex flex-col gap-1">
                     <RoleSelect
                       selectedRoleId={formState.roleId}
-                      onRoleChange={(roleId, roleName, rolePermissions) => {
-                        const mappedPermissions = mapRolePermissionsToUi(rolePermissions || []);
-                        const normalizedRole = normalizeRoleKey(roleName);
-                        const fallbackPermissions = ROLE_PERMISSIONS[normalizedRole];
-                        const usingFallback = !hasAnyEnabled(mappedPermissions);
+                      onRoleChange={(roleId) => {
                         setFormState((prev) => ({
                           ...prev,
                           roleId,
-                          role: roleName,
-                          permissions: !usingFallback ? mappedPermissions : fallbackPermissions || prev.permissions,
                         }));
                       }}
                     />
