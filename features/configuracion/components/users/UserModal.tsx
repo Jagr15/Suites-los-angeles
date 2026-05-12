@@ -21,9 +21,11 @@ import { RoleSelect } from "./RoleSelect";
 import { User } from "./types";
 
 const ROLE_PERMISSIONS: Record<string, User["permissions"]> = {
-  Administrador: { ventas: true, inventario: true, rutas: true, finanzas: true, configuracion: true },
-  Vendedor: { ventas: true, inventario: false, rutas: true, finanzas: false, configuracion: false },
-  Bodeguero: { ventas: false, inventario: true, rutas: false, finanzas: false, configuracion: false },
+  administrador: { ventas: true, inventario: true, rutas: true, finanzas: true, configuracion: true },
+  admin: { ventas: true, inventario: true, rutas: true, finanzas: true, configuracion: true },
+  vendedor: { ventas: true, inventario: false, rutas: false, finanzas: false, configuracion: false },
+  bodeguero: { ventas: false, inventario: true, rutas: true, finanzas: false, configuracion: false },
+  bodega: { ventas: false, inventario: true, rutas: true, finanzas: false, configuracion: false },
 };
 
 const mapRolePermissionsToUi = (permissions: string[]): User["permissions"] => {
@@ -43,6 +45,13 @@ const hasAnyEnabled = (permissions: User["permissions"]) =>
   permissions.rutas ||
   permissions.finanzas ||
   permissions.configuracion;
+
+const normalizeRoleKey = (roleName?: string) =>
+  (roleName || "")
+    .trim()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
 
 interface UserModalProps {
   isOpen: boolean;
@@ -151,13 +160,27 @@ export function UserModal({
                       selectedRoleId={formState.roleId}
                       onRoleChange={(roleId, roleName, rolePermissions) => {
                         const mappedPermissions = mapRolePermissionsToUi(rolePermissions || []);
+                        const normalizedRole = normalizeRoleKey(roleName);
+                        const fallbackPermissions = ROLE_PERMISSIONS[normalizedRole];
+                        const usingFallback = !hasAnyEnabled(mappedPermissions);
+                        if (typeof window !== "undefined" && window.location.search.includes("debugRoles=1")) {
+                          console.info("[UserModal role debug]", {
+                            roleId,
+                            roleName,
+                            normalizedRole,
+                            rolePermissions,
+                            mappedPermissions,
+                            usingFallback,
+                            fallbackPermissions,
+                          });
+                        }
                         setFormState((prev) => ({
                           ...prev,
                           roleId,
                           role: roleName,
-                          permissions: hasAnyEnabled(mappedPermissions)
+                          permissions: !usingFallback
                             ? mappedPermissions
-                            : ROLE_PERMISSIONS[roleName] || prev.permissions,
+                            : fallbackPermissions || prev.permissions,
                         }));
                       }}
                     />
