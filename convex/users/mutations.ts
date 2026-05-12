@@ -1,8 +1,24 @@
 import { mutation } from "../_generated/server";
 import { v } from "convex/values";
-import { requireAdmin } from "../common/utils";
+import { requireAdmin, requireAdminOrDevMigration } from "../common/utils";
 import { hashPassword, verifyPassword } from "../common/hashing";
 import { getAuthUserId } from "@convex-dev/auth/server";
+
+const OPERATIONAL_ROLE_NAMES = new Set(["SuperAdmin", "Admin", "Bodeguero", "Vendedor"]);
+
+function normalizeLegacyRoleName(role?: string | null) {
+  const normalized = (role || "")
+    .trim()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+
+  if (normalized === "superadmin" || normalized === "super admin") return "SuperAdmin";
+  if (normalized === "administrador" || normalized === "admin" || normalized === "finanzas") return "Admin";
+  if (normalized === "bodega" || normalized === "bodeguero" || normalized === "rutas") return "Bodeguero";
+  if (normalized === "vendedor" || normalized === "preventista") return "Vendedor";
+  return null;
+}
 
 /**
  * Crea o actualiza un usuario manualmente por un administrador.
@@ -42,6 +58,22 @@ export const upsertUser = mutation({
     const roleDoc = await ctx.db.get(roleId);
     if (!roleDoc) {
       throw new Error("Rol inválido");
+    }
+    if (!OPERATIONAL_ROLE_NAMES.has(roleDoc.name)) {
+      throw new Error("Rol no operativo. Selecciona un rol válido.");
+    }
+    if (roleDoc.name === "SuperAdmin" && !id) {
+      throw new Error("No se permite crear usuarios SuperAdmin desde este flujo.");
+    }
+    if (roleDoc.name === "SuperAdmin" && id) {
+      const existingUser = await ctx.db.get(id);
+      if (!existingUser) {
+        throw new Error("Usuario no encontrado para actualización.");
+      }
+      const existingRoleDoc = existingUser.roleId ? await ctx.db.get(existingUser.roleId) : null;
+      if (existingRoleDoc?.name !== "SuperAdmin") {
+        throw new Error("No se permite asignar SuperAdmin desde este flujo.");
+      }
     }
     canonicalRole = roleDoc.name;
 
@@ -102,6 +134,227 @@ export const upsertUser = mutation({
     }
 
     return userId;
+  },
+});
+
+/**
+ * Normaliza roles de usuarios legacy a roles operativos.
+ * Modo preview por defecto (apply=false).
+ */
+export const normalizeUserRoles = mutation({
+  args: {
+    apply: v.optional(v.boolean()),
+  },
+  handler: async (ctx, args) => {
+    await requireAdminOrDevMigration(ctx);
+    const apply = args.apply === true;
+
+    const roles = await ctx.db.query("roles").collect();
+    const users = await ctx.db.query("users").collect();
+    const roleById = new Map(roles.map((r) => [r._id, r]));
+    const operationalRoleByName = new Map(
+      roles.filter((r) => OPERATIONAL_ROLE_NAMES.has(r.name)).map((r) => [r.name, r])
+    );
+
+    const unsupportedUsers: Array<{
+      userId: string;
+      email?: string;
+      currentRole?: string;
+      currentRoleId?: string;
+      reason: string;
+    }> = [];
+    const planned: Array<{
+      userId: string;
+      email?: string;
+      fromRole?: string;
+      fromRoleId?: string;
+      toRole: string;
+      toRoleId: string;
+      action: "update" | "unchanged";
+    }> = [];
+
+    for (const user of users) {
+      const roleFromId = user.roleId ? roleById.get(user.roleId)?.name : undefined;
+      const normalizedFromString = normalizeLegacyRoleName(user.role);
+      const normalizedFromRoleId = normalizeLegacyRoleName(roleFromId);
+      const targetRoleName = normalizedFromRoleId || normalizedFromString;
+      if (!targetRoleName) {
+        unsupportedUsers.push({
+          userId: String(user._id),
+          email: user.email,
+          currentRole: user.role,
+          currentRoleId: user.roleId ? String(user.roleId) : undefined,
+          reason: "No se pudo mapear role/roleId a rol operativo",
+        });
+        continue;
+      }
+
+      const targetRole = operationalRoleByName.get(targetRoleName);
+      if (!targetRole) {
+        unsupportedUsers.push({
+          userId: String(user._id),
+          email: user.email,
+          currentRole: user.role,
+          currentRoleId: user.roleId ? String(user.roleId) : undefined,
+          reason: `Rol operativo ${targetRoleName} no existe en roles`,
+        });
+        continue;
+      }
+
+      const unchanged = user.roleId === targetRole._id && user.role === targetRole.name;
+      planned.push({
+        userId: String(user._id),
+        email: user.email,
+        fromRole: user.role,
+        fromRoleId: user.roleId ? String(user.roleId) : undefined,
+        toRole: targetRole.name,
+        toRoleId: String(targetRole._id),
+        action: unchanged ? "unchanged" : "update",
+      });
+
+      if (!unchanged && apply) {
+        await ctx.db.patch(user._id, {
+          roleId: targetRole._id,
+          role: targetRole.name,
+        });
+      }
+    }
+
+    return {
+      mode: apply ? "apply" : "preview",
+      totalUsers: users.length,
+      plannedUpdates: planned.filter((p) => p.action === "update").length,
+      unchanged: planned.filter((p) => p.action === "unchanged").length,
+      unsupported: unsupportedUsers.length,
+      planned,
+      unsupportedUsers,
+    };
+  },
+});
+
+function normalizeText(value?: string | null) {
+  return (value || "")
+    .trim()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+}
+
+/**
+ * Normaliza usuarios sin profileId.
+ * - preview por defecto (apply=false)
+ * - puede crear profile mínimo si createMissingProfiles=true y apply=true
+ */
+export const normalizeUserProfiles = mutation({
+  args: {
+    apply: v.optional(v.boolean()),
+    createMissingProfiles: v.optional(v.boolean()),
+  },
+  handler: async (ctx, args) => {
+    await requireAdminOrDevMigration(ctx);
+    const apply = args.apply === true;
+    const createMissingProfiles = args.createMissingProfiles === true;
+
+    const [users, profiles] = await Promise.all([
+      ctx.db.query("users").collect(),
+      ctx.db.query("profiles").collect(),
+    ]);
+
+    const profileByUserId = new Map(
+      profiles.filter((p) => !!p.userId).map((p) => [String(p.userId), p])
+    );
+
+    const plan: Array<{
+      userId: string;
+      email?: string;
+      name?: string;
+      action: "link_existing_profile" | "create_profile" | "manual_review" | "unchanged";
+      profileId?: string;
+      reason?: string;
+    }> = [];
+
+    for (const user of users) {
+      if (user.profileId) {
+        plan.push({
+          userId: String(user._id),
+          email: user.email,
+          name: user.name,
+          action: "unchanged",
+          profileId: String(user.profileId),
+        });
+        continue;
+      }
+
+      const byUserId = profileByUserId.get(String(user._id));
+      if (byUserId) {
+        plan.push({
+          userId: String(user._id),
+          email: user.email,
+          name: user.name,
+          action: "link_existing_profile",
+          profileId: String(byUserId._id),
+        });
+        if (apply) {
+          await ctx.db.patch(user._id, { profileId: byUserId._id });
+        }
+        continue;
+      }
+
+      const normalizedUserName = normalizeText(user.name);
+      const byName = profiles.find((p) => normalizeText(p.fullName) === normalizedUserName);
+      if (byName) {
+        plan.push({
+          userId: String(user._id),
+          email: user.email,
+          name: user.name,
+          action: "link_existing_profile",
+          profileId: String(byName._id),
+        });
+        if (apply) {
+          await ctx.db.patch(user._id, { profileId: byName._id });
+        }
+        continue;
+      }
+
+      if (apply && createMissingProfiles) {
+        const profileId = await ctx.db.insert("profiles", {
+          userId: user._id,
+          fullName: user.name || user.email || "Perfil sin nombre",
+          status: "Activo",
+          isEmployee: true,
+        });
+        await ctx.db.patch(user._id, { profileId });
+        plan.push({
+          userId: String(user._id),
+          email: user.email,
+          name: user.name,
+          action: "create_profile",
+          profileId: String(profileId),
+        });
+        continue;
+      }
+
+      plan.push({
+        userId: String(user._id),
+        email: user.email,
+        name: user.name,
+        action: "manual_review",
+        reason: "No profileId y no profile coincidente encontrado",
+      });
+    }
+
+    return {
+      mode: apply ? "apply" : "preview",
+      createMissingProfiles,
+      totals: {
+        users: users.length,
+        unchanged: plan.filter((p) => p.action === "unchanged").length,
+        linkExisting: plan.filter((p) => p.action === "link_existing_profile").length,
+        createProfile: plan.filter((p) => p.action === "create_profile").length,
+        manualReview: plan.filter((p) => p.action === "manual_review").length,
+      },
+      plan,
+    };
   },
 });
 

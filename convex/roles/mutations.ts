@@ -1,6 +1,74 @@
 import { mutation, query } from "../_generated/server";
 import { v } from "convex/values";
-import { requireAdmin } from "../common/utils";
+import { requireAdmin, requireAdminOrDevMigration } from "../common/utils";
+
+const OPERATIONAL_ROLES: Array<{
+  name: "SuperAdmin" | "Admin" | "Bodeguero" | "Vendedor";
+  description: string;
+  permissions: string[];
+}> = [
+  {
+    name: "SuperAdmin",
+    description: "Acceso total al sistema y gestión completa de seguridad/configuración.",
+    permissions: [
+      "all",
+      "users:manage",
+      "settings:manage",
+      "sales:view",
+      "sales:create",
+      "inventory:view",
+      "inventory:edit",
+      "warehouse:view",
+      "warehouse:edit",
+      "routes:view",
+      "routes:edit",
+      "finance:view",
+      "finance:edit",
+      "suppliers:view",
+      "suppliers:edit",
+      "clients:view",
+      "clients:edit",
+    ],
+  },
+  {
+    name: "Admin",
+    description: "Gestión operativa completa del negocio.",
+    permissions: [
+      "users:manage",
+      "settings:manage",
+      "sales:view",
+      "sales:create",
+      "inventory:view",
+      "inventory:edit",
+      "warehouse:view",
+      "warehouse:edit",
+      "routes:view",
+      "routes:edit",
+      "finance:view",
+      "finance:edit",
+      "suppliers:view",
+      "suppliers:edit",
+      "clients:view",
+      "clients:edit",
+    ],
+  },
+  {
+    name: "Bodeguero",
+    description: "Operación de inventario y bodega.",
+    permissions: ["inventory:view", "inventory:edit", "warehouse:view", "warehouse:edit", "routes:view"],
+  },
+  {
+    name: "Vendedor",
+    description: "Operación comercial y ventas.",
+    permissions: ["sales:view", "sales:create", "clients:view", "clients:edit"],
+  },
+];
+
+function equalStringArray(a?: string[], b?: string[]) {
+  const aa = [...(a || [])].sort();
+  const bb = [...(b || [])].sort();
+  return JSON.stringify(aa) === JSON.stringify(bb);
+}
 
 /**
  * Crea un nuevo rol en el sistema.
@@ -131,6 +199,69 @@ export const upsertBaseRoles = mutation({
 
     return {
       targetRoles: baseRoles.map((r) => r.name),
+      changes,
+    };
+  },
+});
+
+/**
+ * Upsert idempotente de los roles operativos canónicos.
+ * No elimina roles legacy ni borra datos de negocio.
+ */
+export const upsertOperationalRoles = mutation({
+  args: {},
+  handler: async (ctx) => {
+    await requireAdminOrDevMigration(ctx);
+    const changes: Array<{
+      role: string;
+      action: "created" | "updated" | "unchanged";
+      id: string;
+      permissions: string[];
+    }> = [];
+
+    for (const roleDef of OPERATIONAL_ROLES) {
+      const existing = await ctx.db
+        .query("roles")
+        .withIndex("by_name", (q) => q.eq("name", roleDef.name))
+        .first();
+
+      if (!existing) {
+        const id = await ctx.db.insert("roles", roleDef);
+        changes.push({
+          role: roleDef.name,
+          action: "created",
+          id: String(id),
+          permissions: roleDef.permissions,
+        });
+        continue;
+      }
+
+      const sameDescription = (existing.description || "") === roleDef.description;
+      const samePermissions = equalStringArray(existing.permissions, roleDef.permissions);
+      if (sameDescription && samePermissions) {
+        changes.push({
+          role: roleDef.name,
+          action: "unchanged",
+          id: String(existing._id),
+          permissions: existing.permissions || [],
+        });
+        continue;
+      }
+
+      await ctx.db.patch(existing._id, {
+        description: roleDef.description,
+        permissions: roleDef.permissions,
+      });
+      changes.push({
+        role: roleDef.name,
+        action: "updated",
+        id: String(existing._id),
+        permissions: roleDef.permissions,
+      });
+    }
+
+    return {
+      targetRoles: OPERATIONAL_ROLES.map((r) => r.name),
       changes,
     };
   },

@@ -4,8 +4,9 @@ import { getAuthUserId } from "@convex-dev/auth/server";
 
 function rolePriority(role?: string) {
   const normalized = (role || "").trim().toLowerCase();
+  if (normalized === "superadmin" || normalized === "super admin") return 4;
   if (normalized === "admin" || normalized === "administrador") return 3;
-  if (normalized === "bodeguero" || normalized === "bodega") return 2;
+  if (normalized === "bodeguero" || normalized === "bodega" || normalized === "rutas") return 2;
   if (normalized === "vendedor") return 1;
   return 0;
 }

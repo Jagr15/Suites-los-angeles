@@ -3,7 +3,7 @@ import { QueryCtx, MutationCtx } from "../_generated/server";
 
 function isAdminRoleName(role?: string | null) {
   const normalized = (role || "").trim().toLowerCase();
-  return normalized === "admin" || normalized === "administrador";
+  return normalized === "admin" || normalized === "superadmin" || normalized === "super admin";
 }
 
 /**
@@ -52,6 +52,27 @@ export async function requireAdmin(ctx: QueryCtx | MutationCtx) {
   if (!(await isAdmin(ctx))) {
     throw new Error("Acceso denegado: Se requieren permisos de administrador");
   }
+}
+
+/**
+ * Permite ejecutar migraciones desde CLI únicamente en DEV cuando
+ * ALLOW_DEV_MIGRATIONS=true y CONVEX_DEPLOYMENT indica entorno dev.
+ * En cualquier otro caso exige admin autenticado.
+ */
+export async function requireAdminOrDevMigration(ctx: QueryCtx | MutationCtx) {
+  if (await isAdmin(ctx)) return;
+
+  const allowDevMigrations = (process.env.ALLOW_DEV_MIGRATIONS || "").trim().toLowerCase() === "true";
+  const deployment = (process.env.CONVEX_DEPLOYMENT || "").trim().toLowerCase();
+  const isDevDeployment = deployment.startsWith("dev:");
+
+  if (allowDevMigrations && isDevDeployment) {
+    return;
+  }
+
+  throw new Error(
+    "Acceso denegado: se requieren permisos de administrador o ALLOW_DEV_MIGRATIONS=true en deployment dev."
+  );
 }
 
 /**

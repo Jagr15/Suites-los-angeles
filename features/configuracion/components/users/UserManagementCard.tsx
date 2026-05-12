@@ -20,7 +20,7 @@ import { userSchema } from "../../schemas/user-schema";
 
 export function UserManagementCard() {
   const { isOpen, onOpen, onOpenChange } = useDisclosure();
-  const { users, roles, isLoading: isUsersLoading, addUser, updateUser, deleteUser } = useUsers();
+  const { users, roles, rolesAll, isLoading: isUsersLoading, addUser, updateUser, deleteUser } = useUsers();
   const { profiles, isLoading: isProfilesLoading } = useProfiles();
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [userToDelete, setUserToDelete] = useState<User | null>(null);
@@ -32,7 +32,7 @@ export function UserManagementCard() {
   const handleEdit = (user: User) => {
     setSelectedUser(user);
     // Buscamos el roleId correspondiente al nombre del rol para el modal
-    const roleId = roles?.find(r => r.name === user.role)?._id;
+    const roleId = rolesAll?.find(r => r.name === user.role)?._id;
     setFormState({ ...user, roleId });
     onOpen();
   };

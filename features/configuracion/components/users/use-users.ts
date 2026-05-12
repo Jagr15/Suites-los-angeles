@@ -10,7 +10,8 @@ const hasAnyPermission = (permissions: string[] | undefined, keys: string[]) => 
 
 export function useUsers() {
   const rawUsers = useQuery(api.users.queries.listAll);
-  const roles = useQuery(api.roles.queries.listAll);
+  const rolesAll = useQuery(api.roles.queries.listAll);
+  const rolesAssignable = useQuery(api.roles.queries.listAssignable);
 
   const upsertUserMutation = useMutation(api.users.mutations.upsertUser);
   const removeUserMutation = useMutation(api.users.mutations.removeUser);
@@ -24,11 +25,11 @@ export function useUsers() {
     role: (u.roleData?.name || u.role || "Sin Rol") as string,
     isActive: u.isActive ?? true,
     permissions: {
-      ventas: hasAnyPermission(u.roleData?.permissions, ["all", "sales:view", "sales:edit"]),
+      ventas: hasAnyPermission(u.roleData?.permissions, ["all", "sales:view", "sales:create", "sales:edit"]),
       inventario: hasAnyPermission(u.roleData?.permissions, ["all", "inventory:view", "inventory:edit", "warehouse:view"]),
       rutas: hasAnyPermission(u.roleData?.permissions, ["all", "routes:view"]),
-      finanzas: hasAnyPermission(u.roleData?.permissions, ["all", "finances:view"]),
-      configuracion: hasAnyPermission(u.roleData?.permissions, ["all", "settings:view", "users:view", "users:edit"]),
+      finanzas: hasAnyPermission(u.roleData?.permissions, ["all", "finance:view", "finance:edit", "finances:view", "finances:edit"]),
+      configuracion: hasAnyPermission(u.roleData?.permissions, ["all", "settings:manage", "users:manage", "settings:view", "users:view", "users:edit"]),
     },
   }));
 
@@ -59,8 +60,9 @@ export function useUsers() {
 
   return {
     users,
-    roles,
-    isLoading: rawUsers === undefined || roles === undefined,
+    roles: rolesAssignable,
+    rolesAll,
+    isLoading: rawUsers === undefined || rolesAll === undefined || rolesAssignable === undefined,
     addUser,
     updateUser,
     deleteUser,

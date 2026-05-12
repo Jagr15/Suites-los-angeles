@@ -35,11 +35,11 @@ const ROLE_PERMISSIONS: Record<string, User["permissions"]> = {
 const mapRolePermissionsToUi = (permissions: string[]): User["permissions"] => {
   const has = (keys: string[]) => permissions.includes("all") || keys.some((k) => permissions.includes(k));
   return {
-    ventas: has(["sales:view", "sales:edit"]),
+    ventas: has(["sales:view", "sales:create", "sales:edit"]),
     inventario: has(["inventory:view", "inventory:edit", "warehouse:view"]),
     rutas: has(["routes:view"]),
-    finanzas: has(["finances:view"]),
-    configuracion: has(["settings:view", "users:view", "users:edit"]),
+    finanzas: has(["finance:view", "finance:edit", "finances:view", "finances:edit"]),
+    configuracion: has(["settings:manage", "users:manage", "settings:view", "users:view", "users:edit"]),
   };
 };
 
@@ -93,6 +93,8 @@ export function UserModal({
   const [isVisible, setIsVisible] = useState(false);
   const toggleVisibility = () => setIsVisible(!isVisible);
   const hasProfiles = profiles.length > 0;
+  const isEditingSuperAdmin =
+    !!selectedUser && ["superadmin", "super admin"].includes(normalizeRoleKey(selectedUser.role));
   const isAdminRole = ["administrador", "admin", "superadmin", "super admin"].includes(
     normalizeRoleKey(formState.role)
   );
@@ -202,6 +204,8 @@ export function UserModal({
                   <div className="flex flex-col gap-1">
                     <RoleSelect
                       selectedRoleId={formState.roleId}
+                      rolesSource={isEditingSuperAdmin ? "all" : "assignable"}
+                      isDisabled={isEditingSuperAdmin}
                       onRoleChange={(roleId) => {
                         setFormState((prev) => ({
                           ...prev,
@@ -209,6 +213,11 @@ export function UserModal({
                         }));
                       }}
                     />
+                    {isEditingSuperAdmin && (
+                      <p className="text-tiny text-warning font-medium px-1">
+                        SuperAdmin no es asignable ni editable desde este flujo.
+                      </p>
+                    )}
                     {formState.role === "Vendedor" && (
                       <p className="text-tiny text-warning font-medium px-1">
                         ⚠️ Los vendedores no tienen acceso a este panel web (solo app móvil).
