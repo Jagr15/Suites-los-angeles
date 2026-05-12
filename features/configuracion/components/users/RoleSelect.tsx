@@ -25,6 +25,12 @@ export function RoleSelect({
 }: RoleSelectProps) {
   const roles = useQuery(api.roles.queries.listAll);
   const roleItems = roles || [];
+  const emitRoleChange = (roleId?: string) => {
+    if (!roleId) return;
+    const role = roleItems.find((r) => r._id === roleId);
+    if (!role) return;
+    onRoleChange(roleId, role.name, role.permissions || [], role);
+  };
 
   return (
     <Select
@@ -38,26 +44,11 @@ export function RoleSelect({
       onSelectionChange={(keys) => {
         const selectedKeys = keys === "all" ? [] : Array.from(keys);
         const roleId = selectedKeys[0] as string | undefined;
-        const debugEnabled = typeof window !== "undefined" && window.location.search.includes("debugRoles=1");
-        if (debugEnabled) {
-          console.info("[RoleSelect] onSelectionChange raw", {
-            keys,
-            selectedKeys,
-            roleId,
-            rolesAvailable: roleItems,
-          });
-        }
-        if (!roleId) return;
-        const role = roleItems.find((r) => r._id === roleId);
-        if (debugEnabled) {
-          console.info("[RoleSelect] resolved role", {
-            roleId,
-            roleFound: role,
-          });
-        }
-        if (role) {
-          onRoleChange(roleId, role.name, role.permissions || [], role);
-        }
+        emitRoleChange(roleId);
+      }}
+      onChange={(e) => {
+        const roleId = (e.target as HTMLSelectElement | null)?.value;
+        emitRoleChange(roleId || undefined);
       }}
     >
       {roleItems.map((role) => (
