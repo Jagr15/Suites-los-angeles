@@ -75,17 +75,53 @@ export function UserManagementCard() {
 
     setIsSaving(true);
     try {
+      type SaveUserResult = {
+        ok: boolean;
+        userId: string;
+        operation: "create" | "update" | "exists";
+        authConfigured: boolean;
+        warning?: string;
+      };
+      let result: SaveUserResult | undefined;
+
       if (selectedUser) {
-        await updateUser(selectedUser.id, formState);
+        result = await updateUser(selectedUser.id, formState) as SaveUserResult;
       } else {
-        await addUser(formState);
+        result = await addUser(formState) as SaveUserResult;
       }
 
-      addToast({
-        title: selectedUser ? "Usuario Actualizado" : "Usuario Creado",
-        description: `El acceso para ${formState.email} ha sido guardado.`,
-        color: "success",
-      });
+      if (!result?.ok) {
+        throw new Error("Respuesta inválida del backend al guardar usuario.");
+      }
+
+      const submittedPassword = (formState as { password?: string }).password;
+      const createdWithPassword = Boolean(submittedPassword && submittedPassword.trim().length > 0);
+
+      if (selectedUser) {
+        addToast({
+          title: "Usuario Actualizado",
+          description: `El acceso para ${formState.email} ha sido guardado.`,
+          color: "success",
+        });
+      } else if (result.operation === "exists") {
+        addToast({
+          title: "Usuario ya existente",
+          description: "El usuario ya estaba creado. Se evitó registrar un duplicado.",
+          color: "warning",
+        });
+      } else if (result.warning || (createdWithPassword && !result.authConfigured)) {
+        addToast({
+          title: "Usuario creado, configuración adicional pendiente",
+          description: `El usuario se creó correctamente, pero falló la asignación/configuración adicional. ${result.warning || ""}`.trim(),
+          color: "warning",
+        });
+      } else {
+        addToast({
+          title: "Usuario Creado",
+          description: `El acceso para ${formState.email} ha sido guardado.`,
+          color: "success",
+        });
+      }
       onOpenChange(); // Close modal
     } catch (error) {
       console.error("Error saving user:", error);

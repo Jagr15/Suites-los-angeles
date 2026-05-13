@@ -1,5 +1,6 @@
 import { query } from "../_generated/server";
 import { v } from "convex/values";
+import { Id } from "../_generated/dataModel";
 
 /**
  * Obtiene todas las rutas.
@@ -13,9 +14,16 @@ export const list = query({
     return Promise.all(
       routes.map(async (route) => {
         const profile = route.assignedProfileId ? await ctx.db.get(route.assignedProfileId) : null;
-        const asset = route.assetId ? await ctx.db.get(route.assetId) : null;
+        let asset = route.assetId ? await ctx.db.get(route.assetId) : null;
+        if (!asset && route.vehicleId) {
+          const vehicle = await ctx.db.get(route.vehicleId as Id<"vehicles">);
+          if (vehicle?.assetId) {
+            asset = await ctx.db.get(vehicle.assetId);
+          }
+        }
         return {
           ...route,
+          assetId: route.assetId || asset?._id,
           assignedProfileName: profile?.fullName ?? "Desconocido",
           vehicleInfo: asset ? `${asset.name} (${asset.serialNumber || "S/N"})` : "Sin transporte",
         };
@@ -46,9 +54,16 @@ export const listByProfile = query({
 
     return Promise.all(
       routes.map(async (route) => {
-        const asset = route.assetId ? await ctx.db.get(route.assetId) : null;
+        let asset = route.assetId ? await ctx.db.get(route.assetId) : null;
+        if (!asset && route.vehicleId) {
+          const vehicle = await ctx.db.get(route.vehicleId as Id<"vehicles">);
+          if (vehicle?.assetId) {
+            asset = await ctx.db.get(vehicle.assetId);
+          }
+        }
         return {
           ...route,
+          assetId: route.assetId || asset?._id,
           vehicleInfo: asset ? `${asset.name} (${asset.plate || "S/P"})` : "Sin transporte",
         };
       })

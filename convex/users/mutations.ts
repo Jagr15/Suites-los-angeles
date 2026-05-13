@@ -3,6 +3,7 @@ import { v } from "convex/values";
 import { requireAdmin, requireAdminOrDevMigration } from "../common/utils";
 import { hashPassword, verifyPassword } from "../common/hashing";
 import { getAuthUserId } from "@convex-dev/auth/server";
+import { Id } from "../_generated/dataModel";
 
 const OPERATIONAL_ROLE_NAMES = new Set(["SuperAdmin", "Admin", "Bodeguero", "Vendedor"]);
 
@@ -38,6 +39,7 @@ export const upsertUser = mutation({
   handler: async (ctx, args) => {
     await requireAdmin(ctx);
     const { id, email, password, roleId, role: _clientRole, ...userData } = args;
+    const operation = id ? "update" : "create";
 
     if (!email) {
       throw new Error("El correo electrónico es obligatorio");
@@ -84,7 +86,7 @@ export const upsertUser = mutation({
       profileId: args.profileId,
     };
     
-    let userId: any = id;
+    let userId: Id<"users"> | undefined = id;
     const existingByEmail = await ctx.db
       .query("users")
       .withIndex("by_email", (q) => q.eq("email", email))
@@ -97,7 +99,13 @@ export const upsertUser = mutation({
       await ctx.db.patch(id, { ...normalizedUserData, email });
     } else {
       if (existingByEmail) {
-        throw new Error("Ya existe un usuario con este correo.");
+        return {
+          ok: true,
+          userId: existingByEmail._id,
+          operation: "exists",
+          authConfigured: false,
+          warning: "Ya existe un usuario con este correo.",
+        };
       }
       userId = await ctx.db.insert("users", {
           ...normalizedUserData,
@@ -107,33 +115,47 @@ export const upsertUser = mutation({
       });
     }
 
+    let authConfigured = false;
+    let warning: string | undefined;
+
     // SI hay password y email, vinculamos la cuenta de autenticación
     if (password && email && userId) {
-      const hashedSecret = await hashPassword(password);
-      
-      const existingAccount = await ctx.db
-        .query("authAccounts")
-        .withIndex("providerAndAccountId", q => 
-          q.eq("provider", "password").eq("providerAccountId", email)
-        )
-        .unique();
+      try {
+        const hashedSecret = await hashPassword(password);
+        
+        const existingAccount = await ctx.db
+          .query("authAccounts")
+          .withIndex("providerAndAccountId", q => 
+            q.eq("provider", "password").eq("providerAccountId", email)
+          )
+          .unique();
 
-      if (existingAccount) {
-        await ctx.db.patch(existingAccount._id, { 
-          secret: hashedSecret,
-          userId: userId // Aseguramos que esté vinculado al user correcto
-        });
-      } else {
-        await ctx.db.insert("authAccounts", {
-          userId: userId,
-          provider: "password",
-          providerAccountId: email,
-          secret: hashedSecret,
-        });
+        if (existingAccount) {
+          await ctx.db.patch(existingAccount._id, { 
+            secret: hashedSecret,
+            userId: userId // Aseguramos que esté vinculado al user correcto
+          });
+        } else {
+          await ctx.db.insert("authAccounts", {
+            userId: userId,
+            provider: "password",
+            providerAccountId: email,
+            secret: hashedSecret,
+          });
+        }
+        authConfigured = true;
+      } catch (error) {
+        warning = error instanceof Error ? error.message : "No se pudo configurar autenticación.";
       }
     }
 
-    return userId;
+    return {
+      ok: true,
+      userId,
+      operation,
+      authConfigured,
+      warning,
+    };
   },
 });
 

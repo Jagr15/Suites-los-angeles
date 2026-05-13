@@ -17,25 +17,27 @@ export function useRoutes() {
 
   const addRoute = useCallback(async (route: Omit<Route, "id" | "assignedProfileName" | "vehicleInfo">) => {
     const { ...fields } = route;
-    return await createMutation({
+    const payload = {
       ...fields,
       destination: fields.destination,
       deliveryType: fields.deliveryType,
       assignedProfileId: fields.assignedProfileId as Id<"profiles">,
       assetId: fields.assetId as Id<"assets">,
-    } as any);
+    } as any;
+    return await createMutation(payload);
   }, [createMutation]);
 
   const updateRoute = useCallback(async (id: string, route: Partial<Route>) => {
     const { id: _, assignedProfileName: __, vehicleInfo: ___, ...fields } = route;
-    return await updateMutation({
+    const payload = {
       id: id as Id<"routes">,
       ...fields,
       ...(fields.destination ? { destination: fields.destination } : {}),
       ...(fields.deliveryType ? { deliveryType: fields.deliveryType } : {}),
       ...(fields.assignedProfileId ? { assignedProfileId: fields.assignedProfileId as Id<"profiles"> } : {}),
-      ...(fields.assetId ? { assetId: fields.assetId as Id<"assets"> } : {}),
-    } as any);
+      ...("assetId" in fields ? { assetId: fields.assetId as Id<"assets"> } : {}),
+    } as any;
+    return await updateMutation(payload);
   }, [updateMutation]);
 
   const deleteRoute = useCallback(async (id: string) => {

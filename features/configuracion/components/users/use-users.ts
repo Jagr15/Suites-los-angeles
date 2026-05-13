@@ -34,24 +34,26 @@ export function useUsers() {
   }));
 
   const addUser = async (data: Partial<UserUI> & { roleId?: string; password?: string }) => {
-    return await upsertUserMutation({
+    const payload = {
       email: data.email,
       roleId: data.roleId as Id<"roles">,
       profileId: data.profileId as Id<"profiles">,
       isActive: data.isActive,
       password: data.password, // Pasamos la contraseña al backend
-    });
+    };
+    return await upsertUserMutation(payload);
   };
 
   const updateUser = async (id: string, data: Partial<UserUI> & { roleId?: string; password?: string }) => {
-    return await upsertUserMutation({
+    const payload = {
       id: id as Id<"users">,
       email: data.email,
       roleId: data.roleId as Id<"roles">,
       profileId: data.profileId as Id<"profiles">,
       isActive: data.isActive,
       password: data.password, // Pasamos la contraseña si se está cambiando
-    });
+    };
+    return await upsertUserMutation(payload);
   };
 
   const deleteUser = async (id: string) => {

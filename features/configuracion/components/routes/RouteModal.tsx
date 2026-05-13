@@ -54,8 +54,14 @@ export function RouteModal({
   const updateClientMutation = useMutation(api.clients.mutations.update);
   const updateVisitOrder = useMutation(api.clients.mutations.updateVisitOrder);
 
-  // Filtrar solo activos de tipo transporte
-  const transportAssets = (assets || []).filter(a => a.category === "Equipo de Transporte");
+  // Filtrar activos de transporte compatibles (nombres legacy incluidos)
+  const transportAssets = (assets || []).filter((a) => {
+    const normalizedCategory = (a.category || "")
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toLowerCase();
+    return normalizedCategory.includes("transporte");
+  });
 
   const { 
     isOpen: isVehicleModalOpen, 

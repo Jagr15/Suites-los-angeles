@@ -90,20 +90,6 @@ export function ConfiguracionPage() {
           </Tab>
 
           <Tab
-            key="clientes"
-            title={
-              <div className="flex items-center space-x-2 text-sm">
-                <UsersIcon className="size-4" />
-                <span>Clientes</span>
-              </div>
-            }
-          >
-            <div className="mt-6">
-              <ClientsManagementCard />
-            </div>
-          </Tab>
-
-          <Tab
             key="proveedores"
             title={
               <div className="flex items-center space-x-2 text-sm">
@@ -142,6 +128,20 @@ export function ConfiguracionPage() {
           >
             <div className="mt-6">
               <RoutesManagementCard />
+            </div>
+          </Tab>
+
+          <Tab
+            key="clientes"
+            title={
+              <div className="flex items-center space-x-2 text-sm">
+                <UsersIcon className="size-4" />
+                <span>Clientes</span>
+              </div>
+            }
+          >
+            <div className="mt-6">
+              <ClientsManagementCard />
             </div>
           </Tab>
 
