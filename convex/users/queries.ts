@@ -25,6 +25,11 @@ function pickBestUserCandidate<T extends { role?: string; roleId?: string; isAct
   })[0] ?? null;
 }
 
+function looksLikeConvexId(value: string) {
+  const trimmed = value.trim();
+  return /^[a-z0-9]+$/i.test(trimmed) && trimmed.length >= 20 && trimmed.length <= 40;
+}
+
 export const current = query({
   args: {},
   handler: async (ctx) => {
@@ -48,8 +53,12 @@ export const current = query({
     // 2) Fallback: userId autenticado validado por Convex Auth (Id<"users"> seguro)
     if (!user) {
       const authUserId = await getAuthUserId(ctx);
-      if (authUserId) {
-        user = await ctx.db.get(authUserId);
+      if (authUserId && looksLikeConvexId(String(authUserId))) {
+        try {
+          user = await ctx.db.get(authUserId);
+        } catch {
+          user = null;
+        }
       }
     }
 

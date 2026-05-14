@@ -16,6 +16,7 @@ import {
   MapPinIcon,
 } from "@heroicons/react/24/outline";
 import { Client } from "./types";
+import { getGoogleMapsLink } from "./location-utils";
 
 interface ClientTableProps {
   items: Client[];
@@ -82,7 +83,10 @@ export function ClientTable({ items, onEdit, onDelete }: ClientTableProps) {
                 isIconOnly
                 size="sm"
                 variant="light"
-                onPress={() => window.open(client.mapsUrl, "_blank")}
+                onPress={() => {
+                  const url = getGoogleMapsLink(client.lat, client.lng, client.mapsUrl);
+                  if (url) window.open(url, "_blank");
+                }}
               >
                 <MapPinIcon className="size-5 text-default-400" />
               </Button>

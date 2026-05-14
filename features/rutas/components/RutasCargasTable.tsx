@@ -52,7 +52,7 @@ export function RutasCargasTable({ items }: RutasCargasTableProps) {
     };
 
     return (
-        <div className="flex flex-col gap-6 animate-in fade-in slide-in-from-top-4 duration-500">
+        <div className="flex flex-col gap-4 animate-in fade-in slide-in-from-top-4 duration-500">
             <div className="flex items-center gap-3">
                 <Input
                     placeholder="Buscar cargas, responsables, destinos..."
@@ -71,7 +71,7 @@ export function RutasCargasTable({ items }: RutasCargasTableProps) {
                 </Button>
             </div>
 
-            <div className="bg-white rounded-3xl border border-default-100 overflow-hidden shadow-sm">
+            <div className="bg-white rounded-2xl border border-default-100 overflow-hidden shadow-sm">
                 <Table aria-label="Tabla de cargas de ruta" shadow="none" removeWrapper className="bg-transparent">
                     <TableHeader>
                         <TableColumn className="bg-default-50 text-default-500 font-semibold uppercase tracking-wider h-11 text-xs px-6">No Carga</TableColumn>
@@ -83,7 +83,7 @@ export function RutasCargasTable({ items }: RutasCargasTableProps) {
                     </TableHeader>
                     <TableBody items={paginatedRows} emptyContent="No se encontraron cargas.">
                         {(item: RutaCargaRow) => (
-                            <TableRow key={item.id} className="border-b border-default-50 last:border-0 hover:bg-default-50/50 transition-colors h-14">
+                            <TableRow key={item.id} className="border-b border-default-50 last:border-0 hover:bg-default-50/50 transition-colors h-10">
                                 <TableCell className="px-6 font-mono font-bold text-primary text-sm">
                                     {item.numeroCarga}
                                 </TableCell>
@@ -110,7 +110,7 @@ export function RutasCargasTable({ items }: RutasCargasTableProps) {
                 </Table>
 
                 {totalPages > 1 && (
-                    <div className="p-4 flex justify-center border-t border-default-50 bg-default-50/30">
+                    <div className="p-3 flex justify-center border-t border-default-50 bg-default-50/30">
                         <Pagination
                             showControls
                             page={page}

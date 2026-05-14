@@ -4,12 +4,6 @@ import React from "react";
 import {
   Tabs,
   Tab,
-  Card,
-  CardBody,
-  CardHeader,
-  Button,
-  Switch,
-  Divider,
 } from "@heroui/react";
 import {
   BanknotesIcon,
@@ -19,7 +13,6 @@ import {
   BuildingOfficeIcon,
   UsersIcon,
   MapIcon,
-  ShoppingBagIcon,
 } from "@heroicons/react/24/outline";
 import { DashboardHeader } from "@/features/dashboard/components";
 import {
@@ -31,14 +24,13 @@ import {
   RoutesManagementCard,
   FinanceManagementCard,
   BodegasManagementCard,
-  AssetsManagementCard,
 } from "../components";
 
 export function ConfiguracionPage() {
   return (
     <div className="flex flex-col min-h-screen">
       <DashboardHeader />
-      <div className="flex flex-col gap-6 p-6">
+      <div className="flex flex-col gap-4 p-4 md:p-5">
         <div className="flex flex-col gap-1">
           <h1 className="text-xl font-semibold text-foreground">
             Configuración del Sistema
@@ -56,7 +48,7 @@ export function ConfiguracionPage() {
             base: "w-full",
             tabList: "gap-6 w-full relative rounded-none p-0 border-b border-divider overflow-x-auto",
             cursor: "w-full bg-primary",
-            tab: "max-w-fit px-0 h-12",
+            tab: "max-w-fit px-0 h-10",
             tabContent: "group-data-[selected=true]:text-primary font-medium text-default-500",
           }}
         >
@@ -69,7 +61,7 @@ export function ConfiguracionPage() {
               </div>
             }
           >
-            <div className="mt-6">
+            <div className="mt-4">
               <ProfilesManagementCard />
             </div>
           </Tab>
@@ -83,7 +75,7 @@ export function ConfiguracionPage() {
               </div>
             }
           >
-            <div className="mt-6 flex flex-col gap-6">
+            <div className="mt-4 flex flex-col gap-4">
               <UserManagementCard />
               <PermissionsMatrixCard />
             </div>
@@ -98,7 +90,7 @@ export function ConfiguracionPage() {
               </div>
             }
           >
-            <div className="mt-6">
+            <div className="mt-4">
               <SuppliersManagementCard />
             </div>
           </Tab>
@@ -112,7 +104,7 @@ export function ConfiguracionPage() {
               </div>
             }
           >
-            <div className="mt-6">
+            <div className="mt-4">
               <BodegasManagementCard />
             </div>
           </Tab>
@@ -126,7 +118,7 @@ export function ConfiguracionPage() {
               </div>
             }
           >
-            <div className="mt-6">
+            <div className="mt-4">
               <RoutesManagementCard />
             </div>
           </Tab>
@@ -140,7 +132,7 @@ export function ConfiguracionPage() {
               </div>
             }
           >
-            <div className="mt-6">
+            <div className="mt-4">
               <ClientsManagementCard />
             </div>
           </Tab>
@@ -155,7 +147,7 @@ export function ConfiguracionPage() {
               </div>
             }
           >
-            <div className="mt-6">
+            <div className="mt-4">
               <FinanceManagementCard />
             </div>
           </Tab>

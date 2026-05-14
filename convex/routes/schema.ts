@@ -5,7 +5,8 @@ export const routeFields = {
   name: v.string(),
   destination: v.optional(v.string()),
   deliveryType: v.optional(v.union(v.literal("sucursal"), v.literal("envio"))),
-  assignedProfileId: v.id("profiles"),
+  assignedUserId: v.optional(v.id("users")),
+  assignedProfileId: v.optional(v.id("profiles")),
   assetId: v.optional(v.id("assets")),
   vehicleId: v.optional(v.string()), // Agregado para compatibilidad con datos existentes
   operationDays: v.array(v.string()),
@@ -31,4 +32,5 @@ export const routeFields = {
 
 export const routesTable = defineTable(routeFields)
   .index("by_name", ["name"])
-  .index("by_assignedProfileId", ["assignedProfileId"]);
+  .index("by_assignedProfileId", ["assignedProfileId"])
+  .index("by_assignedUserId", ["assignedUserId"]);

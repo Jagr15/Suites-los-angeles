@@ -186,7 +186,7 @@ export const runReadinessAudit = query({
       }));
 
     const routesWithoutValidAssignee = routes
-      .filter((r) => !profileById.has(r.assignedProfileId))
+      .filter((r) => r.assignedProfileId && !profileById.has(r.assignedProfileId))
       .map((r) => ({ id: r._id, name: r.name, assignedProfileId: r.assignedProfileId }));
 
     const routesWithoutValidTransport = routes

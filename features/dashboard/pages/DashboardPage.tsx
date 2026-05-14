@@ -14,14 +14,14 @@ export function DashboardPage() {
   return (
     <div className="flex flex-col">
       <DashboardHeader />
-      <div className="space-y-8 p-6">
+      <div className="space-y-4 p-4 md:p-5">
         <DashboardStats />
         <DashboardCharts />
-        <div className="grid gap-6 lg:grid-cols-3">
+        <div className="grid gap-4 lg:grid-cols-3">
           <div className="lg:col-span-2">
             <DashboardTable />
           </div>
-          <div className="flex flex-col gap-6">
+          <div className="flex flex-col gap-4">
             <DashboardAgents />
             <DashboardLatestTransactions />
             <DashboardQuickActions />

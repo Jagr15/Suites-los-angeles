@@ -44,8 +44,8 @@ export function RouteTable({
       case "assignedProfile":
         return (
           <div className="flex flex-col">
-            <p className="text-bold text-small font-medium">{route.assignedProfileName}</p>
-            <p className="text-bold text-tiny text-default-500">Responsable</p>
+            <p className="text-bold text-small font-medium">{route.assignedUserName || route.assignedProfileName}</p>
+            <p className="text-bold text-tiny text-default-500">Usuario asignado</p>
           </div>
         );
       case "operationDays":

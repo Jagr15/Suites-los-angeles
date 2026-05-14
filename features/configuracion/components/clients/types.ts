@@ -18,6 +18,8 @@ export interface Client {
   assignedRouteName: string;
   creditLimit: number;
   creditDays: number;
+  lat?: number;
+  lng?: number;
   availableScheduleStart?: string;
   availableScheduleEnd?: string;
 }

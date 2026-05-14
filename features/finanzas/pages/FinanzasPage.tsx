@@ -10,7 +10,7 @@ export function FinanzasPage() {
   return (
     <div className="flex flex-col min-h-screen">
       <DashboardHeader />
-      <div className="space-y-6 p-6">
+      <div className="space-y-4 p-4 md:p-5">
         <FinanzasHeader
           selectedKey={activeTab}
           onSelectionChange={(key) => setActiveTab(key as string)}

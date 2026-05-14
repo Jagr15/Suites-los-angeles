@@ -40,7 +40,7 @@ export function RouteModal({
   selectedRoute,
   onClose,
 }: RouteModalProps) {
-  const profiles = useQuery(api.profiles.queries.listAll);
+  const users = useQuery(api.users.queries.listAll);
   const assets = useQuery(api.assets.queries.list);
   const { addRoute, updateRoute } = useRoutes();
   const [isSaving, setIsSaving] = React.useState(false);
@@ -82,7 +82,7 @@ export function RouteModal({
       name: "",
       destination: "",
       deliveryType: "sucursal",
-      assignedProfileId: "",
+      assignedUserId: "",
       assetId: "",
       operationDays: [],
       loadDay: "",
@@ -108,7 +108,7 @@ export function RouteModal({
         name: selectedRoute.name,
         destination: selectedRoute.destination,
         deliveryType: selectedRoute.deliveryType,
-        assignedProfileId: selectedRoute.assignedProfileId,
+        assignedUserId: selectedRoute.assignedUserId || "",
         assetId: selectedRoute.assetId,
         operationDays: selectedRoute.operationDays,
         loadDay: selectedRoute.loadDay,
@@ -131,7 +131,7 @@ export function RouteModal({
         name: "",
         destination: "",
         deliveryType: "sucursal",
-        assignedProfileId: "",
+        assignedUserId: "",
         assetId: "",
         operationDays: [],
         loadDay: "",
@@ -153,9 +153,7 @@ export function RouteModal({
   }, [selectedRoute, reset, isOpen]);
 
   const handleVehicleCreated = (vehicleId: string) => {
-    console.log("[ROUTE] vehicle created assetId", vehicleId);
     setValue("assetId", vehicleId, { shouldValidate: true });
-    console.log("[ROUTE] assetId auto-selected in form", vehicleId);
     addToast({
       title: "Vehículo y Activo Creados",
       description: "El nuevo transporte fue seleccionado en esta ruta.",
@@ -340,12 +338,12 @@ export function RouteModal({
                         />
 
                         <Controller
-                          name="assignedProfileId"
+                          name="assignedUserId"
                           control={control}
                           render={({ field }) => (
                             <Select
-                              label="Responsable (Perfil)"
-                              placeholder="Selecciona un responsable"
+                              label="Usuario asignado"
+                              placeholder="Selecciona un usuario"
                               variant="bordered"
                               labelPlacement="outside"
                               selectedKeys={field.value ? [field.value] : []}
@@ -353,14 +351,14 @@ export function RouteModal({
                                 const val = Array.from(keys)[0] as string;
                                 field.onChange(val);
                               }}
-                              isLoading={profiles === undefined}
+                              isLoading={users === undefined}
                               isRequired
-                              isInvalid={!!errors.assignedProfileId}
-                              errorMessage={errors.assignedProfileId?.message}
+                              isInvalid={!!errors.assignedUserId}
+                              errorMessage={errors.assignedUserId?.message}
                             >
-                              {(profiles || []).map((p) => (
-                                <SelectItem key={p._id} textValue={p.fullName}>
-                                  {p.fullName}
+                              {(users || []).filter((u) => (u.isActive ?? true)).map((u) => (
+                                <SelectItem key={u._id} textValue={u.profileData?.fullName || u.name || u.email || "Sin nombre"}>
+                                  {u.profileData?.fullName || u.name || u.email || "Sin nombre"}
                                 </SelectItem>
                               ))}
                             </Select>

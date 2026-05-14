@@ -30,6 +30,8 @@ export function useClients() {
     assignedRouteName: c.assignedRouteName || "",
     creditLimit: c.creditLimit,
     creditDays: c.creditDays,
+    lat: c.lat,
+    lng: c.lng,
     availableScheduleStart: c.availableScheduleStart,
     availableScheduleEnd: c.availableScheduleEnd,
   }));

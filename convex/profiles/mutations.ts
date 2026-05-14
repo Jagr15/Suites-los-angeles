@@ -19,6 +19,12 @@ const profileFields = {
   workStart: v.optional(v.string()),
   workEnd: v.optional(v.string()),
   workDays: v.optional(v.array(v.string())),
+  workSchedule: v.optional(v.array(v.object({
+    day: v.string(),
+    start: v.string(),
+    end: v.string(),
+    enabled: v.boolean(),
+  }))),
   group: v.optional(v.union(
     v.literal("Administración"),
     v.literal("Ventas"),

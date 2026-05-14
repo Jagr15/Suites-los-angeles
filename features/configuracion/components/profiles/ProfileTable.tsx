@@ -32,7 +32,7 @@ export function ProfileTable({ items, label, onEdit, onDelete, isLoading }: Prof
       case "fullName":
         return (
           <div className="flex flex-col">
-            <p className="text-bold text-small capitalize">{cellValue}</p>
+            <p className="text-bold text-small capitalize">{String(cellValue || "")}</p>
             <p className="text-bold text-tiny capitalize text-default-400">
               {profile.position}
             </p>
@@ -41,7 +41,7 @@ export function ProfileTable({ items, label, onEdit, onDelete, isLoading }: Prof
       case "hireDate":
         return (
           <div className="flex flex-col">
-            <p className="text-bold text-small">{cellValue}</p>
+            <p className="text-bold text-small">{String(cellValue || "")}</p>
             <p className="text-bold text-tiny text-default-400">Ingreso</p>
           </div>
         );
@@ -64,7 +64,7 @@ export function ProfileTable({ items, label, onEdit, onDelete, isLoading }: Prof
             size="sm"
             variant="flat"
           >
-            {cellValue}
+            {String(cellValue || "")}
           </Chip>
         );
       case "actions":
@@ -95,7 +95,9 @@ export function ProfileTable({ items, label, onEdit, onDelete, isLoading }: Prof
           </div>
         );
       default:
-        return cellValue;
+        return typeof cellValue === "string" || typeof cellValue === "number"
+          ? cellValue
+          : "";
     }
   };
 

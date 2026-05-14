@@ -74,6 +74,12 @@ export default defineSchema({
     workStart: v.optional(v.string()), // Formato "HH:mm"
     workEnd: v.optional(v.string()),   // Formato "HH:mm"
     workDays: v.optional(v.array(v.string())), // ["L", "M", "X", "J", "V", "S", "D"]
+    workSchedule: v.optional(v.array(v.object({
+      day: v.string(),
+      start: v.string(),
+      end: v.string(),
+      enabled: v.boolean(),
+    }))),
     image: v.optional(v.string()),
   }).index("by_userId", ["userId"]),
   // Tabla de Clientes

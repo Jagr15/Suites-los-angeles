@@ -1,6 +1,11 @@
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { QueryCtx, MutationCtx } from "../_generated/server";
 
+function looksLikeConvexId(value: string) {
+  const trimmed = value.trim();
+  return /^[a-z0-9]+$/i.test(trimmed) && trimmed.length >= 20 && trimmed.length <= 40;
+}
+
 function isAdminRoleName(role?: string | null) {
   const normalized = (role || "").trim().toLowerCase();
   return normalized === "admin" || normalized === "superadmin" || normalized === "super admin";
@@ -13,14 +18,18 @@ export async function isAdmin(ctx: QueryCtx | MutationCtx) {
   const userId = await getAuthUserId(ctx);
 
   // 1) Verificación directa por el userId autenticado (si existe y es válido)
-  if (userId) {
-    const currentUser = await ctx.db.get(userId);
-    if (currentUser) {
-      if (isAdminRoleName(currentUser.role)) return true;
-      if (currentUser.roleId) {
-        const roleDoc = await ctx.db.get(currentUser.roleId);
-        if (isAdminRoleName(roleDoc?.name)) return true;
+  if (userId && looksLikeConvexId(String(userId))) {
+    try {
+      const currentUser = await ctx.db.get(userId);
+      if (currentUser) {
+        if (isAdminRoleName(currentUser.role)) return true;
+        if (currentUser.roleId) {
+          const roleDoc = await ctx.db.get(currentUser.roleId);
+          if (isAdminRoleName(roleDoc?.name)) return true;
+        }
       }
+    } catch {
+      // Subject inválido o no decodificable: seguimos con fallback seguro por email.
     }
   }
 

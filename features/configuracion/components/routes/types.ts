@@ -17,8 +17,10 @@ export interface Route {
   name: string;
   destination: string;
   deliveryType: "sucursal" | "envio";
-  assignedProfileId: string;
-  assignedProfileName: string;
+  assignedUserId: string;
+  assignedUserName: string;
+  assignedProfileId?: string;
+  assignedProfileName?: string;
   assetId: string;
   vehicleInfo: string;
   operationDays: string[];

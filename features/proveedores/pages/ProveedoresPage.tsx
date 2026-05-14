@@ -229,7 +229,7 @@ export function ProveedoresPage() {
   return (
     <div className="flex flex-col min-h-screen bg-default-50/50">
       <DashboardHeader />
-      <div className="p-6 space-y-6">
+      <div className="p-4 md:p-5 space-y-4">
         {!isFormVisible && !selectedEstadoCuentaDetails && (
           <ProveedoresHeader
             selectedKey={activeTab}
@@ -249,7 +249,7 @@ export function ProveedoresPage() {
         ) : (
           <>
             {activeTab === "compras" && (
-              <div className="space-y-6">
+              <div className="space-y-4">
                 <ProveedoresToolbar
                   onAgregar={() => setIsFormVisible(true)}
                   onImportExcel={handleImportExcel}

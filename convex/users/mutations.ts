@@ -262,6 +262,11 @@ function normalizeText(value?: string | null) {
     .toLowerCase();
 }
 
+function looksLikeConvexId(value: string) {
+  const trimmed = value.trim();
+  return /^[a-z0-9]+$/i.test(trimmed) && trimmed.length >= 20 && trimmed.length <= 40;
+}
+
 /**
  * Normaliza usuarios sin profileId.
  * - preview por defecto (apply=false)
@@ -405,13 +410,18 @@ export const updateMe = mutation({
   },
   handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
-    if (!userId) {
+    if (!userId || !looksLikeConvexId(String(userId))) {
       throw new Error("No autenticado");
     }
 
     const { name, email, phone, image, password, currentPassword } = args;
-    
-    const user = await ctx.db.get(userId);
+
+    let user = null;
+    try {
+      user = await ctx.db.get(userId);
+    } catch {
+      throw new Error("No autenticado");
+    }
     if (!user) throw new Error("Usuario no encontrado");
 
     // 1. Verificación de seguridad si se quiere cambiar el password

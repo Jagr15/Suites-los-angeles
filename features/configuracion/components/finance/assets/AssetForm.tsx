@@ -17,21 +17,30 @@ import { api } from "@/convex/_generated/api";
 interface AssetFormProps {
   onClose: () => void;
   onSave: (data: any) => void;
+  initialData?: any | null;
+  mode?: "create" | "edit";
 }
 
-export function AssetForm({ onClose, onSave }: AssetFormProps) {
+export function AssetForm({ onClose, onSave, initialData, mode = "create" }: AssetFormProps) {
   const assetTypes = useQuery(api.fixedAssetTypes.list);
-  const [category, setCategory] = useState<string>("");
-  const [name, setName] = useState("");
-  const [model, setModel] = useState("");
-  const [brand, setBrand] = useState("");
-  const [plate, setPlate] = useState("");
-  const [year, setYear] = useState("");
-  const [acquisitionDate, setAcquisitionDate] = useState(new Date().toISOString().split('T')[0]);
-  const [acquisitionValue, setAcquisitionValue] = useState("");
-  const [usefulLifeYears, setUsefulLifeYears] = useState("");
-  const [serialNumber, setSerialNumber] = useState("");
-  const [status, setStatus] = useState<string>("Activo");
+  const [category, setCategory] = useState<string>(initialData?.category || "");
+  const [name, setName] = useState(initialData?.name || "");
+  const [description, setDescription] = useState(initialData?.description || "");
+  const [model, setModel] = useState(initialData?.model || "");
+  const [brand, setBrand] = useState(initialData?.brand || "");
+  const [plate, setPlate] = useState(initialData?.plate || "");
+  const [year, setYear] = useState(initialData?.year || "");
+  const [acquisitionDate, setAcquisitionDate] = useState(
+    initialData?.acquisitionDate || new Date().toISOString().split("T")[0]
+  );
+  const [acquisitionValue, setAcquisitionValue] = useState(
+    initialData?.acquisitionValue?.toString() || ""
+  );
+  const [usefulLifeYears, setUsefulLifeYears] = useState(
+    initialData?.usefulLifeYears?.toString() || ""
+  );
+  const [serialNumber, setSerialNumber] = useState(initialData?.serialNumber || "");
+  const [status, setStatus] = useState<string>(initialData?.status || "Activo");
 
   const selectedType = assetTypes?.find(t => t.name === category);
   const isTransport = category === "Equipo de Transporte";
@@ -41,6 +50,7 @@ export function AssetForm({ onClose, onSave }: AssetFormProps) {
   const handleSave = () => {
     onSave({
       name,
+      description: description || undefined,
       category,
       model,
       brand,
@@ -57,7 +67,7 @@ export function AssetForm({ onClose, onSave }: AssetFormProps) {
 
   return (
     <>
-      <ModalHeader>Registro de Activo Fijo</ModalHeader>
+      <ModalHeader>{mode === "edit" ? "Editar Activo Fijo" : "Registro de Activo Fijo"}</ModalHeader>
       <ModalBody>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 py-2">
           <Select 
@@ -87,6 +97,15 @@ export function AssetForm({ onClose, onSave }: AssetFormProps) {
                 className="md:col-span-2"
                 value={name}
                 onValueChange={setName}
+              />
+              <Input
+                label="Notas / Descripción"
+                placeholder="Observaciones del activo"
+                variant="bordered"
+                labelPlacement="outside"
+                className="md:col-span-2"
+                value={description}
+                onValueChange={setDescription}
               />
               
               {/* Dynamic fields based on category */}
@@ -194,7 +213,7 @@ export function AssetForm({ onClose, onSave }: AssetFormProps) {
           onPress={handleSave}
           isDisabled={!category || !name || !acquisitionValue}
         >
-          Guardar Activo
+          {mode === "edit" ? "Guardar Cambios" : "Guardar Activo"}
         </Button>
       </ModalFooter>
     </>

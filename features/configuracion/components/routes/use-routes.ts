@@ -15,26 +15,26 @@ export function useRoutes() {
     id: r._id,
   })) as Route[];
 
-  const addRoute = useCallback(async (route: Omit<Route, "id" | "assignedProfileName" | "vehicleInfo">) => {
+  const addRoute = useCallback(async (route: Omit<Route, "id" | "assignedUserName" | "assignedProfileName" | "vehicleInfo">) => {
     const { ...fields } = route;
     const payload = {
       ...fields,
       destination: fields.destination,
       deliveryType: fields.deliveryType,
-      assignedProfileId: fields.assignedProfileId as Id<"profiles">,
+      assignedUserId: fields.assignedUserId as Id<"users">,
       assetId: fields.assetId as Id<"assets">,
     } as any;
     return await createMutation(payload);
   }, [createMutation]);
 
   const updateRoute = useCallback(async (id: string, route: Partial<Route>) => {
-    const { id: _, assignedProfileName: __, vehicleInfo: ___, ...fields } = route;
+    const { id: _, assignedUserName: __, assignedProfileName: ___, vehicleInfo: ____, ...fields } = route;
     const payload = {
       id: id as Id<"routes">,
       ...fields,
       ...(fields.destination ? { destination: fields.destination } : {}),
       ...(fields.deliveryType ? { deliveryType: fields.deliveryType } : {}),
-      ...(fields.assignedProfileId ? { assignedProfileId: fields.assignedProfileId as Id<"profiles"> } : {}),
+      ...(fields.assignedUserId ? { assignedUserId: fields.assignedUserId as Id<"users"> } : {}),
       ...("assetId" in fields ? { assetId: fields.assetId as Id<"assets"> } : {}),
     } as any;
     return await updateMutation(payload);

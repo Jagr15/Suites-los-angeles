@@ -53,8 +53,8 @@ export function BodegaEntradasTable({
   const totalPages = Math.ceil(items.length / ROWS_PER_PAGE);
 
   return (
-    <div className="flex flex-col gap-6 animate-in fade-in slide-in-from-top-4 duration-500">
-      <div className="bg-content1 rounded-3xl border border-default-100 overflow-hidden shadow-sm">
+    <div className="flex flex-col gap-4 animate-in fade-in slide-in-from-top-4 duration-500">
+      <div className="bg-content1 rounded-2xl border border-default-100 overflow-hidden shadow-sm">
         <Table aria-label="Tabla de entradas" shadow="none" removeWrapper className="bg-transparent">
           <TableHeader>
             {columns.map((column) => (
@@ -69,7 +69,7 @@ export function BodegaEntradasTable({
           </TableHeader>
           <TableBody items={paginatedRows} emptyContent="No hay registros registrados.">
             {(item: any) => (
-              <TableRow key={item._id} className="border-b border-default-50 last:border-0 hover:bg-default-50/50 transition-colors h-12">
+              <TableRow key={item._id} className="border-b border-default-50 last:border-0 hover:bg-default-50/50 transition-colors h-10">
                 <TableCell className="font-semibold text-primary text-sm">
                   {item.folio || `ENT-${item._id.toString().slice(-4)}`}
                 </TableCell>
@@ -139,7 +139,7 @@ export function BodegaEntradasTable({
         </Table>
 
         {totalPages > 1 && (
-          <div className="p-4 flex justify-center border-t border-default-50 bg-default-50/30">
+          <div className="p-3 flex justify-center border-t border-default-50 bg-default-50/30">
             <Pagination
               showControls
               page={page}

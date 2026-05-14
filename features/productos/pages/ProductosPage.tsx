@@ -225,7 +225,7 @@ export function ProductosPage() {
   return (
     <div className="flex flex-col">
       <DashboardHeader />
-      <div className="space-y-6 p-6">
+      <div className="space-y-4 p-4 md:p-5">
         <ProductosHeader activeTab={activeTab} onTabChange={setActiveTab} />
         <ProductosToolbar 
           onAgregar={handleOpenCreate} 
@@ -234,7 +234,7 @@ export function ProductosPage() {
           onSearchChange={setSearchQuery}
         />
         {hasPendingEdits && (
-          <div className="flex justify-end">
+          <div className="flex justify-end pt-1">
             <Button
               color="primary"
               startContent={<CheckIcon className="size-5" />}

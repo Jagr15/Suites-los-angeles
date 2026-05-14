@@ -31,6 +31,7 @@ import {
 } from "@heroicons/react/24/outline";
 import { Client, ROUTES } from "./types";
 import { StateSelector, MunicipalitySelector, LocalitySelector } from "@/shared/components/locations";
+import { ClientLocationPreview } from "./ClientLocationPreview";
 
 interface ClientModalProps {
   isOpen: boolean;
@@ -68,6 +69,8 @@ export function ClientModal({
       creditLimit: 0,
       creditDays: 0,
       mapsUrl: "",
+      lat: undefined,
+      lng: undefined,
       townId: "",
       townName: "",
       municipalityId: "",
@@ -92,6 +95,8 @@ export function ClientModal({
           rfc: selectedClient.rfc,
           taxRegime: selectedClient.taxRegime,
           mapsUrl: selectedClient.mapsUrl,
+          lat: selectedClient.lat,
+          lng: selectedClient.lng,
           townId: selectedClient.townId,
           townName: selectedClient.townName,
           municipalityId: selectedClient.municipalityId,
@@ -115,6 +120,8 @@ export function ClientModal({
           creditLimit: 0,
           creditDays: 0,
           mapsUrl: "",
+          lat: undefined,
+          lng: undefined,
           townId: "",
           townName: "",
           municipalityId: "",
@@ -335,6 +342,11 @@ export function ClientModal({
                       />
                     </div>
                   </div>
+                  <ClientLocationPreview
+                    mapsUrl={watch("mapsUrl")}
+                    lat={watch("lat")}
+                    lng={watch("lng")}
+                  />
                 </div>
 
                 <Divider />

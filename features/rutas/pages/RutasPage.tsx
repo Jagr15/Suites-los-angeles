@@ -75,7 +75,7 @@ export function RutasPage() {
   return (
     <div className="flex flex-col min-h-screen">
       <DashboardHeader />
-      <div className="space-y-6 p-6">
+      <div className="space-y-4 p-4 md:p-5">
         {isLoading ? (
           <div className="flex items-center justify-center min-h-[400px]">
             <span className="text-default-500 font-medium animate-pulse">Cargando rutas operativas...</span>
@@ -93,8 +93,8 @@ export function RutasPage() {
             />
           </div>
         ) : (
-          <div className="space-y-6 animate-in slide-in-from-right-4 duration-500">
-            <div className="flex flex-col gap-6">
+          <div className="space-y-4 animate-in slide-in-from-right-4 duration-500">
+            <div className="flex flex-col gap-4">
               <div className="flex items-center gap-4">
                 <Button
                   isIconOnly
@@ -106,7 +106,7 @@ export function RutasPage() {
                   <ArrowLeftIcon className="size-5" />
                 </Button>
                 <div className="flex flex-col">
-                  <h1 className="text-2xl font-black text-foreground uppercase tracking-tight leading-none">
+                  <h1 className="text-xl font-black text-foreground uppercase tracking-tight leading-none">
                     {selectedRuta.name}
                   </h1>
                   <span className="text-xs font-bold text-primary uppercase tracking-wider mt-1">
@@ -116,7 +116,7 @@ export function RutasPage() {
               </div>
 
               {/* Responsables Filter Tabs - Top Level */}
-              <div className="px-2">
+              <div className="px-1">
                 <Tabs 
                     variant="underlined"
                     aria-label="Filtro por responsable"
@@ -126,7 +126,7 @@ export function RutasPage() {
                         base: "w-full",
                         tabList: "gap-6 w-full relative rounded-none p-0 border-b border-divider overflow-x-auto",
                         cursor: "w-full bg-primary",
-                        tab: "max-w-fit px-0 h-12",
+                        tab: "max-w-fit px-0 h-10",
                         tabContent: "group-data-[selected=true]:text-primary font-bold text-default-500 uppercase text-xs tracking-widest"
                     }}
                 >
@@ -144,7 +144,7 @@ export function RutasPage() {
               />
             </div>
 
-            <div className="mt-6">
+            <div className="mt-4">
               {activeTab === "cargas" && (
                 <RutasCargasTable 
                   items={mockRutaCargas.filter(c => 

@@ -248,9 +248,9 @@ export function BodegaPage() {
   return (
     <div className="flex flex-col">
       <DashboardHeader />
-      <div className="flex-1 p-6">
+      <div className="flex-1 p-4 md:p-5">
         {view === "list" ? (
-          <div className="mx-auto  space-y-6">
+          <div className="mx-auto space-y-4">
             <BodegaHeader
               selectedKey={activeTab}
               onSelectionChange={(key) => setActiveTab(key as TabKey)}

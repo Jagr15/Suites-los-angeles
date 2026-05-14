@@ -16,6 +16,12 @@ export interface Profile {
   workStart?: string;
   workEnd?: string;
   workDays?: string[];
+  workSchedule?: Array<{
+    day: string;
+    start: string;
+    end: string;
+    enabled: boolean;
+  }>;
   group?: "Administración" | "Ventas" | "Bodega" | "Sistemas";
   workplaceType?: "Casa" | "Bodega" | "Ruta" | "Ventas";
   assignedBodegaId?: string;

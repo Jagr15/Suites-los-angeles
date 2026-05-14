@@ -27,22 +27,33 @@ export function FixedAssetsTab() {
   // Convex integration
   const assets = useQuery(api.assets.queries.list);
   const createAsset = useMutation(api.assets.mutations.create);
+  const updateAsset = useMutation(api.assets.mutations.update);
   const removeAsset = useMutation(api.assets.mutations.remove);
 
   const [assetToDelete, setAssetToDelete] = useState<any | null>(null);
+  const [assetToEdit, setAssetToEdit] = useState<any | null>(null);
 
   const handleSaveAsset = async (data: any) => {
     try {
-      await createAsset(data);
+      if (assetToEdit?._id) {
+        await updateAsset({ id: assetToEdit._id, ...data });
+      } else {
+        await createAsset(data);
+      }
       addToast({
-        title: "Activo Registrado",
-        description: "El activo se ha guardado en la base de datos.",
+        title: assetToEdit ? "Activo Actualizado" : "Activo Registrado",
+        description: assetToEdit
+          ? "Los cambios del activo se guardaron correctamente."
+          : "El activo se ha guardado en la base de datos.",
         color: "success",
       });
+      setAssetToEdit(null);
     } catch (error) {
       addToast({
         title: "Error",
-        description: "No se pudo guardar el activo.",
+        description: assetToEdit
+          ? "No se pudo actualizar el activo."
+          : "No se pudo guardar el activo.",
         color: "danger",
       });
     }
@@ -96,13 +107,32 @@ export function FixedAssetsTab() {
 
       <AssetTable 
         assets={(assets || []).map((a) => ({ ...a, id: String(a._id) })) as any} 
+        onEdit={(asset) => {
+          setAssetToEdit(asset);
+          onOpen();
+        }}
         onDelete={(asset) => setAssetToDelete(asset)} 
       />
 
-      <Modal isOpen={isOpen} onOpenChange={onOpenChange} size="2xl">
+      <Modal
+        isOpen={isOpen}
+        onOpenChange={(open) => {
+          if (!open) setAssetToEdit(null);
+          onOpenChange();
+        }}
+        size="2xl"
+      >
         <ModalContent>
           {(onClose) => (
-            <AssetForm onClose={onClose} onSave={handleSaveAsset} />
+            <AssetForm
+              onClose={() => {
+                setAssetToEdit(null);
+                onClose();
+              }}
+              onSave={handleSaveAsset}
+              initialData={assetToEdit}
+              mode={assetToEdit ? "edit" : "create"}
+            />
           )}
         </ModalContent>
       </Modal>

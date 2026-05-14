@@ -14,11 +14,17 @@ import {
 import { TrashIcon, PencilSquareIcon } from "@heroicons/react/24/outline";
 
 interface FixedAsset {
-  id: string;
+  _id?: string;
+  id?: string;
   name: string;
   category: string;
   acquisitionValue: number;
   usefulLifeYears: number;
+  acquisitionDate?: string;
+  description?: string;
+  serialNumber?: string;
+  year?: string;
+  status?: "Activo" | "Inactivo" | "Mantenimiento";
   model?: string;
   brand?: string;
   plate?: string;
@@ -26,10 +32,11 @@ interface FixedAsset {
 
 interface AssetTableProps {
   assets: FixedAsset[];
+  onEdit: (asset: FixedAsset) => void;
   onDelete: (asset: FixedAsset) => void;
 }
 
-export function AssetTable({ assets, onDelete }: AssetTableProps) {
+export function AssetTable({ assets, onEdit, onDelete }: AssetTableProps) {
   const formatCurrency = (val: number) => 
     new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN" }).format(val);
 
@@ -65,7 +72,10 @@ export function AssetTable({ assets, onDelete }: AssetTableProps) {
             <TableCell>
               <div className="flex items-center gap-3">
                 <Tooltip content="Editar">
-                  <PencilSquareIcon className="size-5 text-default-400 cursor-pointer hover:text-primary transition-colors" />
+                  <PencilSquareIcon
+                    className="size-5 text-default-400 cursor-pointer hover:text-primary transition-colors"
+                    onClick={() => onEdit(item)}
+                  />
                 </Tooltip>
                 <Tooltip content="Eliminar" color="danger">
                   <TrashIcon 
