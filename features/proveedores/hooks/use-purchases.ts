@@ -12,9 +12,10 @@ export type Purchase = {
   folio: string;
   date: string;
   totalAmount: number;
-  status: "Pendiente" | "Pagado" | "Cancelado";
+  status: "Pendiente" | "Pagado" | "Cancelado" | "Vencido";
   receptionStatus: "Completa" | "Faltante" | "Pendiente";
   notes?: string;
+  items?: PurchaseItem[];
 };
 
 export type PurchaseItem = {
@@ -35,11 +36,10 @@ export function usePurchases() {
     id: p._id as string,
   })) as Purchase[];
 
-  const addPurchase = useCallback(async (purchase: Omit<Purchase, "id" | "supplierName" | "bodegaName"> & { items?: PurchaseItem[] }) => {
+  const addPurchase = useCallback(async (purchase: Omit<Purchase, "id" | "supplierName" | "bodegaName" | "folio"> & { items?: PurchaseItem[] }) => {
     return await createMutation({
       supplierId: purchase.supplierId as Id<"suppliers">,
       bodegaId: purchase.bodegaId as Id<"bodegas">,
-      folio: purchase.folio,
       date: purchase.date,
       totalAmount: purchase.totalAmount,
       status: purchase.status,
@@ -52,13 +52,17 @@ export function usePurchases() {
     });
   }, [createMutation]);
 
-  const updatePurchase = useCallback(async (id: string, purchase: Partial<Purchase>) => {
+  const updatePurchase = useCallback(async (id: string, purchase: Partial<Purchase> & { items?: PurchaseItem[] }) => {
     const { id: _, supplierName: __, bodegaName: ___, ...fields } = purchase;
     return await updateMutation({ 
       id: id as Id<"purchases">, 
       ...fields,
       supplierId: fields.supplierId ? (fields.supplierId as Id<"suppliers">) : undefined,
       bodegaId: fields.bodegaId ? (fields.bodegaId as Id<"bodegas">) : undefined,
+      items: fields.items?.map((item) => ({
+        ...item,
+        productId: item.productId as Id<"products">,
+      })),
     } as any);
   }, [updateMutation]);
 

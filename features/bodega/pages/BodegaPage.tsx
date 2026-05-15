@@ -6,6 +6,7 @@ import { api } from "@/convex/_generated/api";
 import { addToast, Button, useDisclosure } from "@heroui/react";
 import { ConfirmModal } from "@/shared/components";
 import { DashboardHeader } from "@/features/dashboard/components";
+import { useRoles } from "@/shared/hooks";
 import { BodegaHeader, BodegaToolbar, BodegaTable, BodegaEntradasTable, BodegaSalidaForm, BodegaEntradaForm, BodegaInventory, BodegaNominas, BodegaSalidas, BodegaGastos, BodegaIngresos, BodegaDeudas, BodegaInventoryForm } from "../components";
 import { BodegaModal as BodegaCatalogModal } from "@/features/configuracion/components/bodegas/BodegaModal";
 import { mockNominas, mockSalidas, mockGastos, mockIngresos, type NominaRow, type SalidaRow, type GastoRow, type IngresoRow } from "@/shared/mocks";
@@ -36,6 +37,7 @@ export function BodegaPage() {
   const updateSalida = useMutation(api.salidas.mutations.update);
   const removeSalida = useMutation(api.salidas.mutations.remove);
   const updateReceptionStatus = useMutation(api.purchases.mutations.updateReceptionStatus);
+  const { hasPermission, isAdmin } = useRoles();
 
   const [nominas] = useState<NominaRow[]>(() => mockNominas);
   const [gastos] = useState<GastoRow[]>(() => mockGastos);
@@ -91,15 +93,18 @@ export function BodegaPage() {
         }));
 
         // Limpiar el objeto principal para enviar solo lo que el schema espera
-        const { supplierId, bodegaId, folio, date, totalAmount, status, receptionStatus, notes } = values;
+        const { supplierId, bodegaId, date, totalAmount, status, receptionStatus, notes } = values;
+        const existing = editId ? (purchases || []).find((p: any) => p._id === editId) : null;
+        const canEditPayment = isAdmin || hasPermission("purchases:edit_payment_status");
+        const canEditReception = isAdmin || hasPermission("purchases:edit_reception_status");
+        const canEditDate = isAdmin || hasPermission("purchases:edit_date");
         const cleanValues = {
           supplierId,
           bodegaId,
-          folio,
-          date,
+          date: editId ? (canEditDate ? date : existing?.date) : date,
           totalAmount,
-          status,
-          receptionStatus,
+          status: editId ? (canEditPayment ? status : existing?.status) : status,
+          receptionStatus: editId ? (canEditReception ? receptionStatus : existing?.receptionStatus) : receptionStatus,
           notes,
           items: cleanItems
         };
@@ -120,7 +125,7 @@ export function BodegaPage() {
         addToast({ title: "Error", description: "No se pudo guardar la entrada", color: "danger" });
       }
     },
-    [createPurchase, updatePurchase]
+    [createPurchase, hasPermission, isAdmin, purchases, updatePurchase]
   );
 
   const handleSubmitSalida = useCallback(
@@ -266,7 +271,10 @@ export function BodegaPage() {
                 items={(purchases || []) as any} 
                 onPasarASalida={handlePasarASalida}
                 onBorrar={(item) => setBodegaToDelete(item)}
-                onEditar={(item) => setSalidaToEdit(item as any)}
+                onEditar={(item) => {
+                  setBodegaToEdit(item as any);
+                  setView("form");
+                }}
                 onAvanzarEstado={handleAvanzarEntrada}
               />
             ) : activeTab === "catalogo" ? (
@@ -347,6 +355,9 @@ export function BodegaPage() {
               key={bodegaToEdit?._id || "new-entrada"}
               entrada={bodegaToEdit}
               onSubmit={handleSubmitEntrada}
+              canEditPaymentStatus={isAdmin || hasPermission("purchases:edit_payment_status")}
+              canEditReceptionStatus={isAdmin || hasPermission("purchases:edit_reception_status")}
+              canEditDate={isAdmin || hasPermission("purchases:edit_date")}
               onCancel={() => {
                 setBodegaToEdit(null);
                 setSalidaToEdit(null);

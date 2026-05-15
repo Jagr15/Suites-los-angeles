@@ -1,7 +1,7 @@
 import { mutation } from "../_generated/server";
 import { v } from "convex/values";
 import { purchaseFields } from "./schema";
-import { requireIdentity } from "../common/utils";
+import { requireIdentity, requirePermission } from "../common/utils";
 import type { Id } from "../_generated/dataModel";
 import type { MutationCtx } from "../_generated/server";
 
@@ -11,6 +11,50 @@ type PurchaseItemInput = {
   unitCost: number;
   totalCost: number;
 };
+
+type PurchaseStatus = "Pendiente" | "Pagado" | "Cancelado" | "Vencido";
+type ReceptionStatus = "Completa" | "Faltante" | "Pendiente";
+
+function shouldApplyStock(status: PurchaseStatus, receptionStatus: ReceptionStatus) {
+  return status !== "Cancelado" && receptionStatus === "Completa";
+}
+
+async function getNextPurchaseFolio(ctx: MutationCtx) {
+  const existing = await ctx.db
+    .query("sequences")
+    .withIndex("by_key", (q) => q.eq("key", "purchase_folio"))
+    .unique();
+
+  if (existing) {
+    const next = existing.value + 1;
+    await ctx.db.patch(existing._id, { value: next });
+    return {
+      folioNumber: next,
+      folio: `C-${String(next).padStart(5, "0")}`,
+    };
+  }
+
+  const purchases = await ctx.db.query("purchases").collect();
+  let maxLegacy = 0;
+  for (const purchase of purchases) {
+    const candidates = [
+      purchase.folioNumber,
+      Number((purchase.folio || "").match(/^C-(\d+)$/i)?.[1] || 0),
+      Number((purchase.folio || "").match(/(\d+)$/)?.[1] || 0),
+    ];
+    for (const n of candidates) {
+      if (Number.isFinite(n) && (n || 0) > maxLegacy) {
+        maxLegacy = n || 0;
+      }
+    }
+  }
+  const next = maxLegacy + 1;
+  await ctx.db.insert("sequences", { key: "purchase_folio", value: next });
+  return {
+    folioNumber: next,
+    folio: `C-${String(next).padStart(5, "0")}`,
+  };
+}
 
 function toDueDate(date: string, creditDays: number) {
   const purchaseDate = new Date(date);
@@ -189,7 +233,13 @@ async function replacePurchaseItems(
  */
 export const create = mutation({
   args: {
-    ...purchaseFields,
+    supplierId: purchaseFields.supplierId,
+    bodegaId: purchaseFields.bodegaId,
+    date: purchaseFields.date,
+    totalAmount: purchaseFields.totalAmount,
+    status: purchaseFields.status,
+    receptionStatus: purchaseFields.receptionStatus,
+    notes: purchaseFields.notes,
     items: v.optional(
       v.array(
         v.object({
@@ -207,24 +257,29 @@ export const create = mutation({
     const supplier = await ctx.db.get(args.supplierId);
     if (!supplier) throw new Error("Proveedor no encontrado");
 
+    const generatedFolio = await getNextPurchaseFolio(ctx);
     const dueDate = toDueDate(args.date, supplier.creditDays || 0);
     const isPaid = args.status === "Pagado";
     const isCancelled = args.status === "Cancelado";
+    const stockApplied = shouldApplyStock(args.status, args.receptionStatus);
 
     const purchaseId = await ctx.db.insert("purchases", {
       ...args,
+      folio: generatedFolio.folio,
+      folioNumber: generatedFolio.folioNumber,
       dueDate,
       remainingAmount: isPaid || isCancelled ? 0 : args.totalAmount,
+      stockApplied,
     });
 
     await replacePurchaseItems(ctx, purchaseId, items);
 
-    if (items.length > 0 && !isCancelled) {
+    if (items.length > 0 && stockApplied) {
       await applyInventoryDelta(ctx, {
         bodegaId: args.bodegaId,
         items,
         multiplier: 1,
-        folio: args.folio,
+        folio: generatedFolio.folio,
         purchaseId,
       });
     }
@@ -232,7 +287,7 @@ export const create = mutation({
     await upsertPurchaseTransactions(ctx, {
       supplierId: args.supplierId,
       date: args.date,
-      folio: args.folio,
+      folio: generatedFolio.folio,
       totalAmount: args.totalAmount,
       status: args.status,
       purchaseId,
@@ -249,7 +304,14 @@ export const create = mutation({
 export const update = mutation({
   args: {
     id: v.id("purchases"),
-    ...purchaseFields,
+    supplierId: purchaseFields.supplierId,
+    bodegaId: purchaseFields.bodegaId,
+    date: purchaseFields.date,
+    totalAmount: purchaseFields.totalAmount,
+    status: purchaseFields.status,
+    receptionStatus: purchaseFields.receptionStatus,
+    notes: purchaseFields.notes,
+    folio: v.optional(v.string()),
     items: v.optional(
       v.array(
         v.object({
@@ -261,7 +323,7 @@ export const update = mutation({
       )
     ),
   },
-  handler: async (ctx, { id, items, ...fields }) => {
+  handler: async (ctx, { id, items, folio: _ignoredFolio, ...fields }) => {
     await requireIdentity(ctx);
 
     const existingPurchase = await ctx.db.get(id);
@@ -285,42 +347,92 @@ export const update = mutation({
     const dueDate = toDueDate(fields.date, supplier.creditDays || 0);
 
     const nextItems = items ?? oldItems;
+    const oldApplied = existingPurchase.stockApplied ?? shouldApplyStock(existingPurchase.status, existingPurchase.receptionStatus);
+    const nextApplied = shouldApplyStock(fields.status, fields.receptionStatus);
+    const paymentStatusChanged = existingPurchase.status !== fields.status;
+    const receptionStatusChanged = existingPurchase.receptionStatus !== fields.receptionStatus;
+    const dateChanged = existingPurchase.date !== fields.date;
 
-    // Revertir impacto anterior
-    if (oldItems.length > 0 && existingPurchase.status !== "Cancelado") {
-      await applyInventoryDelta(ctx, {
-        bodegaId: existingPurchase.bodegaId,
-        items: oldItems,
-        multiplier: -1,
-        folio: existingPurchase.folio,
-        purchaseId: id,
-      });
+    if (paymentStatusChanged) {
+      await requirePermission(
+        ctx,
+        "purchases:edit_payment_status",
+        "Acceso denegado: no puedes editar el estado de pago."
+      );
+    }
+    if (receptionStatusChanged) {
+      await requirePermission(
+        ctx,
+        "purchases:edit_reception_status",
+        "Acceso denegado: no puedes editar el estado de entrega."
+      );
+    }
+    if (dateChanged) {
+      await requirePermission(
+        ctx,
+        "purchases:edit_date",
+        "Acceso denegado: no puedes editar la fecha de compra/entrada."
+      );
     }
 
-    // Aplicar nuevo impacto
-    if (nextItems.length > 0 && fields.status !== "Cancelado") {
-      await applyInventoryDelta(ctx, {
-        bodegaId: fields.bodegaId,
-        items: nextItems,
-        multiplier: 1,
-        folio: fields.folio,
-        purchaseId: id,
-      });
+    // Reconciliación idempotente de stock: solo tocamos inventario cuando corresponde
+    if (oldApplied && nextApplied) {
+      if (oldItems.length > 0) {
+        await applyInventoryDelta(ctx, {
+          bodegaId: existingPurchase.bodegaId,
+          items: oldItems,
+          multiplier: -1,
+          folio: existingPurchase.folio,
+          purchaseId: id,
+        });
+      }
+      if (nextItems.length > 0) {
+        await applyInventoryDelta(ctx, {
+          bodegaId: fields.bodegaId,
+          items: nextItems,
+          multiplier: 1,
+          folio: existingPurchase.folio,
+          purchaseId: id,
+        });
+      }
+    } else if (oldApplied && !nextApplied) {
+      if (oldItems.length > 0) {
+        await applyInventoryDelta(ctx, {
+          bodegaId: existingPurchase.bodegaId,
+          items: oldItems,
+          multiplier: -1,
+          folio: existingPurchase.folio,
+          purchaseId: id,
+        });
+      }
+    } else if (!oldApplied && nextApplied) {
+      if (nextItems.length > 0) {
+        await applyInventoryDelta(ctx, {
+          bodegaId: fields.bodegaId,
+          items: nextItems,
+          multiplier: 1,
+          folio: existingPurchase.folio,
+          purchaseId: id,
+        });
+      }
     }
 
     await replacePurchaseItems(ctx, id, nextItems);
 
     await ctx.db.patch(id, {
       ...fields,
+      folio: existingPurchase.folio,
+      folioNumber: existingPurchase.folioNumber,
       dueDate,
       remainingAmount: fields.status === "Pagado" || fields.status === "Cancelado" ? 0 : fields.totalAmount,
+      stockApplied: nextApplied,
     });
 
     await deletePurchaseTransactions(ctx, id);
     await upsertPurchaseTransactions(ctx, {
       supplierId: fields.supplierId,
       date: fields.date,
-      folio: fields.folio,
+      folio: existingPurchase.folio,
       totalAmount: fields.totalAmount,
       status: fields.status,
       purchaseId: id,
@@ -358,7 +470,8 @@ export const remove = mutation({
       totalCost: item.totalCost,
     }));
 
-    if (normalizedItems.length > 0 && purchase.status !== "Cancelado") {
+    const stockApplied = purchase.stockApplied ?? shouldApplyStock(purchase.status, purchase.receptionStatus);
+    if (normalizedItems.length > 0 && stockApplied) {
       await applyInventoryDelta(ctx, {
         bodegaId: purchase.bodegaId,
         items: normalizedItems,
@@ -385,7 +498,53 @@ export const updateReceptionStatus = mutation({
   },
   handler: async (ctx, args) => {
     await requireIdentity(ctx);
-    await ctx.db.patch(args.id, { receptionStatus: args.receptionStatus });
+    const purchase = await ctx.db.get(args.id);
+    if (!purchase) throw new Error("Compra no encontrada");
+
+    if (purchase.receptionStatus !== args.receptionStatus) {
+      await requirePermission(
+        ctx,
+        "purchases:edit_reception_status",
+        "Acceso denegado: no puedes editar el estado de entrega."
+      );
+    }
+
+    const items = await ctx.db
+      .query("purchase_items")
+      .withIndex("by_purchaseId", (q) => q.eq("purchaseId", args.id))
+      .collect();
+    const normalizedItems: PurchaseItemInput[] = items.map((item) => ({
+      productId: item.productId,
+      quantity: item.quantity,
+      unitCost: item.unitCost,
+      totalCost: item.totalCost,
+    }));
+
+    const oldApplied = purchase.stockApplied ?? shouldApplyStock(purchase.status, purchase.receptionStatus);
+    const nextApplied = shouldApplyStock(purchase.status, args.receptionStatus);
+
+    if (oldApplied && !nextApplied && normalizedItems.length > 0) {
+      await applyInventoryDelta(ctx, {
+        bodegaId: purchase.bodegaId,
+        items: normalizedItems,
+        multiplier: -1,
+        folio: purchase.folio,
+        purchaseId: purchase._id,
+      });
+    } else if (!oldApplied && nextApplied && normalizedItems.length > 0) {
+      await applyInventoryDelta(ctx, {
+        bodegaId: purchase.bodegaId,
+        items: normalizedItems,
+        multiplier: 1,
+        folio: purchase.folio,
+        purchaseId: purchase._id,
+      });
+    }
+
+    await ctx.db.patch(args.id, {
+      receptionStatus: args.receptionStatus,
+      stockApplied: nextApplied,
+    });
     return args.id;
   },
 });

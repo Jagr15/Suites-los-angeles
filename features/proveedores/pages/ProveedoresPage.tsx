@@ -18,6 +18,7 @@ import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { usePurchases } from "../hooks/use-purchases";
 import { Purchase } from "../hooks/use-purchases";
+import { useRoles } from "@/shared/hooks";
 import { mockPresupuestoCompras, type CompraRow, type EstadoCuentaRow } from "@/shared/mocks";
 import * as XLSX from "xlsx";
 
@@ -25,6 +26,7 @@ type TabKey = "compras" | "presupuesto-compras" | "estados-de-cuenta";
 
 export function ProveedoresPage() {
   const suppliers = useQuery(api.suppliers.queries.listWithMetrics);
+  const { hasPermission, isAdmin } = useRoles();
   const [activeTab, setActiveTab] = useState<TabKey>("compras");
   const { purchases, isLoading: loadingPurchases, addPurchase, updatePurchase, deletePurchase } = usePurchases();
 
@@ -71,7 +73,27 @@ export function ProveedoresPage() {
   }, []);
 
   const handleEditar = useCallback((item: Purchase) => {
-    setCompraToEdit(item);
+    setCompraToEdit({
+      ...item,
+      proveedor: item.supplierId,
+      almacen: item.bodegaId,
+      fecha: item.date,
+      recepcion: item.receptionStatus,
+      monto: item.totalAmount.toString(),
+      nota: item.notes || "",
+      productos: (item.items || []).map((p: any) => ({
+        id: p.productId,
+        sku: p.sku || "",
+        descripcion: p.name || "Producto",
+        categoria: p.category || "",
+        subcategoria: "",
+        cantidad: p.quantity,
+        costo: p.unitCost,
+        total: p.totalCost,
+        stockAnterior: 0,
+        stockNuevo: 0,
+      })),
+    } as any);
     setIsFormVisible(true);
   }, []);
 
@@ -94,16 +116,29 @@ export function ProveedoresPage() {
   const handleSubmitCompra = useCallback(
     async (row: any, editId?: string) => {
       try {
+        const canEditPayment = isAdmin || hasPermission("purchases:edit_payment_status");
+        const canEditReception = isAdmin || hasPermission("purchases:edit_reception_status");
+        const canEditDate = isAdmin || hasPermission("purchases:edit_date");
+
         if (editId) {
+          const previous = purchases.find((p) => p.id === editId);
+          const nextStatus = canEditPayment ? (row.status as any) : (previous?.status as any);
+          const nextReception = canEditReception ? (row.recepcion as any) : (previous?.receptionStatus as any);
+          const nextDate = canEditDate ? row.fecha : (previous?.date || row.fecha);
           await updatePurchase(editId, {
             supplierId: row.proveedor,
             bodegaId: row.almacen,
-            folio: row.folio,
-            date: row.fecha,
+            date: nextDate,
             totalAmount: typeof row.monto === 'number' ? row.monto : (parseFloat(row.monto?.toString().replace(/[$,]/g, "")) || 0),
-            status: row.status as any,
-            receptionStatus: row.recepcion as any,
+            status: nextStatus,
+            receptionStatus: nextReception,
             notes: row.nota,
+            items: row.productos?.map((p: any) => ({
+              productId: p.productId || p.id,
+              quantity: Number(p.cantidad),
+              unitCost: Number(p.costo),
+              totalCost: Number(p.total),
+            })),
           });
           addToast({
             title: "Compra actualizada",
@@ -114,7 +149,6 @@ export function ProveedoresPage() {
           await addPurchase({
             supplierId: row.proveedor,
             bodegaId: row.almacen,
-            folio: row.folio,
             date: row.fecha,
             totalAmount: typeof row.monto === 'number' ? row.monto : (parseFloat(row.monto?.toString().replace(/[$,]/g, "")) || 0),
             status: row.status as any,
@@ -143,7 +177,7 @@ export function ProveedoresPage() {
         });
       }
     },
-    [addPurchase, updatePurchase]
+    [addPurchase, hasPermission, isAdmin, purchases, updatePurchase]
   );
 
   const handleTabChange = useCallback((key: React.Key) => {
@@ -241,6 +275,9 @@ export function ProveedoresPage() {
           <CompraForm
             compra={compraToEdit as any}
             onSubmit={handleSubmitCompra}
+            canEditPaymentStatus={isAdmin || hasPermission("purchases:edit_payment_status")}
+            canEditReceptionStatus={isAdmin || hasPermission("purchases:edit_reception_status")}
+            canEditDate={isAdmin || hasPermission("purchases:edit_date")}
             onCancel={() => {
               setIsFormVisible(false);
               setCompraToEdit(null);

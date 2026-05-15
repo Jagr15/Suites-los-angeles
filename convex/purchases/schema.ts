@@ -5,10 +5,12 @@ export const purchaseFields = {
   supplierId: v.id("suppliers"),
   bodegaId: v.id("bodegas"),
   folio: v.string(),
+  folioNumber: v.optional(v.number()),
   date: v.string(), 
   dueDate: v.optional(v.string()), 
   totalAmount: v.number(),
   remainingAmount: v.optional(v.number()), 
+  stockApplied: v.optional(v.boolean()),
   status: v.union(
     v.literal("Pendiente"),
     v.literal("Pagado"),

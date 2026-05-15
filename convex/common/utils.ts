@@ -54,6 +54,58 @@ export async function isAdmin(ctx: QueryCtx | MutationCtx) {
   return false;
 }
 
+export async function getCurrentUserWithRole(ctx: QueryCtx | MutationCtx) {
+  const userId = await getAuthUserId(ctx);
+  if (userId && looksLikeConvexId(String(userId))) {
+    try {
+      const byId = await ctx.db.get(userId);
+      if (byId) {
+        const roleData = byId.roleId ? await ctx.db.get(byId.roleId) : null;
+        return { user: byId, roleData };
+      }
+    } catch {
+      // subject inválido: seguimos con fallback por email.
+    }
+  }
+
+  const identity = await ctx.auth.getUserIdentity();
+  const email = identity?.email?.trim().toLowerCase() || "";
+  if (!email) return null;
+
+  const usersByEmail = await ctx.db
+    .query("users")
+    .withIndex("by_email", (q) => q.eq("email", email))
+    .collect();
+  if (usersByEmail.length === 0) return null;
+
+  const user = usersByEmail[0];
+  const roleData = user.roleId ? await ctx.db.get(user.roleId) : null;
+  return { user, roleData };
+}
+
+export async function hasPermission(
+  ctx: QueryCtx | MutationCtx,
+  permission: string | string[]
+) {
+  if (await isAdmin(ctx)) return true;
+  const current = await getCurrentUserWithRole(ctx);
+  if (!current) return false;
+  const requested = Array.isArray(permission) ? permission : [permission];
+  const rolePerms = current.roleData?.permissions || [];
+  if (rolePerms.includes("all")) return true;
+  return requested.some((p) => rolePerms.includes(p));
+}
+
+export async function requirePermission(
+  ctx: QueryCtx | MutationCtx,
+  permission: string | string[],
+  message = "Acceso denegado: No cuentas con permisos suficientes"
+) {
+  if (!(await hasPermission(ctx, permission))) {
+    throw new Error(message);
+  }
+}
+
 /**
  * Lanza un error si el usuario actual no es administrador.
  */

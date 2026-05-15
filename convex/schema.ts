@@ -147,4 +147,10 @@ export default defineSchema({
 
   // Tabla de Salidas (Cargas/Ventas)
   salidas: salidasTable,
+
+  // Secuencias consecutivas de folios y contadores del sistema
+  sequences: defineTable({
+    key: v.string(),
+    value: v.number(),
+  }).index("by_key", ["key"]),
 });

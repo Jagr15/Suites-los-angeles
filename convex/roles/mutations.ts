@@ -28,6 +28,9 @@ const OPERATIONAL_ROLES: Array<{
       "suppliers:edit",
       "clients:view",
       "clients:edit",
+      "purchases:edit_payment_status",
+      "purchases:edit_reception_status",
+      "purchases:edit_date",
     ],
   },
   {
@@ -50,6 +53,9 @@ const OPERATIONAL_ROLES: Array<{
       "suppliers:edit",
       "clients:view",
       "clients:edit",
+      "purchases:edit_payment_status",
+      "purchases:edit_reception_status",
+      "purchases:edit_date",
     ],
   },
   {

@@ -56,10 +56,20 @@ const parseCurrency = (val: string | number) => {
 type BodegaEntradaFormProps = {
     entrada?: (BodegaRow & { _id?: string; receptionStatus?: string; items?: any[] }) | null;
     onSubmit: (data: any, editId?: string) => void;
+    canEditPaymentStatus?: boolean;
+    canEditReceptionStatus?: boolean;
+    canEditDate?: boolean;
     onCancel: () => void;
 };
 
-export function BodegaEntradaForm({ entrada, onSubmit, onCancel }: BodegaEntradaFormProps) {
+export function BodegaEntradaForm({
+    entrada,
+    onSubmit,
+    canEditPaymentStatus = false,
+    canEditReceptionStatus = false,
+    canEditDate = false,
+    onCancel,
+}: BodegaEntradaFormProps) {
     console.log("Rendering BodegaEntradaForm with entrada:", entrada);
     const isEdit = !!entrada;
     
@@ -117,7 +127,7 @@ export function BodegaEntradaForm({ entrada, onSubmit, onCancel }: BodegaEntrada
         } else {
             reset({
                 ...defaultValues,
-                folio: `ENT-${Math.floor(Math.random() * 90000) + 10000}`,
+                folio: "Se genera al guardar",
                 date: new Date().toISOString().split("T")[0],
                 items: [],
             });
@@ -338,6 +348,7 @@ export function BodegaEntradaForm({ entrada, onSubmit, onCancel }: BodegaEntrada
                                         {...field}
                                         size="sm"
                                         variant="faded"
+                                        isDisabled={!canEditPaymentStatus}
                                         className="w-28 text-sm font-semibold"
                                         classNames={{ trigger: "h-8 min-h-8 bg-default-50 border-default-200" }}
                                         selectedKeys={field.value ? [field.value] : []}
@@ -360,6 +371,7 @@ export function BodegaEntradaForm({ entrada, onSubmit, onCancel }: BodegaEntrada
                                         {...field}
                                         size="sm"
                                         variant="faded"
+                                        isDisabled={!canEditReceptionStatus}
                                         className="w-32 text-sm font-semibold"
                                         classNames={{ trigger: "h-8 min-h-8 bg-default-50 border-default-200" }}
                                         selectedKeys={field.value ? [field.value] : []}
@@ -381,6 +393,7 @@ export function BodegaEntradaForm({ entrada, onSubmit, onCancel }: BodegaEntrada
                                     <input
                                         {...field}
                                         type="date"
+                                        disabled={!canEditDate}
                                         className="text-sm font-semibold bg-default-50 border border-default-200 rounded-lg px-2 py-1 outline-none focus:border-primary/50 transition-colors w-36"
                                     />
                                 )}

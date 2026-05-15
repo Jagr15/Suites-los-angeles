@@ -57,10 +57,20 @@ const defaultValues: any = {
 type CompraFormProps = {
     compra?: CompraRow | null;
     onSubmit: (data: CompraRow, editId?: string) => void;
+    canEditPaymentStatus?: boolean;
+    canEditReceptionStatus?: boolean;
+    canEditDate?: boolean;
     onCancel: () => void;
 };
 
-export function CompraForm({ compra, onSubmit, onCancel }: CompraFormProps) {
+export function CompraForm({
+    compra,
+    onSubmit,
+    canEditPaymentStatus = false,
+    canEditReceptionStatus = false,
+    canEditDate = false,
+    onCancel,
+}: CompraFormProps) {
     const isEdit = !!compra;
     const convexSuppliers = useQuery(api.suppliers.queries.list) || [];
     const convexBodegas = useQuery(api.bodegas.queries.list) || [];
@@ -104,7 +114,7 @@ export function CompraForm({ compra, onSubmit, onCancel }: CompraFormProps) {
         } else {
             reset({
                 ...defaultValues,
-                folio: `C-${Math.floor(Math.random() * 90000) + 10000}`,
+                folio: "Se genera al guardar",
                 fecha: new Date().toISOString().split("T")[0],
             });
         }
@@ -364,6 +374,7 @@ export function CompraForm({ compra, onSubmit, onCancel }: CompraFormProps) {
                                 size="sm"
                                 variant="bordered"
                                 placeholder="Automático"
+                                isReadOnly
                                 classNames={{
                                     inputWrapper: "h-10 rounded-xl border-default-200 bg-default-50/50",
                                     input: "font-bold"
@@ -383,6 +394,7 @@ export function CompraForm({ compra, onSubmit, onCancel }: CompraFormProps) {
                                 {...field}
                                 size="sm"
                                 variant="bordered"
+                                isDisabled={!canEditPaymentStatus}
                                 classNames={{ trigger: "h-10 rounded-xl border-default-200 bg-default-50/50" }}
                                 selectedKeys={field.value ? [field.value] : []}
                                 onChange={(e) => field.onChange(e.target.value)}
@@ -405,6 +417,7 @@ export function CompraForm({ compra, onSubmit, onCancel }: CompraFormProps) {
                                 {...field}
                                 size="sm"
                                 variant="bordered"
+                                isDisabled={!canEditReceptionStatus}
                                 classNames={{ trigger: "h-10 rounded-xl border-default-200 bg-default-50/50" }}
                                 selectedKeys={field.value ? [field.value] : []}
                                 onChange={(e) => field.onChange(e.target.value)}
@@ -427,6 +440,7 @@ export function CompraForm({ compra, onSubmit, onCancel }: CompraFormProps) {
                                 <input
                                     {...field}
                                     type="date"
+                                    disabled={!canEditDate}
                                     className="w-full text-sm font-bold bg-transparent outline-none cursor-pointer"
                                 />
                             </div>
