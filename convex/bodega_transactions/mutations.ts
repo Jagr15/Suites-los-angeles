@@ -1,6 +1,7 @@
 import { mutation } from "../_generated/server";
 import { v } from "convex/values";
 import { bodegaIngresosFields, bodegaEgresosFields } from "./schema";
+import { requireIdentity, requirePermission } from "../common/utils";
 
 export const createCategory = mutation({
   args: {
@@ -38,6 +39,12 @@ export const removeCategory = mutation({
 export const createIngreso = mutation({
   args: bodegaIngresosFields,
   handler: async (ctx, args) => {
+    await requireIdentity(ctx);
+    await requirePermission(
+      ctx,
+      "warehouse_money:allow_income",
+      "Acceso denegado: no puedes registrar ingresos de bodega."
+    );
     return await ctx.db.insert("bodega_ingresos", args);
   },
 });
@@ -45,6 +52,12 @@ export const createIngreso = mutation({
 export const createEgreso = mutation({
   args: bodegaEgresosFields,
   handler: async (ctx, args) => {
+    await requireIdentity(ctx);
+    await requirePermission(
+      ctx,
+      "warehouse_money:allow_expense",
+      "Acceso denegado: no puedes registrar egresos de bodega."
+    );
     return await ctx.db.insert("bodega_egresos", args);
   },
 });
@@ -62,5 +75,4 @@ export const removeEgreso = mutation({
     await ctx.db.delete(args.id);
   },
 });
-
 

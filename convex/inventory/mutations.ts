@@ -1,6 +1,6 @@
 import { v } from "convex/values";
 import { mutation } from "../_generated/server";
-import { requireIdentity } from "../common/utils";
+import { requireIdentity, requirePermission } from "../common/utils";
 
 export const adjust = mutation({
   args: {
@@ -15,6 +15,11 @@ export const adjust = mutation({
   },
   handler: async (ctx, args) => {
     await requireIdentity(ctx);
+    await requirePermission(
+      ctx,
+      "inventory:allow_manual_adjustments",
+      "Acceso denegado: no puedes hacer ajustes manuales de inventario."
+    );
     for (const item of args.items) {
       // 1. Update/Create Inventory record for the specific bodega
       const existingInventory = await ctx.db

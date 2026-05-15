@@ -16,7 +16,11 @@ export function useRoles() {
   const normalizedRole = roleName.toLowerCase();
 
   // Verificamos roles específicos
-  const isAdmin = normalizedRole === "admin" || normalizedRole === "administrador";
+  const isAdmin =
+    normalizedRole === "admin" ||
+    normalizedRole === "administrador" ||
+    normalizedRole === "superadmin" ||
+    normalizedRole === "super admin";
   const isBodega = normalizedRole === "bodega" || normalizedRole === "bodeguero";
   const isVendedor = normalizedRole === "vendedor";
 

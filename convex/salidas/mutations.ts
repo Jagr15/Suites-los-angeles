@@ -1,12 +1,17 @@
 import { mutation } from "../_generated/server";
 import { v } from "convex/values";
 import { salidaFields } from "./schema";
-import { requireIdentity } from "../common/utils";
+import { requireIdentity, requirePermission } from "../common/utils";
 
 export const create = mutation({
   args: salidaFields,
   handler: async (ctx, args) => {
     await requireIdentity(ctx);
+    await requirePermission(
+      ctx,
+      "warehouse_outputs:allow_create",
+      "Acceso denegado: no puedes crear salidas de bodega."
+    );
     const id = await ctx.db.insert("salidas", args);
     
     // Opcional: Descontar del inventario si es una carga/salida real
@@ -28,6 +33,11 @@ export const update = mutation({
   },
   handler: async (ctx, { id, ...args }) => {
     await requireIdentity(ctx);
+    await requirePermission(
+      ctx,
+      "warehouse_outputs:edit_status",
+      "Acceso denegado: no puedes editar salidas de bodega."
+    );
     await ctx.db.patch(id, args);
     return id;
   },

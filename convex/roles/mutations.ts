@@ -1,6 +1,7 @@
 import { mutation, query } from "../_generated/server";
 import { v } from "convex/values";
 import { requireAdmin, requireAdminOrDevMigration } from "../common/utils";
+import { DEFAULT_PERMISSIONS_BY_ROLE } from "../../shared/security/permissions";
 
 const OPERATIONAL_ROLES: Array<{
   name: "SuperAdmin" | "Admin" | "Bodeguero" | "Vendedor";
@@ -10,63 +11,22 @@ const OPERATIONAL_ROLES: Array<{
   {
     name: "SuperAdmin",
     description: "Acceso total al sistema y gestión completa de seguridad/configuración.",
-    permissions: [
-      "all",
-      "users:manage",
-      "settings:manage",
-      "sales:view",
-      "sales:create",
-      "inventory:view",
-      "inventory:edit",
-      "warehouse:view",
-      "warehouse:edit",
-      "routes:view",
-      "routes:edit",
-      "finance:view",
-      "finance:edit",
-      "suppliers:view",
-      "suppliers:edit",
-      "clients:view",
-      "clients:edit",
-      "purchases:edit_payment_status",
-      "purchases:edit_reception_status",
-      "purchases:edit_date",
-    ],
+    permissions: DEFAULT_PERMISSIONS_BY_ROLE.SuperAdmin,
   },
   {
     name: "Admin",
     description: "Gestión operativa completa del negocio.",
-    permissions: [
-      "users:manage",
-      "settings:manage",
-      "sales:view",
-      "sales:create",
-      "inventory:view",
-      "inventory:edit",
-      "warehouse:view",
-      "warehouse:edit",
-      "routes:view",
-      "routes:edit",
-      "finance:view",
-      "finance:edit",
-      "suppliers:view",
-      "suppliers:edit",
-      "clients:view",
-      "clients:edit",
-      "purchases:edit_payment_status",
-      "purchases:edit_reception_status",
-      "purchases:edit_date",
-    ],
+    permissions: DEFAULT_PERMISSIONS_BY_ROLE.Admin,
   },
   {
     name: "Bodeguero",
     description: "Operación de inventario y bodega.",
-    permissions: ["inventory:view", "inventory:edit", "warehouse:view", "warehouse:edit", "routes:view"],
+    permissions: DEFAULT_PERMISSIONS_BY_ROLE.Bodeguero,
   },
   {
     name: "Vendedor",
     description: "Operación comercial y ventas.",
-    permissions: ["sales:view", "sales:create", "clients:view", "clients:edit"],
+    permissions: DEFAULT_PERMISSIONS_BY_ROLE.Vendedor,
   },
 ];
 

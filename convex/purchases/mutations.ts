@@ -1,7 +1,7 @@
 import { mutation } from "../_generated/server";
 import { v } from "convex/values";
 import { purchaseFields } from "./schema";
-import { requireIdentity, requirePermission } from "../common/utils";
+import { hasPermission, requireIdentity, requirePermission } from "../common/utils";
 import type { Id } from "../_generated/dataModel";
 import type { MutationCtx } from "../_generated/server";
 
@@ -253,6 +253,11 @@ export const create = mutation({
   },
   handler: async (ctx, { items = [], ...args }) => {
     await requireIdentity(ctx);
+    await requirePermission(
+      ctx,
+      "purchases:allow_create_entries",
+      "Acceso denegado: no puedes registrar entradas de compra."
+    );
 
     const supplier = await ctx.db.get(args.supplierId);
     if (!supplier) throw new Error("Proveedor no encontrado");
@@ -352,6 +357,28 @@ export const update = mutation({
     const paymentStatusChanged = existingPurchase.status !== fields.status;
     const receptionStatusChanged = existingPurchase.receptionStatus !== fields.receptionStatus;
     const dateChanged = existingPurchase.date !== fields.date;
+    const supplierChanged = existingPurchase.supplierId !== fields.supplierId;
+    const bodegaChanged = existingPurchase.bodegaId !== fields.bodegaId;
+    const notesChanged = (existingPurchase.notes || "") !== (fields.notes || "");
+    const totalChanged = existingPurchase.totalAmount !== fields.totalAmount;
+    const itemsChanged = JSON.stringify(oldItems) !== JSON.stringify(nextItems);
+
+    if (existingPurchase.receptionStatus === "Completa") {
+      const hasEditRestriction = await hasPermission(ctx, "purchases:restrict_edit_registered_entries");
+      if (
+        hasEditRestriction &&
+        (paymentStatusChanged ||
+          receptionStatusChanged ||
+          dateChanged ||
+          supplierChanged ||
+          bodegaChanged ||
+          notesChanged ||
+          totalChanged ||
+          itemsChanged)
+      ) {
+        throw new Error("Acceso denegado: esta entrada registrada no permite edición.");
+      }
+    }
 
     if (paymentStatusChanged) {
       await requirePermission(
