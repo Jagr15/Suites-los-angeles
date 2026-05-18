@@ -30,9 +30,10 @@ type BodegaInventoryProps = {
     onClearSelection: () => void;
     onNuevo?: () => void;
     onAjustar?: () => void;
+    canAdjust?: boolean;
 };
 
-export function BodegaInventory({ items, selectedCarga, onClearSelection, onNuevo, onAjustar }: BodegaInventoryProps) {
+export function BodegaInventory({ items, selectedCarga, onClearSelection, onNuevo, onAjustar, canAdjust = true }: BodegaInventoryProps) {
     const [page, setPage] = useState(1);
     const [search, setSearch] = useState("");
 
@@ -68,26 +69,30 @@ export function BodegaInventory({ items, selectedCarga, onClearSelection, onNuev
                 {/* solo admin */}
 
 
-                <Button
-                    color="primary"
-                    radius="full"
-                    className="h-10 px-6"
-                    startContent={<PlusIcon className="size-5 stroke-[3]" />}
-                    onPress={onNuevo}
-                >
-                    Nuevo Inventario
-                </Button>
+                {canAdjust && (
+                    <Button
+                        color="primary"
+                        radius="full"
+                        className="h-10 px-6"
+                        startContent={<PlusIcon className="size-5 stroke-[3]" />}
+                        onPress={onNuevo}
+                    >
+                        Nuevo Inventario
+                    </Button>
+                )}
 
-                <Button
-                    variant="flat"
-                    color="warning"
-                    radius="full"
-                    className="h-10 px-6 font-bold text-warning-700 bg-warning-50 hover:bg-warning-100"
-                    startContent={<ArrowsRightLeftIcon className="size-5 stroke-[2.5]" />}
-                    onPress={onAjustar}
-                >
-                    Ajustar Inventario
-                </Button>
+                {canAdjust && (
+                    <Button
+                        variant="flat"
+                        color="warning"
+                        radius="full"
+                        className="h-10 px-6 font-bold text-warning-700 bg-warning-50 hover:bg-warning-100"
+                        startContent={<ArrowsRightLeftIcon className="size-5 stroke-[2.5]" />}
+                        onPress={onAjustar}
+                    >
+                        Ajustar Inventario
+                    </Button>
+                )}
 
                 <Button
                     variant="flat"

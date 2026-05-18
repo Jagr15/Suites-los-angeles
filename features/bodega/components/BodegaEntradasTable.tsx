@@ -34,6 +34,7 @@ type BodegaEntradasTableProps = {
   onBorrar?: (item: BodegaRow) => void;
   onPasarASalida?: (item: BodegaRow) => void;
   onAvanzarEstado?: (item: BodegaRow) => void;
+  canDelete?: boolean;
 };
 
 export function BodegaEntradasTable({ 
@@ -42,7 +43,8 @@ export function BodegaEntradasTable({
   onEditar, 
   onBorrar, 
   onPasarASalida,
-  onAvanzarEstado 
+  onAvanzarEstado,
+  canDelete = true,
 }: BodegaEntradasTableProps) {
   const [page, setPage] = useState(1);
   const paginatedRows = useMemo(() => {
@@ -126,11 +128,13 @@ export function BodegaEntradasTable({
                         </Button>
                       </Tooltip>
                     )}
-                    <Tooltip content="Borrar">
-                      <Button isIconOnly size="sm" variant="light" color="danger" onPress={() => onBorrar?.(item)}>
-                        <TrashIcon className="size-4" />
-                      </Button>
-                    </Tooltip>
+                    {canDelete && (
+                      <Tooltip content="Borrar">
+                        <Button isIconOnly size="sm" variant="light" color="danger" onPress={() => onBorrar?.(item)}>
+                          <TrashIcon className="size-4" />
+                        </Button>
+                      </Tooltip>
+                    )}
                   </div>
                 </TableCell>
               </TableRow>

@@ -93,9 +93,10 @@ type BodegaSalidaFormProps = {
     salida?: SalidaRow | any | null;
     onSubmit: (data: any, editId?: string) => void;
     onCancel: () => void;
+    canAssignResponsible?: boolean;
 };
 
-export function BodegaSalidaForm({ salida, onSubmit, onCancel }: BodegaSalidaFormProps) {
+export function BodegaSalidaForm({ salida, onSubmit, onCancel, canAssignResponsible = true }: BodegaSalidaFormProps) {
     const products = useQuery(api.products.queries.list) || [];
     const isEdit = !!salida;
     const {
@@ -223,6 +224,12 @@ export function BodegaSalidaForm({ salida, onSubmit, onCancel }: BodegaSalidaFor
         reset(salida ? bodegaToFormValues(salida) : defaultValues);
     }, [salida, reset]);
 
+    useEffect(() => {
+        if (!canAssignResponsible) {
+            setValue("responsable", "Sin asignar");
+        }
+    }, [canAssignResponsible, setValue]);
+
     const onFormSubmit = (data: any) => {
         const row = {
             ...toSalidaRow(data as CargaBodegaFormValues, salida?._id ?? salida?.id ?? ""),
@@ -318,6 +325,7 @@ export function BodegaSalidaForm({ salida, onSubmit, onCancel }: BodegaSalidaFor
                                     selectedKey={field.value}
                                     onSelectionChange={(key) => field.onChange(key?.toString() || "")}
                                     isInvalid={!!errors.responsable}
+                                    isDisabled={!canAssignResponsible}
                                     errorMessage={errors.responsable?.message?.toString()}
                                 >
                                     {(item) => (

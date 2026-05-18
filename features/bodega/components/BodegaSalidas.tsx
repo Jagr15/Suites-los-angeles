@@ -70,9 +70,10 @@ type BodegaSalidasProps = {
     onEditar?: (item: SalidaRow) => void;
     onBorrar?: (item: SalidaRow) => void;
     onVer?: (item: SalidaRow) => void;
+    canDelete?: boolean;
 };
 
-export function BodegaSalidas({ items: initialItems, onAgregar, onEditar, onBorrar, onVer }: BodegaSalidasProps) {
+export function BodegaSalidas({ items: initialItems, onAgregar, onEditar, onBorrar, onVer, canDelete = true }: BodegaSalidasProps) {
     const [page, setPage] = useState(1);
     const [activeFilter, setActiveFilter] = useState("todos");
     const [envioType, setEnvioType] = useState<"todos" | "sin" | "con" | "minorista">("todos");
@@ -399,20 +400,22 @@ export function BodegaSalidas({ items: initialItems, onAgregar, onEditar, onBorr
                                                             </Button>
                                                         </Tooltip>
                                                     )}
-                                                    <Tooltip content="Borrar">
-                                                        <Button 
-                                                            isIconOnly 
-                                                            size="sm" 
-                                                            variant="light" 
-                                                            color="danger" 
-                                                            onClick={(e) => {
-                                                                e.stopPropagation();
-                                                                onBorrar?.(item);
-                                                            }}
-                                                        >
-                                                            <TrashIcon className="size-4" />
-                                                        </Button>
-                                                    </Tooltip>
+                                                    {canDelete && (
+                                                        <Tooltip content="Borrar">
+                                                            <Button 
+                                                                isIconOnly 
+                                                                size="sm" 
+                                                                variant="light" 
+                                                                color="danger" 
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    onBorrar?.(item);
+                                                                }}
+                                                            >
+                                                                <TrashIcon className="size-4" />
+                                                            </Button>
+                                                        </Tooltip>
+                                                    )}
                                                 </>
                                             )}
                                         </div>

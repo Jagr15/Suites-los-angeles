@@ -15,9 +15,12 @@ const tabs = [
 type BodegaHeaderProps = {
   selectedKey?: string;
   onSelectionChange?: (key: React.Key) => void;
+  visibleTabs?: string[];
 };
 
-export function BodegaHeader({ selectedKey, onSelectionChange }: BodegaHeaderProps) {
+export function BodegaHeader({ selectedKey, onSelectionChange, visibleTabs }: BodegaHeaderProps) {
+  const allowedTabs = visibleTabs?.length ? tabs.filter((tab) => visibleTabs.includes(tab.key)) : tabs;
+
   return (
     <div className="flex flex-col gap-4">
       <h1 className="text-xl font-semibold text-foreground">Bodega</h1>
@@ -28,7 +31,7 @@ export function BodegaHeader({ selectedKey, onSelectionChange }: BodegaHeaderPro
         onSelectionChange={onSelectionChange}
         variant="underlined"
       >
-        {tabs.map((tab) => (
+        {allowedTabs.map((tab) => (
           <Tab key={tab.key} title={tab.label} />
         ))}
       </Tabs>

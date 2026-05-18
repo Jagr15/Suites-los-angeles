@@ -28,7 +28,12 @@ import { BodegaIngresoForm } from "./BodegaIngresoForm";
 
 const ROWS_PER_PAGE = 10;
 
-export function BodegaIngresos() {
+type BodegaIngresosProps = {
+    canShowDailyTotals?: boolean;
+    canDelete?: boolean;
+};
+
+export function BodegaIngresos({ canShowDailyTotals = true, canDelete = true }: BodegaIngresosProps) {
     const [view, setView] = useState<"list" | "add">("list");
     const [page, setPage] = useState(1);
     const [search, setSearch] = useState("");
@@ -49,7 +54,7 @@ export function BodegaIngresos() {
         const start = (page - 1) * ROWS_PER_PAGE;
         const rows = filteredItems.slice(start, start + ROWS_PER_PAGE);
 
-        if (rows.length > 0) {
+        if (rows.length > 0 && canShowDailyTotals) {
             return [
                 ...rows,
                 {
@@ -60,7 +65,7 @@ export function BodegaIngresos() {
             ];
         }
         return rows;
-    }, [filteredItems, page]);
+    }, [canShowDailyTotals, filteredItems, page]);
 
     const totalPages = Math.ceil(filteredItems.length / ROWS_PER_PAGE);
 
@@ -206,7 +211,7 @@ export function BodegaIngresos() {
                                     </span>
                                 </TableCell>
                                 <TableCell className="text-right">
-                                    {!item.isTotal && (
+                                    {!item.isTotal && canDelete && (
                                         <div className="flex items-center justify-end gap-1">
                                             <Tooltip content="Ver">
                                                 <Button isIconOnly size="sm" variant="light" color="success">

@@ -27,6 +27,7 @@ type TabKey = "compras" | "presupuesto-compras" | "estados-de-cuenta";
 export function ProveedoresPage() {
   const suppliers = useQuery(api.suppliers.queries.listWithMetrics);
   const { hasPermission, isAdmin } = useRoles();
+  const canDeleteRecords = isAdmin || !hasPermission("records:restrict_delete");
   const [activeTab, setActiveTab] = useState<TabKey>("compras");
   const { purchases, isLoading: loadingPurchases, addPurchase, updatePurchase, deletePurchase } = usePurchases();
 
@@ -301,6 +302,7 @@ export function ProveedoresPage() {
                   onVerEstadoCuenta={handleVerEstadoCuenta}
                   onEditar={handleEditar}
                   onBorrar={setCompraToDelete}
+                  canDelete={canDeleteRecords}
                 />
               </div>
             )}

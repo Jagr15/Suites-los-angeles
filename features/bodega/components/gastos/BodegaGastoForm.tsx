@@ -27,6 +27,7 @@ import { Id } from "@/convex/_generated/dataModel";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { bodegaEgresoSchema, type BodegaEgresoFormValues } from "../../schemas/egreso";
+import { useRoles } from "@/shared/hooks";
 
 type BodegaGastoFormProps = {
     onSuccess?: () => void;
@@ -35,6 +36,9 @@ type BodegaGastoFormProps = {
 
 export function BodegaGastoForm({ onSuccess, onCancel }: BodegaGastoFormProps) {
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const { hasPermission, isAdmin } = useRoles();
+    const restrictDateEdit = !isAdmin && hasPermission("warehouse_money:restrict_date_edit");
+    const requiresEvidence = !isAdmin && hasPermission("evidence:require_photos_for_entries_expenses");
     
     // React Hook Form Setup
     const { 
@@ -77,6 +81,14 @@ export function BodegaGastoForm({ onSuccess, onCancel }: BodegaGastoFormProps) {
     const routeStaff = profiles.filter(p => assignedProfileIds.has(p._id));
 
     const handleOnSubmit = async (data: BodegaEgresoFormValues) => {
+        if (requiresEvidence && !(data.evidence instanceof File)) {
+            addToast({
+                title: "Evidencia requerida",
+                description: "Debes subir una foto/comprobante para registrar el egreso.",
+                color: "warning",
+            });
+            return;
+        }
         setIsSubmitting(true);
         try {
             let evidenceStorageId = undefined;
@@ -264,6 +276,7 @@ export function BodegaGastoForm({ onSuccess, onCancel }: BodegaGastoFormProps) {
                                         radius="lg"
                                         isInvalid={!!errors.date}
                                         errorMessage={errors.date?.message}
+                                        isReadOnly={restrictDateEdit}
                                     />
                                 )}
                             />

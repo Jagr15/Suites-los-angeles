@@ -1,7 +1,11 @@
 import { mutation } from "../_generated/server";
 import { v } from "convex/values";
 import { bodegaIngresosFields, bodegaEgresosFields } from "./schema";
-import { requireIdentity, requirePermission } from "../common/utils";
+import { hasPermission, isAdmin, requireIdentity, requirePermission } from "../common/utils";
+
+function getTodayISO() {
+  return new Date().toISOString().split("T")[0];
+}
 
 export const createCategory = mutation({
   args: {
@@ -45,6 +49,13 @@ export const createIngreso = mutation({
       "warehouse_money:allow_income",
       "Acceso denegado: no puedes registrar ingresos de bodega."
     );
+    const isAdministrator = await isAdmin(ctx);
+    if (!isAdministrator) {
+      const restrictDateEdit = await hasPermission(ctx, "warehouse_money:restrict_date_edit");
+      if (restrictDateEdit && args.date !== getTodayISO()) {
+        throw new Error("Acceso denegado: no puedes modificar la fecha en ingresos de bodega.");
+      }
+    }
     return await ctx.db.insert("bodega_ingresos", args);
   },
 });
@@ -58,6 +69,17 @@ export const createEgreso = mutation({
       "warehouse_money:allow_expense",
       "Acceso denegado: no puedes registrar egresos de bodega."
     );
+    const isAdministrator = await isAdmin(ctx);
+    if (!isAdministrator) {
+      const restrictDateEdit = await hasPermission(ctx, "warehouse_money:restrict_date_edit");
+      if (restrictDateEdit && args.date !== getTodayISO()) {
+        throw new Error("Acceso denegado: no puedes modificar la fecha en egresos de bodega.");
+      }
+      const requireEvidence = await hasPermission(ctx, "evidence:require_photos_for_entries_expenses");
+      if (requireEvidence && !args.evidenceStorageId) {
+        throw new Error("Acceso denegado: se requiere evidencia fotográfica para registrar egresos.");
+      }
+    }
     return await ctx.db.insert("bodega_egresos", args);
   },
 });
@@ -65,6 +87,14 @@ export const createEgreso = mutation({
 export const removeIngreso = mutation({
   args: { id: v.id("bodega_ingresos") },
   handler: async (ctx, args) => {
+    await requireIdentity(ctx);
+    const isAdministrator = await isAdmin(ctx);
+    if (!isAdministrator) {
+      const hasDeleteRestriction = await hasPermission(ctx, "records:restrict_delete");
+      if (hasDeleteRestriction) {
+        throw new Error("Acceso denegado: tu rol no permite eliminar registros.");
+      }
+    }
     await ctx.db.delete(args.id);
   },
 });
@@ -72,7 +102,14 @@ export const removeIngreso = mutation({
 export const removeEgreso = mutation({
   args: { id: v.id("bodega_egresos") },
   handler: async (ctx, args) => {
+    await requireIdentity(ctx);
+    const isAdministrator = await isAdmin(ctx);
+    if (!isAdministrator) {
+      const hasDeleteRestriction = await hasPermission(ctx, "records:restrict_delete");
+      if (hasDeleteRestriction) {
+        throw new Error("Acceso denegado: tu rol no permite eliminar registros.");
+      }
+    }
     await ctx.db.delete(args.id);
   },
 });
-

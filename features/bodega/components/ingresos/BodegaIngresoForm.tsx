@@ -27,6 +27,7 @@ import { Id } from "@/convex/_generated/dataModel";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { bodegaIngresoSchema, type BodegaIngresoFormValues } from "../../schemas/ingreso";
+import { useRoles } from "@/shared/hooks";
 
 type BodegaIngresoFormProps = {
     onSuccess?: () => void;
@@ -35,6 +36,8 @@ type BodegaIngresoFormProps = {
 
 export function BodegaIngresoForm({ onSuccess, onCancel }: BodegaIngresoFormProps) {
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const { hasPermission, isAdmin } = useRoles();
+    const restrictDateEdit = !isAdmin && hasPermission("warehouse_money:restrict_date_edit");
     
     // React Hook Form Setup
     const { 
@@ -265,6 +268,7 @@ export function BodegaIngresoForm({ onSuccess, onCancel }: BodegaIngresoFormProp
                                         radius="lg"
                                         isInvalid={!!errors.date}
                                         errorMessage={errors.date?.message}
+                                        isReadOnly={restrictDateEdit}
                                     />
                                 )}
                             />

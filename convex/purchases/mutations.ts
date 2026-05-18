@@ -1,7 +1,7 @@
 import { mutation } from "../_generated/server";
 import { v } from "convex/values";
 import { purchaseFields } from "./schema";
-import { hasPermission, requireIdentity, requirePermission } from "../common/utils";
+import { hasPermission, isAdmin, requireIdentity, requirePermission } from "../common/utils";
 import type { Id } from "../_generated/dataModel";
 import type { MutationCtx } from "../_generated/server";
 
@@ -481,6 +481,13 @@ export const remove = mutation({
   args: { id: v.id("purchases") },
   handler: async (ctx, args) => {
     await requireIdentity(ctx);
+    const isAdministrator = await isAdmin(ctx);
+    if (!isAdministrator) {
+      const hasDeleteRestriction = await hasPermission(ctx, "records:restrict_delete");
+      if (hasDeleteRestriction) {
+        throw new Error("Acceso denegado: tu rol no permite eliminar registros.");
+      }
+    }
 
     const purchase = await ctx.db.get(args.id);
     if (!purchase) return;

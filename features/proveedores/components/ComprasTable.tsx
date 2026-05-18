@@ -35,9 +35,10 @@ type ComprasTableProps = {
   onVerEstadoCuenta?: (item: Purchase) => void;
   onEditar?: (item: Purchase) => void;
   onBorrar?: (item: Purchase) => void;
+  canDelete?: boolean;
 };
 
-export function ComprasTable({ compras, onVer, onVerEstadoCuenta, onEditar, onBorrar }: ComprasTableProps) {
+export function ComprasTable({ compras, onVer, onVerEstadoCuenta, onEditar, onBorrar, canDelete = true }: ComprasTableProps) {
   const [page, setPage] = useState(1);
   const paginatedRows = useMemo(() => {
     const start = (page - 1) * ROWS_PER_PAGE;
@@ -103,11 +104,13 @@ export function ComprasTable({ compras, onVer, onVerEstadoCuenta, onEditar, onBo
                         <PencilSquareIcon className="size-4" />
                       </Button>
                     </Tooltip>
-                    <Tooltip content="Borrar">
-                      <Button isIconOnly size="sm" variant="light" color="danger" onPress={() => onBorrar?.(item)}>
-                        <TrashIcon className="size-4" />
-                      </Button>
-                    </Tooltip>
+                    {canDelete && (
+                      <Tooltip content="Borrar">
+                        <Button isIconOnly size="sm" variant="light" color="danger" onPress={() => onBorrar?.(item)}>
+                          <TrashIcon className="size-4" />
+                        </Button>
+                      </Tooltip>
+                    )}
                   </div>
                 </TableCell>
               </TableRow>
