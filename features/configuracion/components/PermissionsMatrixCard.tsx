@@ -117,8 +117,8 @@ export function PermissionsMatrixCard() {
         <h3 className="text-medium font-semibold text-foreground">Gestión de Roles y Permisos</h3>
         <p className="text-small text-default-500">Configuración granular por rol/perfil</p>
       </CardHeader>
-      <CardBody className="px-6 pb-8 space-y-8">
-        <div className="max-w-md">
+      <CardBody className="px-4 md:px-6 pb-6 md:pb-8 space-y-6 md:space-y-8 overflow-x-hidden">
+        <div className="w-full max-w-xl">
           <Select
             label="Seleccionar Rol para Configurar"
             labelPlacement="outside"
@@ -142,46 +142,64 @@ export function PermissionsMatrixCard() {
         {!selectedRole ? (
           <p className="text-default-500 text-sm">No hay roles disponibles.</p>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
+          <div className="w-full max-w-[1400px] mx-auto">
+            <div className="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 gap-4 md:gap-5 items-start">
             {SECTION_ORDER.map((section) => {
               const permissions = groupedCatalog.get(section) || [];
               if (permissions.length === 0) return null;
               return (
-                <div key={section} className="space-y-4">
-                  <p className="text-sm font-semibold text-primary">{section}</p>
-                  <div className="space-y-3">
+                <Card
+                  key={section}
+                  className="border border-default-200/80 bg-content2 shadow-none h-full min-w-0"
+                >
+                  <CardHeader className="pb-2 pt-4 px-4 md:px-5 min-h-14 border-b border-default-200/70">
+                    <p className="text-sm font-semibold text-primary tracking-tight">{section}</p>
+                  </CardHeader>
+                  <CardBody className="px-3 md:px-4 py-3 md:py-4">
+                    <div className="space-y-2">
                     {permissions.map((permission) => {
                       const selected = draftPermissions.has(permission.key);
                       return (
-                        <div key={permission.key} className="flex items-center justify-between gap-3">
-                          <div className="flex flex-col gap-1">
-                            <p className="text-small text-foreground leading-tight">{permission.label}</p>
-                            <div className="flex gap-2">
-                              <Chip size="sm" variant="flat" color="default">{permission.key}</Chip>
+                        <div
+                          key={permission.key}
+                          className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3 rounded-lg border border-default-100 bg-content1 px-3 py-2.5"
+                        >
+                          <div className="min-w-0 flex flex-col gap-1.5">
+                            <p className="text-sm text-foreground leading-snug break-words">{permission.label}</p>
+                            <div className="flex flex-wrap items-center gap-1.5">
+                              <Chip size="sm" radius="sm" variant="flat" color="default" className="max-w-full">
+                                <span className="truncate">{permission.key}</span>
+                              </Chip>
                               {!permission.implemented && (
-                                <Chip size="sm" variant="flat" color="warning">Pendiente de aplicación</Chip>
+                                <Chip size="sm" radius="sm" variant="flat" color="warning">
+                                  Pendiente de aplicación
+                                </Chip>
                               )}
                             </div>
                           </div>
-                          <Switch
-                            size="sm"
-                            color={permission.sensitive ? "danger" : "primary"}
-                            isSelected={selected}
-                            onValueChange={(value) => togglePermission(permission.key, value)}
-                          />
+                          <div className="pt-0.5">
+                            <Switch
+                              size="sm"
+                              color={permission.sensitive ? "danger" : "primary"}
+                              isSelected={selected}
+                              onValueChange={(value) => togglePermission(permission.key, value)}
+                            />
+                          </div>
                         </div>
                       );
                     })}
-                  </div>
-                </div>
+                    </div>
+                  </CardBody>
+                </Card>
               );
             })}
+            </div>
           </div>
         )}
 
         <Divider />
 
-        <div className="flex justify-end gap-3 mt-4">
+        <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-3 mt-2">
           <Button variant="flat" color="default" className="font-semibold px-6" onPress={handleReset}>
             Restaurar Defaults
           </Button>
