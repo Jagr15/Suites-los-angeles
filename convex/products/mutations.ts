@@ -1,7 +1,11 @@
 import { mutation } from "../_generated/server";
 import { v } from "convex/values";
 import { productFields } from "./schema";
-import { requireIdentity } from "../common/utils";
+import { requireIdentity, requirePermission } from "../common/utils";
+
+const PRICE_FIELDS = [
+  "lista1","lista2","lista3","lista4","lista5","lista6","lista7","lista8","lista9","lista10","lista11","lista12","lista13","lista14","lista15",
+] as const;
 
 export const create = mutation({
   args: productFields,
@@ -42,7 +46,23 @@ export const update = mutation({
   handler: async (ctx, args) => {
     await requireIdentity(ctx);
     const { id, ...fields } = args;
-    await ctx.db.patch(id, fields as any);
+    const existing = await ctx.db.get(id);
+    if (!existing) throw new Error("Producto no encontrado");
+
+    const existingPriceMap = existing as Record<string, unknown>;
+    const priceChanged = PRICE_FIELDS.some((field) => {
+      if (fields[field] === undefined) return false;
+      return existingPriceMap[field] !== fields[field];
+    });
+    if (priceChanged) {
+      await requirePermission(
+        ctx,
+        "sales:allow_price_edit",
+        "Acceso denegado: no puedes editar precios."
+      );
+    }
+
+    await ctx.db.patch(id, fields);
   },
 });
 

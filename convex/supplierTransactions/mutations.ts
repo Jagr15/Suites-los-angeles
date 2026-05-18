@@ -1,6 +1,6 @@
 import { mutation } from "../_generated/server";
 import { v } from "convex/values";
-import { requireIdentity } from "../common/utils";
+import { hasPermission, isAdmin, requireIdentity, requirePermission } from "../common/utils";
 import type { MutationCtx } from "../_generated/server";
 import type { Id } from "../_generated/dataModel";
 
@@ -46,6 +46,26 @@ export const registerPayment = mutation({
   },
   handler: async (ctx, args) => {
     await requireIdentity(ctx);
+    await requirePermission(
+      ctx,
+      "collections:allow_pending_invoice_payment",
+      "Acceso denegado: no puedes registrar pagos de facturas/deudas pendientes."
+    );
+
+    const isAdministrator = await isAdmin(ctx);
+    if (!isAdministrator) {
+      const allowCheckTransfer = await hasPermission(ctx, "collections:allow_check_transfer_payment");
+      if (!allowCheckTransfer && (args.paymentMethod === "Transferencia" || args.paymentMethod === "Cheque")) {
+        throw new Error("Acceso denegado: no puedes registrar pagos con cheque/transferencia.");
+      }
+
+      const restrictPaymentDateEdit = await hasPermission(ctx, "collections:restrict_payment_date_edit");
+      const today = new Date().toISOString().split("T")[0];
+      if (restrictPaymentDateEdit && args.date !== today) {
+        throw new Error("Acceso denegado: no puedes editar la fecha de pago.");
+      }
+    }
+
     if (args.amount <= 0) {
       throw new Error("El monto del abono debe ser mayor a cero");
     }

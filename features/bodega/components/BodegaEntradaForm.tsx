@@ -28,11 +28,37 @@ import {
 
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
+import type { Id } from "@/convex/_generated/dataModel";
 
 // Adaptado de CompraForm para usarse como Entrada en Bodega
 import { type BodegaRow } from "@/shared/mocks";
 
-const defaultValues: any = {
+type EntryItem = {
+    rowId: string;
+    productId: string;
+    sku: string;
+    name: string;
+    category: string;
+    quantity: number;
+    unitCost: number;
+    totalCost: number;
+    stockAnterior: number;
+    stockNuevo: number;
+};
+
+type BodegaEntradaFormValues = {
+    folio: string;
+    supplierId: string;
+    bodegaId: string;
+    date: string;
+    receptionStatus: string;
+    status: string;
+    totalAmount: number;
+    notes: string;
+    items: EntryItem[];
+};
+
+const defaultValues: BodegaEntradaFormValues = {
     folio: "",
     supplierId: "",
     bodegaId: "",
@@ -54,8 +80,8 @@ const parseCurrency = (val: string | number) => {
 };
 
 type BodegaEntradaFormProps = {
-    entrada?: (BodegaRow & { _id?: string; receptionStatus?: string; items?: any[] }) | null;
-    onSubmit: (data: any, editId?: string) => void;
+    entrada?: (BodegaRow & { _id?: string; receptionStatus?: string; recepcion?: string; items?: EntryItem[] }) | null;
+    onSubmit: (data: BodegaEntradaFormValues, editId?: string) => void;
     canEditPaymentStatus?: boolean;
     canEditReceptionStatus?: boolean;
     canEditDate?: boolean;
@@ -70,15 +96,26 @@ export function BodegaEntradaForm({
     canEditDate = false,
     onCancel,
 }: BodegaEntradaFormProps) {
-    console.log("Rendering BodegaEntradaForm with entrada:", entrada);
     const isEdit = !!entrada;
     
     // Convex Data
-    const products = useQuery(api.products.queries.list) || [];
+    const rawProducts = useQuery(api.products.queries.list) || [];
     const suppliers = useQuery(api.suppliers.queries.list) || [];
     const bodegas = useQuery(api.bodegas.queries.list) || [];
+    const products = useMemo(() => {
+        return rawProducts.map((raw) => {
+            const p = raw as Record<string, unknown>;
+            return {
+                _id: String(p._id ?? ""),
+                producto: String(p.producto ?? ""),
+                sku: String(p.sku ?? ""),
+                categoria: String(p.categoria ?? ""),
+                lista1: String(p.lista1 ?? "0"),
+            };
+        });
+    }, [rawProducts]);
     
-    const [selectedProduct, setSelectedProduct] = useState<any>(null);
+    const [selectedProduct, setSelectedProduct] = useState<(typeof products)[number] | null>(null);
     const [productInput, setProductInput] = useState("");
     const [addQty, setAddQty] = useState("100");
     const [addCost, setAddCost] = useState("0");
@@ -90,7 +127,7 @@ export function BodegaEntradaForm({
         setValue,
         watch,
         formState: { errors },
-    } = useForm<any>({
+    } = useForm<BodegaEntradaFormValues>({
         defaultValues: entrada ? { ...entrada } : defaultValues,
     });
 
@@ -98,14 +135,13 @@ export function BodegaEntradaForm({
     const productStockInBodega = useQuery(
         api.inventory.queries.getStock,
         selectedProduct && selectedBodegaId 
-            ? { productId: selectedProduct._id, bodegaId: selectedBodegaId } 
+            ? { productId: selectedProduct._id as Id<"products">, bodegaId: selectedBodegaId as Id<"bodegas"> } 
             : "skip"
     );
 
     const formItems = watch("items") || [];
-    console.log("Items actuales en el formulario (formItems):", JSON.stringify(formItems, null, 2));
     const montoTotalValue = useMemo(() => {
-        return formItems.reduce((acc: number, p: any) => acc + (p.totalCost || 0), 0);
+        return formItems.reduce((acc: number, p) => acc + (p.totalCost || 0), 0);
     }, [formItems]);
 
     const montoTotalFormatted = useMemo(() => {
@@ -114,14 +150,11 @@ export function BodegaEntradaForm({
 
     useEffect(() => {
         if (entrada) {
-            console.log("Datos recibidos para editar (entrada):", JSON.stringify(entrada, null, 2));
-            // Soporte para registros viejos que usaban 'recepcion'
-            const receptionStatus = entrada.receptionStatus || (entrada as any).recepcion || "Completa";
-            reset({ ...entrada, receptionStatus });
+            const receptionStatus = entrada.receptionStatus || entrada.recepcion || "Completa";
+            reset({ ...(entrada as unknown as BodegaEntradaFormValues), receptionStatus });
             
             // Forzamos el seteo de items por si el reset no lo dispara correctamente en el watch
             if (entrada.items) {
-                console.log("Seteando items en el form:", JSON.stringify(entrada.items, null, 2));
                 setValue("items", entrada.items);
             }
         } else {
@@ -214,14 +247,12 @@ export function BodegaEntradaForm({
         }, 50);
     };
 
-    const onFormSubmit = (data: any) => {
-        console.log("onFormSubmit data original:", data);
+    const onFormSubmit = (data: BodegaEntradaFormValues) => {
         const row = {
             ...data,
             totalAmount: montoTotalValue,
             items: formItems, // Aseguramos que los items actuales se incluyan
         };
-        console.log("Enviando a BodegaPage onSubmit:", row);
         onSubmit(row, entrada?._id);
     };
 
@@ -244,8 +275,8 @@ export function BodegaEntradaForm({
                                         defaultItems={suppliers}
                                         placeholder="Seleccionar Proveedor..."
                                         className="w-full"
-                                        onSelectionChange={(val) => field.onChange(val)}
-                                        selectedKey={field.value}
+                                        onSelectionChange={(val) => field.onChange(val ? String(val) : "")}
+                                        selectedKey={field.value || null}
                                         variant="flat"
                                         color="secondary"
                                         size="md"
@@ -288,8 +319,8 @@ export function BodegaEntradaForm({
                                         defaultItems={bodegas}
                                         placeholder="Seleccionar Almacén..."
                                         className="w-full"
-                                        onSelectionChange={(val) => field.onChange(val)}
-                                        selectedKey={field.value}
+                                        onSelectionChange={(val) => field.onChange(val ? String(val) : "")}
+                                        selectedKey={field.value || null}
                                         variant="flat"
                                         color="primary"
                                         size="md"
@@ -555,7 +586,7 @@ export function BodegaEntradaForm({
                         <TableColumn className="bg-default-50 w-10 text-right">Acciones</TableColumn>
                     </TableHeader>
                     <TableBody items={formItems} emptyContent={<div className="p-16 text-center text-default-300 italic font-semibold text-lg uppercase tracking-widest">Sin productos agregados</div>}>
-                        {(p: any) => (
+                        {(p: EntryItem) => (
                             <TableRow key={p.rowId} className="border-b border-default-100 last:border-0 hover:bg-default-50/50 transition-colors">
                                 <TableCell className="text-xs font-semibold text-default-600">
                                     {typeof p.productId === 'string' ? p.productId.slice(-4) : 'N/A'}
@@ -578,7 +609,7 @@ export function BodegaEntradaForm({
                                         size="sm"
                                         variant="light"
                                         color="danger"
-                                        onPress={() => setValue("items", formItems.filter((it: any) => it.rowId !== p.rowId))}
+                                        onPress={() => setValue("items", formItems.filter((it) => it.rowId !== p.rowId))}
                                     >
                                         <TrashIcon className="size-4" />
                                     </Button>
@@ -602,9 +633,9 @@ export function BodegaEntradaForm({
                                 placeholder="Introduzca observaciones aquí..."
                                 className="flex-1 text-sm font-semibold text-danger bg-transparent border-none outline-none focus:ring-0 p-0 resize-none h-auto overflow-hidden"
                                 rows={1}
-                                onInput={(e: any) => {
-                                    e.target.style.height = 'auto';
-                                    e.target.style.height = e.target.scrollHeight + 'px';
+                                onInput={(e: React.FormEvent<HTMLTextAreaElement>) => {
+                                    e.currentTarget.style.height = 'auto';
+                                    e.currentTarget.style.height = `${e.currentTarget.scrollHeight}px`;
                                 }}
                             />
                         </div>

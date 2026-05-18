@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useState, useRef } from "react";
 import { useForm, Controller, useWatch } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
 import {
     Table,
     TableHeader,
@@ -31,17 +30,34 @@ import {
 } from "@heroicons/react/24/outline";
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
-import { ALMACENES_MOCK } from "@/shared/mocks";
-import { 
-    compraSchema,
-    type CompraFormValues,
-} from "@/shared/schemas";
-import type { Supplier } from "@/features/configuracion/components/suppliers/types";
 import type { CompraRow, CompraProducto } from "@/shared/mocks/compras";
 
 
 
-const defaultValues: any = {
+type CompraFormInternalValues = {
+    folio: string;
+    proveedor: string;
+    almacen: string;
+    fecha: string;
+    recepcion: string;
+    revision: string;
+    status: string;
+    monto: string;
+    nota: string;
+    productos: CompraProducto[];
+};
+
+type ProductOption = {
+    id: string;
+    sku: string;
+    descripcion: string;
+    categoria: string;
+    subcategoria: string;
+    stock: number;
+    precio: number;
+};
+
+const defaultValues: CompraFormInternalValues = {
     folio: "",
     proveedor: "",
     almacen: "",
@@ -98,7 +114,7 @@ export function CompraForm({
         reset,
         setValue,
         formState: { errors },
-    } = useForm<any>({
+    } = useForm<CompraFormInternalValues>({
         defaultValues: compra ? { ...compra } : defaultValues,
     });
 
@@ -121,7 +137,7 @@ export function CompraForm({
     }, [compra, reset]);
 
     const [productInput, setProductInput] = useState("");
-    const [selectedProduct, setSelectedProduct] = useState<any>(null);
+    const [selectedProduct, setSelectedProduct] = useState<ProductOption | null>(null);
     const [addQty, setAddQty] = useState("100");
     const [addCost, setAddCost] = useState("0");
 
@@ -129,16 +145,20 @@ export function CompraForm({
     const qtyInputRef = useRef<HTMLInputElement>(null);
     const costInputRef = useRef<HTMLInputElement>(null);
 
-    const products = useMemo(() => {
-        return convexProductsList.map(p => ({
-            id: p._id as string,
-            sku: p.sku,
-            descripcion: p.producto,
-            categoria: p.categoria,
-            subcategoria: p.subcategoria,
-            stock: 0, // Stock pending implementation
-            precio: parseFloat(p.lista1?.replace(/[$,]/g, "") || "0"),
-        }));
+    const products = useMemo<ProductOption[]>(() => {
+        return convexProductsList.map((raw) => {
+            const p = raw as Record<string, unknown>;
+            const priceRaw = typeof p.lista1 === "string" ? p.lista1 : String(p.lista1 ?? "0");
+            return {
+                id: String(p._id ?? ""),
+                sku: String(p.sku ?? ""),
+                descripcion: String(p.producto ?? ""),
+                categoria: String(p.categoria ?? ""),
+                subcategoria: String(p.subcategoria ?? ""),
+                stock: 0, // Stock pending implementation
+                precio: parseFloat(priceRaw.replace(/[$,]/g, "")),
+            };
+        });
     }, [convexProductsList]);
 
     const filteredProducts = useMemo(() => {
@@ -216,18 +236,17 @@ export function CompraForm({
         }, 50);
     };
 
-    const onFormSubmit = (data: any) => {
-        console.log("📝 FORM DATA BEFORE SUBMIT:", data);
+    const onFormSubmit = (data: CompraFormInternalValues) => {
         const row: CompraRow = {
+            id: compra?.id ?? "",
+            proveedorId: data.proveedor,
             ...data,
             monto: montoTotal,
+            recepcion: data.recepcion as "Completa" | "Faltante",
+            revision: data.revision as "Confirmada" | "Revisar",
         };
         onSubmit(row, compra?.id);
     };
-
-    if (Object.keys(errors).length > 0) {
-        console.warn("⚠️ FORM VALIDATION ERRORS:", errors);
-    }
 
     return (
         <div className="mx-auto w-full space-y-6 animate-in fade-in duration-500">
@@ -282,8 +301,8 @@ export function CompraForm({
                                 defaultItems={suppliers}
                                 placeholder="Buscar proveedor..."
                                 className="w-full"
-                                onSelectionChange={(val) => field.onChange(val)}
-                                selectedKey={field.value}
+                                onSelectionChange={(val) => field.onChange(val ? String(val) : "")}
+                                selectedKey={field.value || null}
                                 variant="flat"
                                 color="primary"
                                 size="lg"
@@ -329,8 +348,8 @@ export function CompraForm({
                             <Autocomplete
                                 placeholder="Seleccionar bodega..."
                                 className="w-full"
-                                onSelectionChange={(val) => field.onChange(val)}
-                                selectedKey={field.value}
+                                onSelectionChange={(val) => field.onChange(val ? String(val) : "")}
+                                selectedKey={field.value || null}
                                 variant="flat"
                                 color="secondary"
                                 size="lg"
@@ -603,7 +622,7 @@ export function CompraForm({
                                         size="sm"
                                         variant="light"
                                         color="danger"
-                                        onPress={() => setValue("productos", productos.filter((it: any) => it.id !== p.id))}
+                                        onPress={() => setValue("productos", productos.filter((it) => it.id !== p.id))}
                                     >
                                         <TrashIcon className="size-4" />
                                     </Button>
@@ -627,9 +646,9 @@ export function CompraForm({
                                 placeholder="Introduzca observaciones aquí..."
                                 className="flex-1 text-sm font-semibold text-danger bg-transparent border-none outline-none focus:ring-0 p-0 resize-none h-auto overflow-hidden"
                                 rows={1}
-                                onInput={(e: any) => {
-                                    e.target.style.height = 'auto';
-                                    e.target.style.height = e.target.scrollHeight + 'px';
+                                onInput={(e: React.FormEvent<HTMLTextAreaElement>) => {
+                                    e.currentTarget.style.height = 'auto';
+                                    e.currentTarget.style.height = `${e.currentTarget.scrollHeight}px`;
                                 }}
                             />
                         </div>

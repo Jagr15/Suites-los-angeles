@@ -1,12 +1,13 @@
 "use client";
 
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback, useMemo, useEffect } from "react";
 import { addToast, Button } from "@heroui/react";
 import { CheckIcon } from "@heroicons/react/24/outline";
 import { ConfirmModal } from "@/shared/components";
 import { DashboardHeader } from "@/features/dashboard/components";
 import { ProductosHeader, ProductosToolbar, ProductosTable, ProductoModal } from "../components";
 import { useProducts, type Product } from "../hooks/use-products";
+import { useRoles } from "@/shared/hooks";
 import type { ProductoCreate } from "@/shared/types/producto";
 import * as XLSX from "xlsx";
 
@@ -35,6 +36,10 @@ function toProductoRow(data: ProductoCreate | Record<string, any>, id: string): 
 
 export function ProductosPage() {
   const { products, isLoading, addProduct, updateProduct, deleteProduct, bulkUpsert } = useProducts();
+  const { hasPermission, isAdmin } = useRoles();
+  const hideCostAndMargin = !isAdmin && hasPermission("products:hide_cost_and_margin");
+  const canEditPrices = isAdmin || hasPermission("sales:allow_price_edit");
+  const visibleTabs = hideCostAndMargin ? ["mayoreo", "venta"] : ["costo", "mayoreo", "venta"];
   const [activeTab, setActiveTab] = useState("venta");
   const [isModalOpen, setModalOpen] = useState(false);
   const [isViewOnly, setIsViewOnly] = useState(false);
@@ -57,6 +62,12 @@ export function ProductosPage() {
     () => filteredProductos.map((p) => ({ ...p, ...pendingEdits[p.id] })),
     [filteredProductos, pendingEdits]
   );
+
+  useEffect(() => {
+    if (hideCostAndMargin && activeTab === "costo") {
+      setActiveTab("mayoreo");
+    }
+  }, [activeTab, hideCostAndMargin]);
 
   const hasPendingEdits = Object.keys(pendingEdits).length > 0;
 
@@ -226,14 +237,14 @@ export function ProductosPage() {
     <div className="flex flex-col">
       <DashboardHeader />
       <div className="space-y-4 p-4 md:p-5">
-        <ProductosHeader activeTab={activeTab} onTabChange={setActiveTab} />
+        <ProductosHeader activeTab={activeTab} onTabChange={setActiveTab} visibleTabs={visibleTabs} />
         <ProductosToolbar 
           onAgregar={handleOpenCreate} 
           onImportExcel={handleImportExcel}
           searchValue={searchQuery}
           onSearchChange={setSearchQuery}
         />
-        {hasPendingEdits && (
+        {hasPendingEdits && canEditPrices && (
           <div className="flex justify-end pt-1">
             <Button
               color="primary"
@@ -251,6 +262,7 @@ export function ProductosPage() {
           onBorrar={setProductToDelete}
           onPriceChange={handlePriceChange}
           activeTab={activeTab}
+          canEditPrices={canEditPrices}
         />
       </div>
       <ProductoModal

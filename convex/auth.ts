@@ -17,7 +17,6 @@ export const { auth, signIn, signOut, store } = convexAuth({
         },
         async verifySecret(password, secret) {
           if (!secret || !secret.includes(":")) {
-            console.error("Invalid secret format in database:", secret);
             return false;
           }
           const [salt, hash] = secret.split(":");
@@ -27,10 +26,7 @@ export const { auth, signIn, signOut, store } = convexAuth({
           const hashArray = Array.from(new Uint8Array(hashBuffer));
           const hashHex = hashArray.map(b => b.toString(16).padStart(2, "0")).join("");
           
-          if (hashHex !== hash) {
-            console.warn("Contraseña incorrecta para el usuario");
-            return false; 
-          }
+          if (hashHex !== hash) return false;
           return true; // Éxito
         },
       },

@@ -6,27 +6,12 @@ import { useRouter } from "next/navigation";
 import { Link, Divider, Spinner } from "@heroui/react";
 import { LoginForm } from "../components/LoginForm";
 
-const DEBUG_AUTH = process.env.NODE_ENV !== "production";
-
 export function LoginPage() {
   const { isAuthenticated, isLoading } = useConvexAuth();
   const router = useRouter();
 
   useEffect(() => {
-    if (DEBUG_AUTH) {
-      console.log("[AUTH][LoginPage] state", {
-        isLoading,
-        isAuthenticated,
-        pathname: typeof window !== "undefined" ? window.location.pathname : "",
-      });
-    }
-  }, [isAuthenticated, isLoading]);
-
-  useEffect(() => {
     if (!isLoading && isAuthenticated) {
-      if (DEBUG_AUTH) {
-        console.log("[AUTH][LoginPage] redirecting authenticated user to /dashboard");
-      }
       router.replace("/dashboard");
     }
   }, [isAuthenticated, isLoading, router]);

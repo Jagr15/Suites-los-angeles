@@ -38,9 +38,10 @@ type ProductosTableProps = {
   onBorrar?: (item: Product) => void;
   onPriceChange?: (productId: string, field: string, value: string) => void;
   activeTab: string;
+  canEditPrices?: boolean;
 };
 
-export function ProductosTable({ productos: rows, onVer, onEditar, onBorrar, onPriceChange, activeTab }: ProductosTableProps) {
+export function ProductosTable({ productos: rows, onVer, onEditar, onBorrar, onPriceChange, activeTab, canEditPrices = true }: ProductosTableProps) {
   const columns = useMemo(() => [
     { key: "sku", label: "Sku" },
     { key: "codigo", label: "Código" },
@@ -139,6 +140,7 @@ export function ProductosTable({ productos: rows, onVer, onEditar, onBorrar, onP
                       classNames={{ inputWrapper: "min-h-8 h-8", input: "text-end text-sm" }} 
                       aria-label={label}
                       startContent={<span className="text-default-400 text-[10px]">$</span>}
+                      isDisabled={!canEditPrices}
                     />
                   );
                 } else {

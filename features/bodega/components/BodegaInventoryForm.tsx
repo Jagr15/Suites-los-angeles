@@ -25,8 +25,28 @@ import {
 
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
+import type { Id } from "@/convex/_generated/dataModel";
 
-const defaultValues: any = {
+type InventoryAdjustmentItem = {
+    rowId: string;
+    productId: string;
+    sku: string;
+    name: string;
+    category: string;
+    previousStock: number;
+    newStock: number;
+    quantity: number;
+    reason: string;
+};
+
+type BodegaInventoryFormValues = {
+    bodegaId: string;
+    date: string;
+    notes: string;
+    items: InventoryAdjustmentItem[];
+};
+
+const defaultValues: BodegaInventoryFormValues = {
     bodegaId: "",
     date: new Date().toISOString().split("T")[0],
     notes: "",
@@ -34,13 +54,24 @@ const defaultValues: any = {
 };
 
 type BodegaInventoryFormProps = {
-    onSubmit: (data: any) => void;
+    onSubmit: (data: BodegaInventoryFormValues) => void;
     onCancel: () => void;
 };
 
 export function BodegaInventoryForm({ onSubmit, onCancel }: BodegaInventoryFormProps) {
-    const products = useQuery(api.products.queries.list) || [];
+    const rawProducts = useQuery(api.products.queries.list) || [];
     const bodegas = useQuery(api.bodegas.queries.list) || [];
+    const products = useMemo(() => {
+        return rawProducts.map((raw) => {
+            const p = raw as Record<string, unknown>;
+            return {
+                _id: String(p._id ?? ""),
+                producto: String(p.producto ?? ""),
+                sku: String(p.sku ?? ""),
+                categoria: String(p.categoria ?? ""),
+            };
+        });
+    }, [rawProducts]);
 
     const {
         control,
@@ -48,7 +79,7 @@ export function BodegaInventoryForm({ onSubmit, onCancel }: BodegaInventoryFormP
         reset,
         setValue,
         formState: { errors },
-    } = useForm<any>({
+    } = useForm<BodegaInventoryFormValues>({
         defaultValues,
     });
 
@@ -56,7 +87,7 @@ export function BodegaInventoryForm({ onSubmit, onCancel }: BodegaInventoryFormP
     const formItems = useWatch({ control, name: "items" }) || [];
 
     const [productInput, setProductInput] = useState("");
-    const [selectedProduct, setSelectedProduct] = useState<any>(null);
+    const [selectedProduct, setSelectedProduct] = useState<(typeof products)[number] | null>(null);
     const [newStockInput, setNewStockInput] = useState("");
     const [reasonInput, setReasonInput] = useState("Ajuste físico");
 
@@ -67,7 +98,7 @@ export function BodegaInventoryForm({ onSubmit, onCancel }: BodegaInventoryFormP
     const currentStockInBodega = useQuery(
         api.inventory.queries.getStock,
         selectedProduct && selectedBodegaId 
-            ? { productId: selectedProduct._id, bodegaId: selectedBodegaId } 
+            ? { productId: selectedProduct._id as Id<"products">, bodegaId: selectedBodegaId as Id<"bodegas"> } 
             : "skip"
     );
 
@@ -137,7 +168,7 @@ export function BodegaInventoryForm({ onSubmit, onCancel }: BodegaInventoryFormP
         }, 50);
     };
 
-    const onFormSubmit = (data: any) => {
+    const onFormSubmit = (data: BodegaInventoryFormValues) => {
         onSubmit(data);
     };
 
@@ -160,8 +191,8 @@ export function BodegaInventoryForm({ onSubmit, onCancel }: BodegaInventoryFormP
                                         defaultItems={bodegas}
                                         placeholder="Seleccionar Almacén..."
                                         className="w-full"
-                                        onSelectionChange={(val) => field.onChange(val)}
-                                        selectedKey={field.value}
+                                        onSelectionChange={(val) => field.onChange(val ? String(val) : "")}
+                                        selectedKey={field.value || null}
                                         variant="flat"
                                         color="primary"
                                         size="md"
@@ -336,7 +367,7 @@ export function BodegaInventoryForm({ onSubmit, onCancel }: BodegaInventoryFormP
                         <TableColumn className="bg-default-50 w-10 text-right">Acciones</TableColumn>
                     </TableHeader>
                     <TableBody items={formItems} emptyContent={<div className="p-16 text-center text-default-300 italic font-semibold text-lg uppercase tracking-widest">Agregue productos para ajustar</div>}>
-                        {(p: any) => (
+                        {(p: InventoryAdjustmentItem) => (
                             <TableRow key={p.rowId} className="border-b border-default-100 last:border-0 hover:bg-default-50/50 transition-colors">
                                 <TableCell>
                                     <div className="flex flex-col">
@@ -359,7 +390,7 @@ export function BodegaInventoryForm({ onSubmit, onCancel }: BodegaInventoryFormP
                                         size="sm"
                                         variant="light"
                                         color="danger"
-                                        onPress={() => setValue("items", formItems.filter((it: any) => it.rowId !== p.rowId))}
+                                        onPress={() => setValue("items", formItems.filter((it) => it.rowId !== p.rowId))}
                                     >
                                         <TrashIcon className="size-4" />
                                     </Button>
@@ -383,9 +414,9 @@ export function BodegaInventoryForm({ onSubmit, onCancel }: BodegaInventoryFormP
                                 placeholder="Notas adicionales sobre el ajuste..."
                                 className="flex-1 text-sm font-semibold text-default-600 bg-transparent border-none outline-none focus:ring-0 p-0 resize-none h-auto overflow-hidden"
                                 rows={1}
-                                onInput={(e: any) => {
-                                    e.target.style.height = 'auto';
-                                    e.target.style.height = e.target.scrollHeight + 'px';
+                                onInput={(e: React.FormEvent<HTMLTextAreaElement>) => {
+                                    e.currentTarget.style.height = 'auto';
+                                    e.currentTarget.style.height = `${e.currentTarget.scrollHeight}px`;
                                 }}
                             />
                         </div>

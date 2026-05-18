@@ -35,6 +35,14 @@ export const removeCategory = mutation({
     id: v.id("bodega_categorias"),
   },
   handler: async (ctx, args) => {
+    await requireIdentity(ctx);
+    const isAdministrator = await isAdmin(ctx);
+    if (!isAdministrator) {
+      const hasDeleteRestriction = await hasPermission(ctx, "records:restrict_delete");
+      if (hasDeleteRestriction) {
+        throw new Error("Acceso denegado: tu rol no permite eliminar registros.");
+      }
+    }
     // En lugar de borrar físicamente, podemos desactivarla para no romper historial
     await ctx.db.patch(args.id, { isActive: false });
   },

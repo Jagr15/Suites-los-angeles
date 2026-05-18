@@ -95,14 +95,12 @@ export function BodegaPage() {
   }, []);
 
   const handleEditar = useCallback((item: any) => {
-    console.log("handleEditar llamado con item:", JSON.stringify(item, null, 2));
     setBodegaToEdit(item);
     setView("form");
   }, []);
 
   const handleSubmitEntrada = useCallback(
     async (values: any, editId?: string) => {
-      console.log("Valores RAW recibidos en handleSubmitEntrada:", JSON.stringify(values, null, 2));
       try {
         const cleanItems = (values.items || []).map((it: any) => ({
           productId: it.productId,
@@ -128,8 +126,6 @@ export function BodegaPage() {
           items: cleanItems
         };
 
-        console.log("Objeto enviado a Convex:", cleanValues);
-
         if (editId) {
           await updatePurchase({ id: editId as any, ...cleanValues });
           addToast({ title: "Entrada actualizada", color: "success" });
@@ -149,7 +145,6 @@ export function BodegaPage() {
 
   const handleSubmitSalida = useCallback(
     async (values: any, editId?: string) => {
-      console.log("handleSubmitSalida llamado:", { values, editId });
       try {
         const cleanItems = (values.productos || []).map((it: any) => ({
           productId: it.productId || it.id,

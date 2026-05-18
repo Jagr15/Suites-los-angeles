@@ -68,9 +68,7 @@ export function VehicleModal({ isOpen, onOpenChange, onSuccess }: VehicleModalPr
     };
 
     try {
-      console.log("[VEHICLE] submit payload", payload);
       const id = await createAsset(payload);
-      console.log("[VEHICLE] mutation success", id);
       
       addToast({
         title: "Transporte Registrado",
