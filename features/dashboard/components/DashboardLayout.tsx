@@ -50,6 +50,14 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
     }
   }, [isLoading, isAuthenticated, canAccessPath, pathname, router]);
 
+  useEffect(() => {
+    if (!isLoading && isAuthenticated && isVendedor) {
+      signOut().finally(() => {
+        router.replace("/login");
+      });
+    }
+  }, [isLoading, isAuthenticated, isVendedor, signOut, router]);
+
   // Pantalla de carga mientras verificamos la identidad
   if (isLoading) {
     return (
@@ -97,28 +105,7 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
 
   // Restricción para Vendedores en esta aplicación web
   if (isVendedor) {
-    return (
-      <div className="flex h-screen w-full flex-col items-center justify-center bg-black p-6 text-center">
-        <div className="size-20 rounded-full bg-warning/10 flex items-center justify-center mb-6">
-          <div className="size-10 rounded-full bg-warning animate-pulse" />
-        </div>
-        <h1 className="text-2xl font-bold text-white mb-2">Acceso No Autorizado</h1>
-        <p className="text-white/60 max-w-md mb-8">
-          Los perfiles con rol <strong>Vendedor</strong> no tienen permiso para ingresar a este panel administrativo. 
-          Por favor, utiliza la aplicación móvil o contacta a tu supervisor.
-        </p>
-        <Button 
-          color="warning" 
-          variant="flat" 
-          onPress={async () => {
-            await signOut();
-            router.replace("/login");
-          }}
-        >
-          Volver al Login
-        </Button>
-      </div>
-    );
+    return null;
   }
 
   // Si llegamos aquí, es que estamos autenticados

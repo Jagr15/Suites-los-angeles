@@ -121,7 +121,6 @@ export function LoanModal({ isOpen, onOpenChange, loan }: LoanModalProps) {
       }
       onOpenChange(false);
     } catch (error) {
-      console.error("Loan save error:", error);
       const description = error instanceof Error ? error.message : "No se pudo guardar el préstamo.";
       addToast({
         title: "Error",

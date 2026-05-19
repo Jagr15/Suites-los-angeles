@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo } from "react";
 import {
   Table,
   TableHeader,
@@ -40,16 +40,12 @@ type ComprasTableProps = {
 
 export function ComprasTable({ compras, onVer, onVerEstadoCuenta, onEditar, onBorrar, canDelete = true }: ComprasTableProps) {
   const [page, setPage] = useState(1);
-  const paginatedRows = useMemo(() => {
-    const start = (page - 1) * ROWS_PER_PAGE;
-    return compras.slice(start, start + ROWS_PER_PAGE);
-  }, [compras, page]);
-
   const totalPages = Math.ceil(compras.length / ROWS_PER_PAGE);
-
-  useEffect(() => {
-    setPage(1);
-  }, [compras.length]);
+  const currentPage = Math.min(page, Math.max(totalPages, 1));
+  const paginatedRows = useMemo(() => {
+    const start = (currentPage - 1) * ROWS_PER_PAGE;
+    return compras.slice(start, start + ROWS_PER_PAGE);
+  }, [compras, currentPage]);
 
   return (
     <div className="flex flex-col gap-4 animate-in fade-in slide-in-from-top-4 duration-500">
@@ -126,7 +122,7 @@ export function ComprasTable({ compras, onVer, onVerEstadoCuenta, onEditar, onBo
           <div className="p-3 flex justify-center border-t border-default-50 bg-default-50/30">
             <Pagination
               showControls
-              page={page}
+              page={currentPage}
               total={totalPages}
               onChange={setPage}
               classNames={{

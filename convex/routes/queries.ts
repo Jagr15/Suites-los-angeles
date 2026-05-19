@@ -1,11 +1,17 @@
 import { query } from "../_generated/server";
 import { v } from "convex/values";
 import { Id } from "../_generated/dataModel";
+import { QueryCtx } from "../_generated/server";
 
 const isLikelyConvexId = (value: unknown) =>
   typeof value === "string" && value.includes("|");
 
-async function safeGetAssetFromRoute(ctx: any, route: any) {
+type RouteLike = {
+  assetId?: Id<"assets">;
+  vehicleId?: string;
+};
+
+async function safeGetAssetFromRoute(ctx: QueryCtx, route: RouteLike) {
   let asset = null;
 
   if (route.assetId) {
