@@ -117,6 +117,16 @@ export function ProveedoresPage() {
   const handleSubmitCompra = useCallback(
     async (row: any, editId?: string) => {
       try {
+        if (!row.proveedor) throw new Error("Selecciona un proveedor.");
+        if (!row.almacen) throw new Error("Selecciona una bodega de destino.");
+        if (!row.productos || row.productos.length === 0) throw new Error("Agrega al menos un producto a la compra.");
+
+        const normalizedItems = (row.productos || []).map((p: any) => ({
+          productId: p.productId || p.id,
+          quantity: Number(p.cantidad),
+          unitCost: Number(p.costo),
+          totalCost: Number(p.total),
+        }));
         const canEditPayment = isAdmin || hasPermission("purchases:edit_payment_status");
         const canEditReception = isAdmin || hasPermission("purchases:edit_reception_status");
         const canEditDate = isAdmin || hasPermission("purchases:edit_date");
@@ -134,12 +144,7 @@ export function ProveedoresPage() {
             status: nextStatus,
             receptionStatus: nextReception,
             notes: row.nota,
-            items: row.productos?.map((p: any) => ({
-              productId: p.productId || p.id,
-              quantity: Number(p.cantidad),
-              unitCost: Number(p.costo),
-              totalCost: Number(p.total),
-            })),
+            items: normalizedItems,
           });
           addToast({
             title: "Compra actualizada",
@@ -155,12 +160,7 @@ export function ProveedoresPage() {
             status: row.status as any,
             receptionStatus: row.recepcion as any,
             notes: row.nota,
-            items: row.productos?.map((p: any) => ({
-              productId: p.id,
-              quantity: p.cantidad,
-              unitCost: p.costo,
-              totalCost: p.total,
-            })),
+            items: normalizedItems,
           });
           addToast({
             title: "Compra registrada",
@@ -171,9 +171,10 @@ export function ProveedoresPage() {
         setCompraToEdit(null);
         setIsFormVisible(false);
       } catch (error) {
+        const message = error instanceof Error ? error.message : "No se pudo guardar la compra.";
         addToast({
           title: "Error",
-          description: "No se pudo guardar la compra.",
+          description: message,
           color: "danger",
         });
       }

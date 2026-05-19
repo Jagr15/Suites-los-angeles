@@ -75,7 +75,7 @@ export function ConfiguracionPage() {
               </div>
             }
           >
-            <div className="mt-4 flex flex-col gap-4">
+            <div className="mt-4 flex flex-col gap-4 min-w-0 overflow-x-hidden">
               <UserManagementCard />
               <PermissionsMatrixCard />
             </div>

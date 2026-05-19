@@ -79,13 +79,32 @@ export function LoanModal({ isOpen, onOpenChange, loan }: LoanModalProps) {
 
   const onSubmit = async (data: LoanFormData) => {
     try {
+      const payload = {
+        ...data,
+        subject: (data.subject || "").trim(),
+        amount: Number(data.amount),
+        interestRate: Number(data.interestRate),
+        termMonths: Number(data.termMonths),
+        startDate: data.startDate || new Date().toISOString().split("T")[0],
+      };
+
+      if (!payload.subject) {
+        throw new Error("Captura el deudor/acreedor.");
+      }
+      if (!Number.isFinite(payload.amount) || payload.amount <= 0) {
+        throw new Error("El monto debe ser mayor a 0.");
+      }
+      if (!Number.isFinite(payload.interestRate) || payload.interestRate < 0) {
+        throw new Error("La tasa de interés no es válida.");
+      }
+      if (!Number.isFinite(payload.termMonths) || payload.termMonths <= 0) {
+        throw new Error("El plazo en meses debe ser mayor a 0.");
+      }
+
       if (loan) {
         await updateLoan({
           id: loan._id,
-          ...data,
-          amount: Number(data.amount),
-          interestRate: Number(data.interestRate),
-          termMonths: Number(data.termMonths),
+          ...payload,
         });
         addToast({
           title: "Préstamo actualizado",
@@ -93,12 +112,7 @@ export function LoanModal({ isOpen, onOpenChange, loan }: LoanModalProps) {
           color: "success",
         });
       } else {
-        await createLoan({
-          ...data,
-          amount: Number(data.amount),
-          interestRate: Number(data.interestRate),
-          termMonths: Number(data.termMonths),
-        });
+        await createLoan(payload);
         addToast({
           title: "Préstamo registrado",
           description: "El nuevo préstamo se ha guardado correctamente.",
@@ -107,10 +121,11 @@ export function LoanModal({ isOpen, onOpenChange, loan }: LoanModalProps) {
       }
       onOpenChange(false);
     } catch (error) {
-      console.error(error);
+      console.error("Loan save error:", error);
+      const description = error instanceof Error ? error.message : "No se pudo guardar el préstamo.";
       addToast({
         title: "Error",
-        description: "No se pudo guardar el préstamo.",
+        description,
         color: "danger",
       });
     }

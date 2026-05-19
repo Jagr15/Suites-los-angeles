@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import {
   Table,
   TableHeader,
@@ -46,6 +46,10 @@ export function ComprasTable({ compras, onVer, onVerEstadoCuenta, onEditar, onBo
   }, [compras, page]);
 
   const totalPages = Math.ceil(compras.length / ROWS_PER_PAGE);
+
+  useEffect(() => {
+    setPage(1);
+  }, [compras.length]);
 
   return (
     <div className="flex flex-col gap-4 animate-in fade-in slide-in-from-top-4 duration-500">

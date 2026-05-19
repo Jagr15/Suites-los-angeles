@@ -31,9 +31,13 @@ export function usePurchases() {
   const updateMutation = useMutation(api.purchases.mutations.update);
   const deleteMutation = useMutation(api.purchases.mutations.remove);
 
-  const purchases = (convexPurchases || []).map(p => ({
+  const purchases = (convexPurchases || []).map((p) => ({
     ...p,
-    id: p._id as string,
+    id: String(p._id),
+    supplierName: p.supplierName || "Proveedor desconocido",
+    bodegaName: p.bodegaName || "Bodega desconocida",
+    folio: p.folio || "Sin folio",
+    items: p.items || [],
   })) as Purchase[];
 
   const addPurchase = useCallback(async (purchase: Omit<Purchase, "id" | "supplierName" | "bodegaName" | "folio"> & { items?: PurchaseItem[] }) => {

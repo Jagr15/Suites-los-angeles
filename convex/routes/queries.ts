@@ -2,6 +2,31 @@ import { query } from "../_generated/server";
 import { v } from "convex/values";
 import { Id } from "../_generated/dataModel";
 
+const isLikelyConvexId = (value: unknown) =>
+  typeof value === "string" && value.includes("|");
+
+async function safeGetAssetFromRoute(ctx: any, route: any) {
+  let asset = null;
+
+  if (route.assetId) {
+    asset = await ctx.db.get(route.assetId);
+  }
+  if (asset || !route.vehicleId || !isLikelyConvexId(route.vehicleId)) {
+    return asset;
+  }
+
+  try {
+    const vehicle = await ctx.db.get(route.vehicleId as Id<"vehicles">);
+    if (vehicle?.assetId) {
+      return await ctx.db.get(vehicle.assetId);
+    }
+  } catch {
+    return asset;
+  }
+
+  return asset;
+}
+
 /**
  * Obtiene todas las rutas.
  */
@@ -16,13 +41,7 @@ export const list = query({
         const profile = route.assignedProfileId ? await ctx.db.get(route.assignedProfileId) : null;
         const user = route.assignedUserId ? await ctx.db.get(route.assignedUserId) : null;
         const userProfile = user?.profileId ? await ctx.db.get(user.profileId) : null;
-        let asset = route.assetId ? await ctx.db.get(route.assetId) : null;
-        if (!asset && route.vehicleId) {
-          const vehicle = await ctx.db.get(route.vehicleId as Id<"vehicles">);
-          if (vehicle?.assetId) {
-            asset = await ctx.db.get(vehicle.assetId);
-          }
-        }
+        const asset = await safeGetAssetFromRoute(ctx, route);
         return {
           ...route,
           assetId: route.assetId || asset?._id,
@@ -57,13 +76,7 @@ export const listByProfile = query({
 
     return Promise.all(
       routes.map(async (route) => {
-        let asset = route.assetId ? await ctx.db.get(route.assetId) : null;
-        if (!asset && route.vehicleId) {
-          const vehicle = await ctx.db.get(route.vehicleId as Id<"vehicles">);
-          if (vehicle?.assetId) {
-            asset = await ctx.db.get(vehicle.assetId);
-          }
-        }
+        const asset = await safeGetAssetFromRoute(ctx, route);
         return {
           ...route,
           assetId: route.assetId || asset?._id,
@@ -96,13 +109,7 @@ export const listByCurrentUser = query({
 
     return Promise.all(
       routes.map(async (route) => {
-        let asset = route.assetId ? await ctx.db.get(route.assetId) : null;
-        if (!asset && route.vehicleId) {
-          const vehicle = await ctx.db.get(route.vehicleId as Id<"vehicles">);
-          if (vehicle?.assetId) {
-            asset = await ctx.db.get(vehicle.assetId);
-          }
-        }
+        const asset = await safeGetAssetFromRoute(ctx, route);
         return {
           ...route,
           assetId: route.assetId || asset?._id,
