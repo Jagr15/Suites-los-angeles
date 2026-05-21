@@ -16,6 +16,9 @@ export interface User {
   role: Role;
   isActive: boolean;
   permissions: UserPermissions;
+  effectivePermissions?: string[];
+  extraPermissions?: string[];
+  disabledPermissions?: string[];
 }
 
 export const INITIAL_USERS: User[] = [

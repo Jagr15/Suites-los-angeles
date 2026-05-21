@@ -2,6 +2,7 @@
 
 import {
   DashboardHeader,
+  DashboardBreadcrumb,
   DashboardStats,
   DashboardCharts,
   DashboardTable,
@@ -15,6 +16,7 @@ export function DashboardPage() {
     <div className="flex flex-col">
       <DashboardHeader />
       <div className="space-y-4 p-4 md:p-5">
+        <DashboardBreadcrumb module="Inicio" submodule="Resumen" />
         <DashboardStats />
         <DashboardCharts />
         <div className="grid gap-4 lg:grid-cols-3">

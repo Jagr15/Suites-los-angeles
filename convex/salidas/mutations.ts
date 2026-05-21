@@ -41,7 +41,10 @@ export const create = mutation({
     );
     const isAdministrator = await isAdmin(ctx);
     if (!isAdministrator) {
-      const canAssignResponsible = await hasPermission(ctx, "warehouse_outputs:assign_route_responsible");
+      const canAssignResponsible = await hasPermission(ctx, [
+        "warehouse_outputs:allow_edit_assigned_outputs",
+        "warehouse_outputs:assign_route_responsible",
+      ]);
       const normalizedResponsible = (args.responsable || "").trim().toLowerCase();
       if (!canAssignResponsible && normalizedResponsible !== "" && normalizedResponsible !== "sin asignar") {
         throw new Error("Acceso denegado: no puedes asignar responsable/ruta en salidas.");
@@ -85,7 +88,10 @@ export const update = mutation({
 
     const isAdministrator = await isAdmin(ctx);
     if (!isAdministrator) {
-      const canAssignResponsible = await hasPermission(ctx, "warehouse_outputs:assign_route_responsible");
+      const canAssignResponsible = await hasPermission(ctx, [
+        "warehouse_outputs:allow_edit_assigned_outputs",
+        "warehouse_outputs:assign_route_responsible",
+      ]);
       const responsibleChanged = current.responsable !== args.responsable;
       const routeChanged = (current.ruta || "") !== (args.ruta || "");
       const destinationChanged = (current.destino || "") !== (args.destino || "");

@@ -1,6 +1,6 @@
 "use client";
 
-import { Tabs, Tab, Breadcrumbs, BreadcrumbItem } from "@heroui/react";
+import { Tabs, Tab } from "@heroui/react";
 
 const tabs = [
   { key: "ventas", label: "Ventas" },
@@ -17,14 +17,8 @@ interface FinanzasHeaderProps {
 }
 
 export function FinanzasHeader({ selectedKey, onSelectionChange }: FinanzasHeaderProps) {
-  const currentTabLabel = tabs.find(t => t.key === selectedKey)?.label || "Ventas";
-
   return (
     <div className="flex flex-col gap-4">
-      <Breadcrumbs size="sm" classNames={{ base: "text-default-500" }}>
-        <BreadcrumbItem>Finanzas</BreadcrumbItem>
-        <BreadcrumbItem>{currentTabLabel}</BreadcrumbItem>
-      </Breadcrumbs>
       <h1 className="text-xl font-semibold text-foreground">Finanzas</h1>
       <Tabs
         aria-label="Finanzas sections"

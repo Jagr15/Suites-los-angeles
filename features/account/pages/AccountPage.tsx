@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { DashboardHeader } from "@/features/dashboard/components";
+import { DashboardHeader, DashboardBreadcrumb } from "@/features/dashboard/components";
 import { AccountSettingsCard } from "../components/AccountSettingsCard";
 
 export function AccountPage() {
@@ -9,6 +9,7 @@ export function AccountPage() {
     <div className="flex flex-col min-h-screen">
       <DashboardHeader />
       <div className="flex flex-col gap-6 p-6">
+        <DashboardBreadcrumb module="Mi Cuenta" submodule="Perfil" />
         <div className="flex flex-col gap-1">
           <h1 className="text-xl font-semibold text-foreground">
             Configuración de Cuenta

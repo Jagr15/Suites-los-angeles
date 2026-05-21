@@ -61,7 +61,7 @@ export function useRoles() {
     if (isAdmin) return true;
     
     // Si tenemos una lista de permisos en el objeto del usuario, la consultamos
-    const userPermissions = user?.roleData?.permissions || [];
+    const userPermissions = user?.effectivePermissions || user?.roleData?.permissions || [];
     if (userPermissions.includes("all")) return true;
     
     return userPermissions.includes(permission);

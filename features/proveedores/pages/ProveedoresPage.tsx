@@ -4,7 +4,7 @@ import { useState, useCallback, useMemo } from "react";
 import { addToast, Button } from "@heroui/react";
 import { CheckIcon } from "@heroicons/react/24/outline";
 import { ConfirmModal } from "@/shared/components";
-import { DashboardHeader } from "@/features/dashboard/components";
+import { DashboardHeader, DashboardBreadcrumb } from "@/features/dashboard/components";
 import {
   ProveedoresHeader,
   ProveedoresToolbar,
@@ -23,6 +23,11 @@ import { mockPresupuestoCompras, type CompraRow, type EstadoCuentaRow } from "@/
 import * as XLSX from "xlsx";
 
 type TabKey = "compras" | "presupuesto-compras" | "estados-de-cuenta";
+const TAB_LABELS: Record<TabKey, string> = {
+  compras: "Compras",
+  "presupuesto-compras": "Presupuesto",
+  "estados-de-cuenta": "Estados de cuenta",
+};
 
 type SupplierTxn = {
   _id: string;
@@ -64,16 +69,16 @@ function formatMoney(amount: number): string {
 
 function formatDateDisplay(date: Date): string {
   return new Intl.DateTimeFormat("es-MX", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
+    day: "numeric",
+    month: "long",
   }).format(date);
 }
 
-function formatMonthDisplay(date: Date): string {
-  return new Intl.DateTimeFormat("es-MX", { month: "long" })
-    .format(date)
-    .toUpperCase();
+function formatDayMonthDisplay(date: Date): string {
+  return new Intl.DateTimeFormat("es-MX", {
+    day: "numeric",
+    month: "long",
+  }).format(date);
 }
 
 export function ProveedoresPage() {
@@ -166,7 +171,7 @@ export function ProveedoresPage() {
         proximoPagoFecha: formatDateDisplay(baseProjection.dueDate),
         proximoPagoMonto: formatMoney(baseProjection.amount),
         siguientesPagos: nextThreeRaw.map((payment) => ({
-          mes: formatMonthDisplay(payment.dueDate),
+          mes: formatDayMonthDisplay(payment.dueDate),
           monto: formatMoney(payment.amount),
         })),
       };
@@ -398,6 +403,7 @@ export function ProveedoresPage() {
     <div className="flex flex-col min-h-screen bg-default-50/50">
       <DashboardHeader />
       <div className="p-4 md:p-5 space-y-4">
+        <DashboardBreadcrumb module="Proveedores" submodule={TAB_LABELS[activeTab]} />
         {!isFormVisible && !selectedEstadoCuentaDetails && (
           <ProveedoresHeader
             selectedKey={activeTab}

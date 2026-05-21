@@ -5,7 +5,7 @@ import { Id } from "@/convex/_generated/dataModel";
 
 const hasAnyPermission = (permissions: string[] | undefined, keys: string[]) => {
   if (!permissions) return false;
-  return keys.some((key) => permissions.includes(key));
+  return permissions.includes("all") || keys.some((key) => permissions.includes(key));
 };
 
 export function useUsers() {
@@ -24,12 +24,15 @@ export function useUsers() {
     email: u.email || "",
     role: (u.roleData?.name || u.role || "Sin Rol") as string,
     isActive: u.isActive ?? true,
+    effectivePermissions: u.effectivePermissions || u.roleData?.permissions || [],
+    extraPermissions: u.extraPermissions || [],
+    disabledPermissions: u.disabledPermissions || [],
     permissions: {
-      ventas: hasAnyPermission(u.roleData?.permissions, ["all", "sales:view", "sales:create", "sales:edit"]),
-      inventario: hasAnyPermission(u.roleData?.permissions, ["all", "inventory:view", "inventory:edit", "warehouse:view"]),
-      rutas: hasAnyPermission(u.roleData?.permissions, ["all", "routes:view"]),
-      finanzas: hasAnyPermission(u.roleData?.permissions, ["all", "finance:view", "finance:edit", "finances:view", "finances:edit"]),
-      configuracion: hasAnyPermission(u.roleData?.permissions, ["all", "settings:manage", "users:manage", "settings:view", "users:view", "users:edit"]),
+      ventas: hasAnyPermission(u.effectivePermissions, ["sales:view", "sales:create", "sales:edit"]),
+      inventario: hasAnyPermission(u.effectivePermissions, ["inventory:view", "inventory:edit", "warehouse:view"]),
+      rutas: hasAnyPermission(u.effectivePermissions, ["routes:view"]),
+      finanzas: hasAnyPermission(u.effectivePermissions, ["finance:view", "finance:edit", "finances:view", "finances:edit"]),
+      configuracion: hasAnyPermission(u.effectivePermissions, ["settings:manage", "users:manage", "settings:view", "users:view", "users:edit"]),
     },
   }));
 
@@ -39,6 +42,8 @@ export function useUsers() {
       roleId: data.roleId as Id<"roles">,
       profileId: data.profileId as Id<"profiles">,
       isActive: data.isActive,
+      extraPermissions: data.extraPermissions || [],
+      disabledPermissions: data.disabledPermissions || [],
       password: data.password, // Pasamos la contraseña al backend
     };
     return await upsertUserMutation(payload);
@@ -51,6 +56,8 @@ export function useUsers() {
       roleId: data.roleId as Id<"roles">,
       profileId: data.profileId as Id<"profiles">,
       isActive: data.isActive,
+      extraPermissions: data.extraPermissions || [],
+      disabledPermissions: data.disabledPermissions || [],
       password: data.password, // Pasamos la contraseña si se está cambiando
     };
     return await upsertUserMutation(payload);

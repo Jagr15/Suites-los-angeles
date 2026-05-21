@@ -5,7 +5,7 @@ import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { addToast, Button, useDisclosure } from "@heroui/react";
 import { ConfirmModal } from "@/shared/components";
-import { DashboardHeader } from "@/features/dashboard/components";
+import { DashboardHeader, DashboardBreadcrumb } from "@/features/dashboard/components";
 import { useRoles } from "@/shared/hooks";
 import { BodegaHeader, BodegaToolbar, BodegaTable, BodegaEntradasTable, BodegaSalidaForm, BodegaEntradaForm, BodegaInventory, BodegaNominas, BodegaSalidas, BodegaGastos, BodegaIngresos, BodegaDeudas, BodegaInventoryForm, BodegaIngresoForm, BodegaGastoForm } from "../components";
 import { BodegaModal as BodegaCatalogModal } from "@/features/configuracion/components/bodegas/BodegaModal";
@@ -40,7 +40,10 @@ export function BodegaPage() {
   const { hasPermission, isAdmin, isSuperAdmin } = useRoles();
   const canViewInventoryTab = isAdmin || hasPermission("warehouse:allow_inventory_tab");
   const canAdjustInventory = isAdmin || hasPermission("inventory:allow_manual_adjustments");
-  const canAssignRouteResponsible = isAdmin || hasPermission("warehouse_outputs:assign_route_responsible");
+  const canAssignRouteResponsible =
+    isAdmin ||
+    hasPermission("warehouse_outputs:allow_edit_assigned_outputs") ||
+    hasPermission("warehouse_outputs:assign_route_responsible");
   const canViewPayroll = isAdmin || hasPermission("payroll:allow_view");
   const canDeleteRecords = isAdmin || !hasPermission("records:restrict_delete");
   const canShowDailyTotals = isAdmin || hasPermission("warehouse_money:show_daily_totals");
@@ -281,6 +284,7 @@ export function BodegaPage() {
     <div className="flex flex-col">
       <DashboardHeader />
       <div className="flex-1 p-4 md:p-5">
+        <DashboardBreadcrumb module="Bodega" submodule={TIPO_LABELS[activeTab]} />
         {view === "list" ? (
           <div className="mx-auto space-y-4">
             <BodegaHeader

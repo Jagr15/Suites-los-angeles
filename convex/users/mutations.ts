@@ -34,6 +34,8 @@ export const upsertUser = mutation({
     role: v.optional(v.string()), 
     phone: v.optional(v.string()),
     isActive: v.optional(v.boolean()),
+    extraPermissions: v.optional(v.array(v.string())),
+    disabledPermissions: v.optional(v.array(v.string())),
     password: v.optional(v.string()), // Nueva contraseña opcional
   },
   handler: async (ctx, args) => {

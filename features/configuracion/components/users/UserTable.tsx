@@ -59,10 +59,12 @@ export function UserTable({ items, onEdit, onDelete }: UserTableProps) {
           </Chip>
         );
       case "permissions":
-        const activeCount = Object.values(user.permissions).filter(Boolean).length;
+        const activeCount = user.effectivePermissions?.includes("all")
+          ? "Completo"
+          : String(user.effectivePermissions?.length || 0);
         return (
           <p className="text-bold text-small text-default-500">
-            {activeCount} Módulos Activos
+            {activeCount === "Completo" ? "Acceso completo" : `${activeCount} permisos efectivos`}
           </p>
         );
       case "actions":

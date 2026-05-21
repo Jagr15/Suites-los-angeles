@@ -5,12 +5,21 @@ import { addToast, Button, Tabs, Tab } from "@heroui/react";
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { ConfirmModal } from "@/shared/components";
-import { DashboardHeader } from "@/features/dashboard/components";
+import { DashboardHeader, DashboardBreadcrumb } from "@/features/dashboard/components";
 import { RutasHeader, RutaModal, RutasGastos, RutasCreditos, RutasVentas, RutasMapa, RutasCargasTable, RutasInventarioTable, RutasCardGrid } from "../components";
 import { mockRutaCargas, mockBodega } from "@/shared/mocks";
 import { ArrowLeftIcon } from "@heroicons/react/24/outline";
 import { useRoutes } from "@/features/configuracion/components/routes/use-routes";
 import { Route } from "@/features/configuracion/components/routes/types";
+
+const TAB_LABELS: Record<string, string> = {
+  cargas: "Cargas",
+  gastos: "Gastos",
+  creditos: "Créditos",
+  ventas: "Ventas",
+  inventario: "Inventario",
+  mapa: "Mapa",
+};
 
 export function RutasPage() {
   const [activeTab, setActiveTab] = useState<string>("cargas");
@@ -76,6 +85,7 @@ export function RutasPage() {
     <div className="flex flex-col min-h-screen">
       <DashboardHeader />
       <div className="space-y-4 p-4 md:p-5">
+        <DashboardBreadcrumb module="Rutas" submodule={selectedRuta ? (TAB_LABELS[activeTab] || "Mapa") : "Mapa"} />
         {isLoading ? (
           <div className="flex items-center justify-center min-h-[400px]">
             <span className="text-default-500 font-medium animate-pulse">Cargando rutas operativas...</span>

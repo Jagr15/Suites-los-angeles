@@ -1,5 +1,6 @@
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { QueryCtx, MutationCtx } from "../_generated/server";
+import { getEffectivePermissions } from "../../shared/security/permissions";
 
 function looksLikeConvexId(value: string) {
   const trimmed = value.trim();
@@ -107,9 +108,13 @@ export async function hasPermission(
   const current = await getCurrentUserWithRole(ctx);
   if (!current) return false;
   const requested = Array.isArray(permission) ? permission : [permission];
-  const rolePerms = current.roleData?.permissions || [];
-  if (rolePerms.includes("all")) return true;
-  return requested.some((p) => rolePerms.includes(p));
+  const effectivePermissions = getEffectivePermissions({
+    rolePermissions: current.roleData?.permissions || [],
+    extraPermissions: current.user.extraPermissions || [],
+    disabledPermissions: current.user.disabledPermissions || [],
+  });
+  if (effectivePermissions.includes("all")) return true;
+  return requested.some((p) => effectivePermissions.includes(p));
 }
 
 export async function requirePermission(

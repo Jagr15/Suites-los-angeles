@@ -15,7 +15,13 @@ import {
 } from "@heroui/react";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
-import { DEFAULT_PERMISSIONS_BY_ROLE, PERMISSION_CATALOG, PERMISSION_KEYS } from "@/shared/security/permissions";
+import {
+  DEFAULT_PERMISSIONS_BY_ROLE,
+  PERMISSION_CATALOG,
+  PERMISSION_KEYS,
+  sellerPermissions,
+  warehousePermissions,
+} from "@/shared/security/permissions";
 
 type RoleName = "SuperAdmin" | "Admin" | "Bodeguero" | "Vendedor";
 
@@ -50,16 +56,23 @@ export function PermissionsMatrixCard() {
     setDraftPermissions(new Set(selectedRole.permissions || []));
   }, [selectedRole]);
 
+  const roleScopedCatalog = useMemo(() => {
+    const roleName = (selectedRole?.name || "").trim().toLowerCase();
+    if (roleName === "vendedor") return sellerPermissions;
+    if (roleName === "bodeguero" || roleName === "bodega") return warehousePermissions;
+    return PERMISSION_CATALOG;
+  }, [selectedRole]);
+
   const groupedCatalog = useMemo(() => {
     const map = new Map<string, typeof PERMISSION_CATALOG>();
     for (const section of SECTION_ORDER) map.set(section, []);
-    for (const permission of PERMISSION_CATALOG) {
+    for (const permission of roleScopedCatalog) {
       const current = map.get(permission.section) || [];
       current.push(permission);
       map.set(permission.section, current);
     }
     return map;
-  }, []);
+  }, [roleScopedCatalog]);
   const isFullAccessRole = useMemo(() => {
     const roleName = (selectedRole?.name || "").trim().toLowerCase();
     return roleName === "admin" || roleName === "administrador" || roleName === "superadmin" || roleName === "super admin";
@@ -193,7 +206,8 @@ export function PermissionsMatrixCard() {
                       <CardBody className="px-2 py-2.5">
                         <div className="space-y-1.5">
                           {permissions.map((permission) => {
-                            const selected = draftPermissions.has(permission.key);
+                            const selectedRaw = draftPermissions.has(permission.key);
+                            const selected = permission.inverse ? !selectedRaw : selectedRaw;
                             return (
                               <div
                                 key={permission.key}
@@ -222,7 +236,10 @@ export function PermissionsMatrixCard() {
                                     size="sm"
                                     color={permission.sensitive ? "danger" : "primary"}
                                     isSelected={selected}
-                                    onValueChange={(value) => togglePermission(permission.key, value)}
+                                    onValueChange={(value) => {
+                                      const nextRaw = permission.inverse ? !value : value;
+                                      togglePermission(permission.key, nextRaw);
+                                    }}
                                   />
                                 </div>
                               </div>

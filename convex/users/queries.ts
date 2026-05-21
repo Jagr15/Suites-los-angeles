@@ -1,6 +1,7 @@
 import { query } from "../_generated/server";
 import { requireAdmin } from "../common/utils";
 import { getAuthUserId } from "@convex-dev/auth/server";
+import { getEffectivePermissions } from "../../shared/security/permissions";
 
 function rolePriority(role?: string) {
   const normalized = (role || "").trim().toLowerCase();
@@ -67,11 +68,17 @@ export const current = query({
     // Buscamos rol y perfil completos
     const roleData = user.roleId ? await ctx.db.get(user.roleId) : null;
     const profileData = user.profileId ? await ctx.db.get(user.profileId) : null;
+    const effectivePermissions = getEffectivePermissions({
+      rolePermissions: roleData?.permissions || [],
+      extraPermissions: user.extraPermissions || [],
+      disabledPermissions: user.disabledPermissions || [],
+    });
 
     return {
       ...user,
       roleData,
       profileData,
+      effectivePermissions,
     };
   },
 });
@@ -86,10 +93,16 @@ export const listAll = query({
       users.map(async (user) => {
         const roleData = user.roleId ? await ctx.db.get(user.roleId) : null;
         const profileData = user.profileId ? await ctx.db.get(user.profileId) : null;
+        const effectivePermissions = getEffectivePermissions({
+          rolePermissions: roleData?.permissions || [],
+          extraPermissions: user.extraPermissions || [],
+          disabledPermissions: user.disabledPermissions || [],
+        });
         return {
           ...user,
           roleData,
           profileData,
+          effectivePermissions,
         };
       })
     );

@@ -17,6 +17,7 @@ export interface PermissionDefinition {
     | "Compatibilidad actual";
   sensitive?: boolean;
   implemented?: boolean;
+  inverse?: boolean;
 }
 
 export const PERMISSION_CATALOG: PermissionDefinition[] = [
@@ -59,11 +60,11 @@ export const PERMISSION_CATALOG: PermissionDefinition[] = [
 
   { key: "purchases:allow_create_entries", label: "Permitir crear entradas", section: "Entradas", implemented: true },
   { key: "purchases:edit_reception_status", label: "Permitir editar estado de recepción", section: "Entradas", sensitive: true, implemented: true },
-  { key: "purchases:restrict_edit_registered_entries", label: "Restringir edición de entradas registradas", section: "Entradas" },
+  { key: "purchases:restrict_edit_registered_entries", label: "Permitir edición de entradas registradas", section: "Entradas", inverse: true },
 
   { key: "warehouse_outputs:allow_create", label: "Permitir crear salidas", section: "Salidas" },
   { key: "warehouse_outputs:edit_status", label: "Permitir editar estado de salida", section: "Salidas" },
-  { key: "warehouse_outputs:assign_route_responsible", label: "Permitir asignar responsable de ruta", section: "Salidas" },
+  { key: "warehouse_outputs:assign_route_responsible", label: "Permitir edición de salidas asignadas", section: "Salidas" },
 
   { key: "warehouse_money:allow_income", label: "Permitir ingresos de bodega", section: "Nóminas" },
   { key: "warehouse_money:allow_expense", label: "Permitir egresos de bodega", section: "Nóminas" },
@@ -132,7 +133,43 @@ const warehouseDefaults = new Set<string>([
   "warehouse_money:allow_expense",
   "warehouse_money:show_daily_totals",
   "payroll:allow_view",
+  "warehouse_outputs:assign_route_responsible",
 ]);
+
+export const sellerPermissionKeys = new Set<string>([
+  ...vendorDefaults,
+  "sales:allow_price_edit",
+  "sales:allow_manual_discount",
+  "sales:allow_without_stock",
+  "sales:allow_returns_exchanges",
+  "collections:allow_pending_invoice_payment",
+  "collections:allow_check_transfer_payment",
+  "collections:restrict_payment_date_edit",
+  "customers:allow_credit_limit_assignment",
+  "customers:allow_credit_terms_edit",
+  "reports:allow_historical_reports",
+  "records:restrict_delete",
+]);
+
+export const warehousePermissionKeys = new Set<string>([
+  ...warehouseDefaults,
+  "purchases:edit_reception_status",
+  "purchases:restrict_edit_registered_entries",
+  "purchases:edit_payment_status",
+  "purchases:edit_date",
+  "warehouse_outputs:allow_create",
+  "warehouse_outputs:edit_status",
+  "warehouse_outputs:assign_route_responsible",
+  "warehouse_money:restrict_date_edit",
+  "payroll:allow_employee_debt_payment",
+  "payroll:allow_mark_as_delivered",
+  "evidence:require_photos_for_entries_expenses",
+  "records:restrict_delete",
+]);
+
+export const sellerPermissions = PERMISSION_CATALOG.filter((permission) => sellerPermissionKeys.has(permission.key));
+export const warehousePermissions = PERMISSION_CATALOG.filter((permission) => warehousePermissionKeys.has(permission.key));
+export const adminPermissions: PermissionDefinition[] = [];
 
 export const DEFAULT_PERMISSIONS_BY_ROLE: Record<PermissionRoleName, string[]> = {
   SuperAdmin: ["all", ...UNIQUE_ALL_KEYS],
@@ -142,3 +179,22 @@ export const DEFAULT_PERMISSIONS_BY_ROLE: Record<PermissionRoleName, string[]> =
 };
 
 export const PERMISSION_KEYS = new Set(UNIQUE_ALL_KEYS);
+
+export function getEffectivePermissions(params: {
+  rolePermissions?: string[];
+  extraPermissions?: string[];
+  disabledPermissions?: string[];
+}) {
+  const rolePermissions = params.rolePermissions || [];
+  const extraPermissions = params.extraPermissions || [];
+  const disabledPermissions = new Set(params.disabledPermissions || []);
+
+  if (rolePermissions.includes("all")) {
+    return ["all", ...UNIQUE_ALL_KEYS.filter((key) => !disabledPermissions.has(key))];
+  }
+
+  const effective = new Set<string>(rolePermissions);
+  for (const permission of extraPermissions) effective.add(permission);
+  for (const permission of disabledPermissions) effective.delete(permission);
+  return Array.from(effective);
+}

@@ -1,6 +1,6 @@
 "use client";
 
-import { DashboardHeader } from "@/features/dashboard/components";
+import { DashboardHeader, DashboardBreadcrumb } from "@/features/dashboard/components";
 import { 
     ClientesFilters, 
     ClientesSimulador, 
@@ -18,6 +18,7 @@ export function ClientesPage() {
             
             <div className="flex-1 flex flex-col items-center">
                 <main className="w-full max-w-[1920px] p-4 md:p-5 space-y-4">
+                    <DashboardBreadcrumb module="Clientes" submodule="Registro" />
                     {/* Filter Bar */}
                     <ClientesFilters />
 

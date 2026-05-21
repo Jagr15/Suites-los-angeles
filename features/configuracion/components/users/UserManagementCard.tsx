@@ -55,6 +55,8 @@ export function UserManagementCard() {
       email: "",
       roleId: firstRole?._id,
       profileId: "",
+      extraPermissions: [],
+      disabledPermissions: [],
     });
     onOpen();
   };

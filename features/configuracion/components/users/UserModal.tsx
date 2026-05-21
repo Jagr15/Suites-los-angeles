@@ -21,34 +21,7 @@ import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { RoleSelect } from "./RoleSelect";
 import { User } from "./types";
-
-const ROLE_PERMISSIONS: Record<string, User["permissions"]> = {
-  administrador: { ventas: true, inventario: true, rutas: true, finanzas: true, configuracion: true },
-  admin: { ventas: true, inventario: true, rutas: true, finanzas: true, configuracion: true },
-  superadmin: { ventas: true, inventario: true, rutas: true, finanzas: true, configuracion: true },
-  "super admin": { ventas: true, inventario: true, rutas: true, finanzas: true, configuracion: true },
-  vendedor: { ventas: true, inventario: false, rutas: false, finanzas: false, configuracion: false },
-  bodeguero: { ventas: false, inventario: true, rutas: true, finanzas: false, configuracion: false },
-  bodega: { ventas: false, inventario: true, rutas: true, finanzas: false, configuracion: false },
-};
-
-const mapRolePermissionsToUi = (permissions: string[]): User["permissions"] => {
-  const has = (keys: string[]) => permissions.includes("all") || keys.some((k) => permissions.includes(k));
-  return {
-    ventas: has(["sales:view", "sales:create", "sales:edit"]),
-    inventario: has(["inventory:view", "inventory:edit", "warehouse:view"]),
-    rutas: has(["routes:view"]),
-    finanzas: has(["finance:view", "finance:edit", "finances:view", "finances:edit"]),
-    configuracion: has(["settings:manage", "users:manage", "settings:view", "users:view", "users:edit"]),
-  };
-};
-
-const hasAnyEnabled = (permissions: User["permissions"]) =>
-  permissions.ventas ||
-  permissions.inventario ||
-  permissions.rutas ||
-  permissions.finanzas ||
-  permissions.configuracion;
+import { getEffectivePermissions, sellerPermissions, warehousePermissions, type PermissionDefinition } from "@/shared/security/permissions";
 
 const normalizeRoleKey = (roleName?: string) =>
   (roleName || "")
@@ -56,15 +29,6 @@ const normalizeRoleKey = (roleName?: string) =>
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
     .toLowerCase();
-
-const arePermissionsEqual = (a?: User["permissions"], b?: User["permissions"]) =>
-  !!a &&
-  !!b &&
-  a.ventas === b.ventas &&
-  a.inventario === b.inventario &&
-  a.rutas === b.rutas &&
-  a.finanzas === b.finanzas &&
-  a.configuracion === b.configuracion;
 
 interface UserModalProps {
   isOpen: boolean;
@@ -98,34 +62,71 @@ export function UserModal({
   const isAdminRole = ["administrador", "admin", "superadmin", "super admin"].includes(
     normalizeRoleKey(formState.role)
   );
+  const selectedRole = roles.find((role) => role._id === formState.roleId);
+  const roleName = normalizeRoleKey(selectedRole?.name || formState.role);
+  const scopedPermissions: PermissionDefinition[] =
+    roleName === "vendedor"
+      ? sellerPermissions
+      : roleName === "bodeguero" || roleName === "bodega"
+      ? warehousePermissions
+      : [];
 
   useEffect(() => {
     if (!formState.roleId || roles.length === 0) return;
     const selectedRole = roles.find((role) => role._id === formState.roleId);
     if (!selectedRole) return;
 
-    const mappedPermissions = mapRolePermissionsToUi(selectedRole.permissions || []);
-    const normalizedRole = normalizeRoleKey(selectedRole.name);
-    const fallbackPermissions = ROLE_PERMISSIONS[normalizedRole];
-    const nextPermissions = hasAnyEnabled(mappedPermissions)
-      ? mappedPermissions
-      : fallbackPermissions || formState.permissions;
-
-    if (!nextPermissions) return;
-
     setFormState((prev) => {
-      const roleChanged = prev.role !== selectedRole.name;
-      const permissionsChanged = !arePermissionsEqual(prev.permissions, nextPermissions);
-      if (!roleChanged && !permissionsChanged) {
+      if (prev.role === selectedRole.name) {
         return prev;
       }
       return {
         ...prev,
         role: selectedRole.name,
-        permissions: nextPermissions,
+        extraPermissions: prev.extraPermissions || [],
+        disabledPermissions: prev.disabledPermissions || [],
       };
     });
-  }, [formState.roleId, roles, setFormState, formState.permissions]);
+  }, [formState.roleId, roles, setFormState]);
+
+  const rolePermissions = selectedRole?.permissions || [];
+  const effectivePermissions = getEffectivePermissions({
+    rolePermissions,
+    extraPermissions: formState.extraPermissions || [],
+    disabledPermissions: formState.disabledPermissions || [],
+  });
+
+  const isPermissionEnabled = (permission: PermissionDefinition) => {
+    const rawEnabled = effectivePermissions.includes("all") || effectivePermissions.includes(permission.key);
+    return permission.inverse ? !rawEnabled : rawEnabled;
+  };
+
+  const toggleCustomPermission = (permission: PermissionDefinition, nextVisibleState: boolean) => {
+    const baseRawEnabled = rolePermissions.includes("all") || rolePermissions.includes(permission.key);
+    const nextRawEnabled = permission.inverse ? !nextVisibleState : nextVisibleState;
+
+    setFormState((prev) => {
+      const extra = new Set(prev.extraPermissions || []);
+      const disabled = new Set(prev.disabledPermissions || []);
+
+      if (nextRawEnabled === baseRawEnabled) {
+        extra.delete(permission.key);
+        disabled.delete(permission.key);
+      } else if (nextRawEnabled) {
+        extra.add(permission.key);
+        disabled.delete(permission.key);
+      } else {
+        extra.delete(permission.key);
+        disabled.add(permission.key);
+      }
+
+      return {
+        ...prev,
+        extraPermissions: Array.from(extra),
+        disabledPermissions: Array.from(disabled),
+      };
+    });
+  };
 
   return (
     <Modal
@@ -232,50 +233,29 @@ export function UserModal({
                     <div className="space-y-4">
                       <h4 className="text-small font-semibold flex items-center gap-2">
                         <ShieldCheckIcon className="size-4 text-primary" />
-                        Permisos por Módulo
+                        Permisos personalizados
                       </h4>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
-                        <div className="flex items-center justify-between">
-                          <p className="text-small">Módulo Ventas</p>
-                          <Switch
-                            size="sm"
-                            isSelected={formState.permissions?.ventas}
-                            isDisabled
-                          />
+                      {scopedPermissions.length === 0 ? (
+                        <p className="text-tiny text-default-500">
+                          Selecciona rol Vendedor o Bodeguero para configurar permisos personalizados.
+                        </p>
+                      ) : (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-3">
+                          {scopedPermissions.map((permission) => (
+                            <div key={permission.key} className="flex items-center justify-between gap-3">
+                              <p className="text-small">{permission.label}</p>
+                              <Switch
+                                size="sm"
+                                isSelected={isPermissionEnabled(permission)}
+                                onValueChange={(value) => toggleCustomPermission(permission, value)}
+                              />
+                            </div>
+                          ))}
                         </div>
-                        <div className="flex items-center justify-between">
-                          <p className="text-small">Módulo Inventario</p>
-                          <Switch
-                            size="sm"
-                            isSelected={formState.permissions?.inventario}
-                            isDisabled
-                          />
-                        </div>
-                        <div className="flex items-center justify-between">
-                          <p className="text-small">Módulo Rutas</p>
-                          <Switch
-                            size="sm"
-                            isSelected={formState.permissions?.rutas}
-                            isDisabled
-                          />
-                        </div>
-                        <div className="flex items-center justify-between">
-                          <p className="text-small">Módulo Finanzas</p>
-                          <Switch
-                            size="sm"
-                            isSelected={formState.permissions?.finanzas}
-                            isDisabled
-                          />
-                        </div>
-                        <div className="flex items-center justify-between">
-                          <p className="text-small">Módulo Configuración</p>
-                          <Switch
-                            size="sm"
-                            isSelected={formState.permissions?.configuracion}
-                            isDisabled
-                          />
-                        </div>
-                      </div>
+                      )}
+                      <p className="text-tiny text-default-500">
+                        Estos permisos se guardan por usuario y no modifican el rol global.
+                      </p>
                     </div>
                   </>
                 ) : (

@@ -34,6 +34,8 @@ export default defineSchema({
     role: v.optional(v.string()),
     phone: v.optional(v.string()),
     isActive: v.optional(v.boolean()),
+    extraPermissions: v.optional(v.array(v.string())),
+    disabledPermissions: v.optional(v.array(v.string())),
   }).index("by_email", ["email"]),
 
   // Nueva tabla de Roles Dinámicos
