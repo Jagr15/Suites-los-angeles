@@ -7,7 +7,7 @@ import { addToast, Button, useDisclosure } from "@heroui/react";
 import { ConfirmModal } from "@/shared/components";
 import { DashboardHeader } from "@/features/dashboard/components";
 import { useRoles } from "@/shared/hooks";
-import { BodegaHeader, BodegaToolbar, BodegaTable, BodegaEntradasTable, BodegaSalidaForm, BodegaEntradaForm, BodegaInventory, BodegaNominas, BodegaSalidas, BodegaGastos, BodegaIngresos, BodegaDeudas, BodegaInventoryForm } from "../components";
+import { BodegaHeader, BodegaToolbar, BodegaTable, BodegaEntradasTable, BodegaSalidaForm, BodegaEntradaForm, BodegaInventory, BodegaNominas, BodegaSalidas, BodegaGastos, BodegaIngresos, BodegaDeudas, BodegaInventoryForm, BodegaIngresoForm, BodegaGastoForm } from "../components";
 import { BodegaModal as BodegaCatalogModal } from "@/features/configuracion/components/bodegas/BodegaModal";
 import { mockNominas, mockSalidas, mockGastos, mockIngresos, type NominaRow, type SalidaRow, type GastoRow, type IngresoRow } from "@/shared/mocks";
 import { PlusIcon } from "@heroicons/react/24/outline";
@@ -44,6 +44,8 @@ export function BodegaPage() {
   const canViewPayroll = isAdmin || hasPermission("payroll:allow_view");
   const canDeleteRecords = isAdmin || !hasPermission("records:restrict_delete");
   const canShowDailyTotals = isAdmin || hasPermission("warehouse_money:show_daily_totals");
+  const canCreateIngresos = isAdmin || hasPermission("warehouse_money:allow_income");
+  const canCreateEgresos = isAdmin || hasPermission("warehouse_money:allow_expense");
   const visibleTabs = useMemo(() => {
     const base: TabKey[] = ["entradas", "salidas", "ingresos", "egresos", "catalogo"];
     if (canViewInventoryTab) base.splice(2, 0, "inventario");
@@ -314,6 +316,7 @@ export function BodegaPage() {
                   items={bodegas || []} 
                   onEdit={(b) => { setSelectedBodega(b); onOpenBodegaModal(); }} 
                   onDelete={setBodegaToDeleteRecord} 
+                  canDelete={canDeleteRecords}
                   isLoading={bodegas === undefined}
                 />
               </div>
@@ -335,7 +338,11 @@ export function BodegaPage() {
                 canAdjust={canAdjustInventory}
               />
             ) : activeTab === "egresos" ? (
-              <BodegaGastos canShowDailyTotals={canShowDailyTotals} canDelete={canDeleteRecords} />
+              <BodegaGastos
+                canShowDailyTotals={canShowDailyTotals}
+                canDelete={canDeleteRecords}
+                canCreate={canCreateEgresos}
+              />
             ) : activeTab === "nominas" && canViewPayroll ? (
               selectedNomina ? (
                 <BodegaDeudas 
@@ -346,7 +353,11 @@ export function BodegaPage() {
                 <BodegaNominas items={nominas} onSelect={(item) => setSelectedNomina(item)} />
               )
             ) : activeTab === "ingresos" ? (
-              <BodegaIngresos canShowDailyTotals={canShowDailyTotals} canDelete={canDeleteRecords} />
+              <BodegaIngresos
+                canShowDailyTotals={canShowDailyTotals}
+                canDelete={canDeleteRecords}
+                canCreate={canCreateIngresos}
+              />
             ) : (
               <div className="flex h-64 items-center justify-center rounded-xl border-2 border-dashed border-divider">
                 <p className="text-default-500">
@@ -371,6 +382,16 @@ export function BodegaPage() {
           ) : activeTab === "inventario" ? (
             <BodegaInventoryForm
               onSubmit={handleSubmitInventoryAdjustment}
+              onCancel={() => setView("list")}
+            />
+          ) : activeTab === "ingresos" ? (
+            <BodegaIngresoForm
+              onSuccess={() => setView("list")}
+              onCancel={() => setView("list")}
+            />
+          ) : activeTab === "egresos" ? (
+            <BodegaGastoForm
+              onSuccess={() => setView("list")}
               onCancel={() => setView("list")}
             />
           ) : (
@@ -431,21 +452,23 @@ export function BodegaPage() {
         }}
       />
 
-      <ConfirmModal
-        isOpen={!!bodegaToDeleteRecord}
-        onClose={() => setBodegaToDeleteRecord(null)}
-        onConfirm={async () => {
-          if (bodegaToDeleteRecord) {
-            await removeBodega({ id: bodegaToDeleteRecord._id });
-            addToast({ title: "Bodega eliminada", color: "danger" });
-            setBodegaToDeleteRecord(null);
-          }
-        }}
-        title="¿Eliminar bodega?"
-        description={`Se eliminará permanentemente la bodega "${bodegaToDeleteRecord?.name}".`}
-        confirmLabel="Eliminar"
-        variant="danger"
-      />
+      {canDeleteRecords ? (
+        <ConfirmModal
+          isOpen={!!bodegaToDeleteRecord}
+          onClose={() => setBodegaToDeleteRecord(null)}
+          onConfirm={async () => {
+            if (bodegaToDeleteRecord) {
+              await removeBodega({ id: bodegaToDeleteRecord._id });
+              addToast({ title: "Bodega eliminada", color: "danger" });
+              setBodegaToDeleteRecord(null);
+            }
+          }}
+          title="¿Eliminar bodega?"
+          description={`Se eliminará permanentemente la bodega "${bodegaToDeleteRecord?.name}".`}
+          confirmLabel="Eliminar"
+          variant="danger"
+        />
+      ) : null}
     </div>
   );
 }

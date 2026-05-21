@@ -31,9 +31,10 @@ const ROWS_PER_PAGE = 10;
 type BodegaIngresosProps = {
     canShowDailyTotals?: boolean;
     canDelete?: boolean;
+    canCreate?: boolean;
 };
 
-export function BodegaIngresos({ canShowDailyTotals = true, canDelete = true }: BodegaIngresosProps) {
+export function BodegaIngresos({ canShowDailyTotals = true, canDelete = true, canCreate = true }: BodegaIngresosProps) {
     const [view, setView] = useState<"list" | "add">("list");
     const [page, setPage] = useState(1);
     const [search, setSearch] = useState("");
@@ -91,6 +92,7 @@ export function BodegaIngresos({ canShowDailyTotals = true, canDelete = true }: 
                     radius="full"
                     className="h-10 px-6 text-white font-bold"
                     startContent={<PlusIcon className="size-5 stroke-[3]" />}
+                    isDisabled={!canCreate}
                     onPress={() => setView("add")}
                 >
                     Nuevo Ingreso
@@ -211,7 +213,7 @@ export function BodegaIngresos({ canShowDailyTotals = true, canDelete = true }: 
                                     </span>
                                 </TableCell>
                                 <TableCell className="text-right">
-                                    {!item.isTotal && canDelete && (
+                                    {!item.isTotal && (
                                         <div className="flex items-center justify-end gap-1">
                                             <Tooltip content="Ver">
                                                 <Button isIconOnly size="sm" variant="light" color="success">
@@ -223,11 +225,13 @@ export function BodegaIngresos({ canShowDailyTotals = true, canDelete = true }: 
                                                     <PencilSquareIcon className="size-4" />
                                                 </Button>
                                             </Tooltip>
-                                            <Tooltip content="Borrar">
-                                                <Button isIconOnly size="sm" variant="light" color="danger">
-                                                    <TrashIcon className="size-4" />
-                                                </Button>
-                                            </Tooltip>
+                                            {canDelete ? (
+                                                <Tooltip content="Borrar">
+                                                    <Button isIconOnly size="sm" variant="light" color="danger">
+                                                        <TrashIcon className="size-4" />
+                                                    </Button>
+                                                </Tooltip>
+                                            ) : null}
                                         </div>
                                     )}
                                 </TableCell>

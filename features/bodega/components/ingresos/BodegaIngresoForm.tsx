@@ -70,6 +70,7 @@ export function BodegaIngresoForm({ onSuccess, onCancel }: BodegaIngresoFormProp
     const allCategories = useQuery(api.bodega_transactions.queries.listCategories, { type: "ingreso" }) || [];
     const mainCategories = allCategories.filter(c => !c.parentCategoryId);
     const subCategories = allCategories.filter(c => c.parentCategoryId === formData.categoryId);
+    const bodegas = useQuery(api.bodegas.queries.list) || [];
     
     const generateUploadUrl = useMutation(api.common.mutations.generateUploadUrl);
     const createIngresoMutation = useMutation(api.bodega_transactions.mutations.createIngreso);
@@ -78,6 +79,7 @@ export function BodegaIngresoForm({ onSuccess, onCancel }: BodegaIngresoFormProp
     const profiles = useQuery(api.profiles.queries.listAll) || [];
     const assignedProfileIds = new Set(routes.map(r => r.assignedProfileId));
     const routeStaff = profiles.filter(p => assignedProfileIds.has(p._id));
+    const hasRequiredCatalogs = mainCategories.length > 0 && routeStaff.length > 0 && bodegas.length > 0;
 
     const handleOnSubmit = async (data: BodegaIngresoFormValues) => {
         setIsSubmitting(true);
@@ -145,6 +147,7 @@ export function BodegaIngresoForm({ onSuccess, onCancel }: BodegaIngresoFormProp
                         color="success"
                         className="text-white font-bold"
                         type="submit"
+                        isDisabled={!hasRequiredCatalogs}
                         isLoading={isSubmitting}
                         startContent={!isSubmitting && <CheckIcon className="size-5" />}
                     >
@@ -156,6 +159,19 @@ export function BodegaIngresoForm({ onSuccess, onCancel }: BodegaIngresoFormProp
             <div className="grid gap-6 lg:grid-cols-3">
                 {/* Categoría y Monto */}
                 <div className="lg:col-span-1 space-y-6">
+                    {!hasRequiredCatalogs ? (
+                        <Card className="shadow-sm border border-warning/30 bg-warning/5">
+                            <CardBody className="py-4">
+                                <p className="text-sm font-semibold text-warning-700">
+                                    Faltan datos para registrar ingreso.
+                                </p>
+                                <p className="text-xs text-warning-700/80 mt-1">
+                                    Verifica que existan bodegas, categorías activas y personal asignado a rutas.
+                                </p>
+                            </CardBody>
+                        </Card>
+                    ) : null}
+
                     <Card className="shadow-sm border-none bg-content1">
                         <CardHeader className="flex flex-col items-start px-6 pt-6 pb-0">
                             <h3 className="text-sm font-bold text-default-500 uppercase tracking-widest leading-none">Monto del Ingreso</h3>

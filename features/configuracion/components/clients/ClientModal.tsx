@@ -32,6 +32,7 @@ import {
 import { Client, ROUTES } from "./types";
 import { StateSelector, MunicipalitySelector, LocalitySelector } from "@/shared/components/locations";
 import { ClientLocationPreview } from "./ClientLocationPreview";
+import { getGoogleMapsLink } from "./location-utils";
 
 interface ClientModalProps {
   isOpen: boolean;
@@ -83,6 +84,18 @@ export function ClientModal({
   const requiresInvoice = watch("requiresInvoice");
   const municipalityId = watch("municipalityId");
   const stateId = watch("stateId");
+  const lat = watch("lat");
+  const lng = watch("lng");
+  const mapsUrl = watch("mapsUrl");
+
+  useEffect(() => {
+    if (typeof lat === "number" && typeof lng === "number") {
+      const generated = getGoogleMapsLink(lat, lng, "");
+      if (generated && mapsUrl !== generated) {
+        setValue("mapsUrl", generated, { shouldValidate: true, shouldDirty: true });
+      }
+    }
+  }, [lat, lng, mapsUrl, setValue]);
 
   useEffect(() => {
     if (isOpen) {
@@ -274,16 +287,58 @@ export function ClientModal({
                     Ubicación y Zona
                   </h4>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="grid grid-cols-2 gap-4">
+                      <Controller
+                        name="lat"
+                        control={control}
+                        render={({ field }) => (
+                          <Input
+                            label="Latitud"
+                            placeholder="Ej. 19.4326"
+                            variant="bordered"
+                            labelPlacement="outside"
+                            type="number"
+                            value={typeof field.value === "number" ? String(field.value) : ""}
+                            onValueChange={(value) => {
+                              const parsed = Number(value);
+                              field.onChange(Number.isFinite(parsed) ? parsed : undefined);
+                            }}
+                          />
+                        )}
+                      />
+                      <Controller
+                        name="lng"
+                        control={control}
+                        render={({ field }) => (
+                          <Input
+                            label="Longitud"
+                            placeholder="Ej. -99.1332"
+                            variant="bordered"
+                            labelPlacement="outside"
+                            type="number"
+                            value={typeof field.value === "number" ? String(field.value) : ""}
+                            onValueChange={(value) => {
+                              const parsed = Number(value);
+                              field.onChange(Number.isFinite(parsed) ? parsed : undefined);
+                            }}
+                          />
+                        )}
+                      />
+                    </div>
                     <Controller
                       name="mapsUrl"
                       control={control}
                       render={({ field }) => (
                         <Input
-                          {...field}
-                          label="Google Maps URL"
-                          placeholder="https://goo.gl/maps/..."
+                          label="Dirección o referencia (opcional)"
+                          placeholder="Colonia, calle, punto de referencia"
                           variant="bordered"
                           labelPlacement="outside"
+                          value={field.value ? decodeURIComponent(field.value.split("query=")[1] || field.value) : ""}
+                          onValueChange={(value) => {
+                            const trimmed = value.trim();
+                            field.onChange(trimmed ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(trimmed)}` : "");
+                          }}
                           isInvalid={!!errors.mapsUrl}
                           errorMessage={errors.mapsUrl?.message}
                         />
@@ -337,6 +392,20 @@ export function ClientModal({
                               field.onChange(id);
                               setValue("townName", name, { shouldValidate: true, shouldDirty: true });
                             }}
+                          />
+                        )}
+                      />
+                      <Controller
+                        name="townName"
+                        control={control}
+                        render={({ field }) => (
+                          <Input
+                            {...field}
+                            label="Zona"
+                            placeholder="Zona / localidad"
+                            variant="bordered"
+                            labelPlacement="outside"
+                            isReadOnly
                           />
                         )}
                       />

@@ -14,3 +14,16 @@ export const listBySupplier = query({
       .collect();
   },
 });
+
+/**
+ * Lista todos los movimientos de estado de cuenta.
+ */
+export const listAll = query({
+  args: {},
+  handler: async (ctx) => {
+    return await ctx.db
+      .query("supplierTransactions")
+      .order("desc")
+      .collect();
+  },
+});

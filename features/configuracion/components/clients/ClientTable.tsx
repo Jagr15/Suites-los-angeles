@@ -16,7 +16,7 @@ import {
   MapPinIcon,
 } from "@heroicons/react/24/outline";
 import { Client } from "./types";
-import { getGoogleMapsLink } from "./location-utils";
+import { getGoogleMapsEmbedSrc, getGoogleMapsLink } from "./location-utils";
 
 interface ClientTableProps {
   items: Client[];
@@ -75,6 +75,23 @@ export function ClientTable({ items, onEdit, onDelete }: ClientTableProps) {
             {client.requiresInvoice ? "Fiscal" : "Nota"}
           </Chip>
         );
+      case "locationPreview": {
+        const embedSrc = getGoogleMapsEmbedSrc(client.lat, client.lng, client.mapsUrl);
+        if (!embedSrc) {
+          return <span className="text-tiny text-default-400">Sin ubicación</span>;
+        }
+        return (
+          <div className="h-20 w-32 overflow-hidden rounded-lg border border-default-200">
+            <iframe
+              title={`Mapa ${client.commercialName}`}
+              src={embedSrc}
+              className="h-full w-full"
+              loading="lazy"
+              referrerPolicy="no-referrer-when-downgrade"
+            />
+          </div>
+        );
+      }
       case "actions":
         return (
           <div className="relative flex items-center gap-2">
@@ -127,6 +144,7 @@ export function ClientTable({ items, onEdit, onDelete }: ClientTableProps) {
         <TableColumn key="assignedRoute">RUTA</TableColumn>
         <TableColumn key="credit">CRÉDITO / DÍAS</TableColumn>
         <TableColumn key="requiresInvoice">FACTURA</TableColumn>
+        <TableColumn key="locationPreview">UBICACIÓN</TableColumn>
         <TableColumn key="actions">ACCIONES</TableColumn>
       </TableHeader>
       <TableBody items={items} emptyContent={"No se encontraron clientes"}>

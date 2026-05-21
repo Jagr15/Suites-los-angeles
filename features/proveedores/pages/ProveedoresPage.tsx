@@ -24,22 +24,154 @@ import * as XLSX from "xlsx";
 
 type TabKey = "compras" | "presupuesto-compras" | "estados-de-cuenta";
 
+type SupplierTxn = {
+  _id: string;
+  supplierId: string;
+  date: string;
+  type: "Cargo" | "Abono";
+  amount: number;
+  status: string;
+  referenceId?: string;
+};
+
+type PaymentProjection = {
+  dueDate: Date;
+  amount: number;
+};
+
+function parseIsoDateSafe(value?: string): Date | null {
+  if (!value) return null;
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return null;
+  return d;
+}
+
+function addDays(base: Date, days: number): Date {
+  const d = new Date(base);
+  d.setDate(d.getDate() + days);
+  return d;
+}
+
+function addMonths(base: Date, months: number): Date {
+  const d = new Date(base);
+  d.setMonth(d.getMonth() + months);
+  return d;
+}
+
+function formatMoney(amount: number): string {
+  return `$${amount.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
+
+function formatDateDisplay(date: Date): string {
+  return new Intl.DateTimeFormat("es-MX", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  }).format(date);
+}
+
+function formatMonthDisplay(date: Date): string {
+  return new Intl.DateTimeFormat("es-MX", { month: "long" })
+    .format(date)
+    .toUpperCase();
+}
+
 export function ProveedoresPage() {
   const suppliers = useQuery(api.suppliers.queries.listWithMetrics);
+  const supplierTransactions = useQuery(api.supplierTransactions.queries.listAll) as SupplierTxn[] | undefined;
   const { hasPermission, isAdmin } = useRoles();
   const canDeleteRecords = isAdmin || !hasPermission("records:restrict_delete");
   const [activeTab, setActiveTab] = useState<TabKey>("compras");
   const { purchases, isLoading: loadingPurchases, addPurchase, updatePurchase, deletePurchase } = usePurchases();
 
   const realEstadosDeCuenta = useMemo(() => {
-    return (suppliers || []).map(s => ({
-      id: s._id,
-      proveedor: s.businessName,
-      total: `$${(s.metrics?.outstandingBalance || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}`,
-      fechaPago: "Próximo vencimiento",
-      montoAPagar: `$${(s.metrics?.outstandingBalance || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}`
-    })) as EstadoCuentaRow[];
-  }, [suppliers]);
+    const txBySupplier = new Map<string, SupplierTxn[]>();
+    for (const tx of supplierTransactions || []) {
+      const key = String(tx.supplierId);
+      const list = txBySupplier.get(key) || [];
+      list.push(tx);
+      txBySupplier.set(key, list);
+    }
+
+    const today = new Date();
+    const dayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+
+    return (suppliers || []).map((s) => {
+      const supplierId = String(s._id);
+      const supplierPurchases = purchases.filter((p) => p.supplierId === supplierId);
+      const supplierTx = txBySupplier.get(supplierId) || [];
+
+      const confirmedAbonoByReference = new Map<string, number>();
+      for (const tx of supplierTx) {
+        if (tx.type !== "Abono" || !tx.referenceId) continue;
+        const txDate = parseIsoDateSafe(tx.date);
+        if (!txDate || txDate > today) continue;
+        const key = String(tx.referenceId);
+        confirmedAbonoByReference.set(key, (confirmedAbonoByReference.get(key) || 0) + tx.amount);
+      }
+
+      const pendingPurchases = supplierPurchases.filter(
+        (p) => p.status !== "Pagado" && p.status !== "Cancelado"
+      );
+
+      const projections: PaymentProjection[] = pendingPurchases
+        .map((p) => {
+          const pAny = p as any;
+          const purchaseId = String(pAny._id || p.id);
+          const baseDate = parseIsoDateSafe(pAny.dueDate) || parseIsoDateSafe(p.date);
+          if (!baseDate) return null;
+
+          const dueDate = parseIsoDateSafe(pAny.dueDate) || addDays(baseDate, Number(s.creditDays || 0));
+          const fallbackRemaining = Math.max(
+            0,
+            p.totalAmount - (confirmedAbonoByReference.get(purchaseId) || 0)
+          );
+          const remainingAmount =
+            typeof pAny.remainingAmount === "number"
+              ? Math.max(0, pAny.remainingAmount)
+              : fallbackRemaining;
+
+          if (remainingAmount <= 0) return null;
+          return { dueDate, amount: remainingAmount };
+        })
+        .filter((x): x is PaymentProjection => !!x)
+        .sort((a, b) => a.dueDate.getTime() - b.dueDate.getTime());
+
+      const futureProjections = projections.filter((p) => p.dueDate >= dayStart);
+      const baseProjection =
+        futureProjections[0] ||
+        projections[0] || {
+          dueDate: addDays(dayStart, Number(s.creditDays || 0)),
+          amount: s.metrics?.outstandingBalance || 0,
+        };
+
+      const nextThreeRaw = futureProjections.slice(1, 4);
+      while (nextThreeRaw.length < 3) {
+        const nextDateBase =
+          nextThreeRaw.length > 0
+            ? nextThreeRaw[nextThreeRaw.length - 1].dueDate
+            : baseProjection.dueDate;
+        nextThreeRaw.push({
+          dueDate: addMonths(nextDateBase, 1),
+          amount: baseProjection.amount,
+        });
+      }
+
+      return {
+        id: supplierId,
+        proveedor: s.businessName,
+        total: formatMoney(s.metrics?.outstandingBalance || 0),
+        fechaPago: formatDateDisplay(baseProjection.dueDate),
+        montoAPagar: formatMoney(baseProjection.amount),
+        proximoPagoFecha: formatDateDisplay(baseProjection.dueDate),
+        proximoPagoMonto: formatMoney(baseProjection.amount),
+        siguientesPagos: nextThreeRaw.map((payment) => ({
+          mes: formatMonthDisplay(payment.dueDate),
+          monto: formatMoney(payment.amount),
+        })),
+      };
+    }) as EstadoCuentaRow[];
+  }, [purchases, supplierTransactions, suppliers]);
   
   const [isFormVisible, setIsFormVisible] = useState(false);
   const [compraToEdit, setCompraToEdit] = useState<Purchase | null>(null);

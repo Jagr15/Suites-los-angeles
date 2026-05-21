@@ -25,6 +25,7 @@ interface BodegaTableProps {
   items: Almacen[];
   onEdit: (bodega: Almacen) => void;
   onDelete: (bodega: Almacen) => void;
+  canDelete?: boolean;
   isLoading?: boolean;
 }
 
@@ -32,10 +33,13 @@ const columns = [
   { key: "name", label: "BODEGA / UBICACIÓN" },
   { key: "manager", label: "ENCARGADO / TELÉFONO" },
   { key: "isActive", label: "ESTADO" },
-  { key: "actions", label: "ACCIONES", align: "end" as const },
 ];
 
-export function BodegaTable({ items, onEdit, onDelete, isLoading }: BodegaTableProps) {
+export function BodegaTable({ items, onEdit, onDelete, canDelete = true, isLoading }: BodegaTableProps) {
+  const tableColumns = canDelete
+    ? [...columns, { key: "actions", label: "ACCIONES", align: "end" as const }]
+    : columns;
+
   const renderCell = (bodega: Almacen, columnKey: React.Key) => {
     const key = String(columnKey);
     switch (key) {
@@ -90,16 +94,18 @@ export function BodegaTable({ items, onEdit, onDelete, isLoading }: BodegaTableP
                 <PencilSquareIcon className="size-5 text-default-400" />
               </Button>
             </Tooltip>
-            <Tooltip color="danger" content="Eliminar bodega">
-              <Button
-                isIconOnly
-                size="sm"
-                variant="light"
-                onPress={() => onDelete(bodega)}
-              >
-                <TrashIcon className="size-5 text-danger" />
-              </Button>
-            </Tooltip>
+            {canDelete ? (
+              <Tooltip color="danger" content="Eliminar bodega">
+                <Button
+                  isIconOnly
+                  size="sm"
+                  variant="light"
+                  onPress={() => onDelete(bodega)}
+                >
+                  <TrashIcon className="size-5 text-danger" />
+                </Button>
+              </Tooltip>
+            ) : null}
           </div>
         );
       default:
@@ -117,11 +123,11 @@ export function BodegaTable({ items, onEdit, onDelete, isLoading }: BodegaTableP
           td: "px-6 py-4 border-b border-default-50 last:border-0",
         }}
       >
-        <TableHeader columns={columns}>
+        <TableHeader columns={tableColumns}>
           {(column) => (
             <TableColumn 
               key={column.key} 
-              align={column.align}
+              align={"align" in column ? column.align : undefined}
             >
               {column.label}
             </TableColumn>

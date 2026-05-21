@@ -11,6 +11,12 @@ export type EstadoCuentaRow = {
   fechaPago: string;
   /** Monto a pagar en esa fecha */
   montoAPagar: string;
+  proximoPagoFecha?: string;
+  proximoPagoMonto?: string;
+  siguientesPagos?: Array<{
+    mes: string;
+    monto: string;
+  }>;
 };
 
 export const mockEstadosDeCuenta: EstadoCuentaRow[] = [
