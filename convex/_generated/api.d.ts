@@ -23,6 +23,7 @@ import type * as common_mutations from "../common/mutations.js";
 import type * as common_utils from "../common/utils.js";
 import type * as credits_functions from "../credits/functions.js";
 import type * as debug from "../debug.js";
+import type * as demoSeed from "../demoSeed.js";
 import type * as finance_accounts_functions from "../finance_accounts/functions.js";
 import type * as fixedAssetTypes from "../fixedAssetTypes.js";
 import type * as http from "../http.js";
@@ -79,6 +80,7 @@ declare const fullApi: ApiFromModules<{
   "common/utils": typeof common_utils;
   "credits/functions": typeof credits_functions;
   debug: typeof debug;
+  demoSeed: typeof demoSeed;
   "finance_accounts/functions": typeof finance_accounts_functions;
   fixedAssetTypes: typeof fixedAssetTypes;
   http: typeof http;

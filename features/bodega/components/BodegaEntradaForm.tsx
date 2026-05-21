@@ -257,203 +257,215 @@ export function BodegaEntradaForm({
     };
 
     return (
-        <div className="mx-auto w-full space-y-6 animate-in fade-in duration-500">
-            {/* Header Area */}
-            <div className="flex items-center justify-between bg-white p-4 rounded-3xl border border-default-100 shadow-sm">
-                <div className="flex items-center gap-6 flex-1">
-                    <Button isIconOnly variant="flat" onPress={onCancel} className="rounded-full">
+        <div className="mx-auto w-full space-y-4 animate-in fade-in duration-500">
+            <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between bg-white p-3 rounded-xl border border-default-200 shadow-sm sticky top-0 z-20">
+                <div className="flex items-center gap-4">
+                    <Button isIconOnly variant="flat" onPress={onCancel} className="rounded-full overflow-hidden">
                         <ArrowLeftIcon className="size-5" />
                     </Button>
-                    
-                    <div className="flex items-center gap-4 flex-1">
-                        <div className="w-full max-w-sm">
-                            <Controller
-                                name="supplierId"
-                                control={control}
-                                render={({ field }) => (
-                                    <Autocomplete
-                                        defaultItems={suppliers}
-                                        placeholder="Seleccionar Proveedor..."
-                                        className="w-full"
-                                        onSelectionChange={(val) => field.onChange(val ? String(val) : "")}
-                                        selectedKey={field.value || null}
-                                        variant="flat"
-                                        color="secondary"
-                                        size="md"
-                                        label="Origen (Proveedor)"
-                                        labelPlacement="outside"
-                                        startContent={<TruckIcon className="size-5 text-secondary" />}
-                                        classNames={{
-                                            base: "max-w-md",
-                                            listbox: "rounded-2xl",
-                                            popoverContent: "rounded-2xl",
-                                            selectorButton: "text-secondary"
-                                        }}
-                                        inputProps={{
-                                            classNames: {
-                                                inputWrapper: "h-11 px-4 rounded-xl bg-secondary/10 border-none font-bold text-sm",
-                                                input: "placeholder:font-normal",
-                                                label: "text-[10px] font-bold uppercase text-secondary mb-1 ml-1"
-                                            }
-                                        }}
-                                    >
-                                        {(item) => (
-                                            <AutocompleteItem key={item._id} textValue={item.businessName}>
-                                                <div className="flex flex-col">
-                                                    <span className="font-bold text-sm text-default-800">{item.businessName}</span>
-                                                    <span className="text-[10px] text-default-400 uppercase tracking-widest">{item.rfc}</span>
-                                                </div>
-                                            </AutocompleteItem>
-                                        )}
-                                    </Autocomplete>
-                                )}
-                            />
-                        </div>
-
-                        <div className="w-full max-w-sm">
-                            <Controller
-                                name="bodegaId"
-                                control={control}
-                                render={({ field }) => (
-                                    <Autocomplete
-                                        defaultItems={bodegas}
-                                        placeholder="Seleccionar Almacén..."
-                                        className="w-full"
-                                        onSelectionChange={(val) => field.onChange(val ? String(val) : "")}
-                                        selectedKey={field.value || null}
-                                        variant="flat"
-                                        color="primary"
-                                        size="md"
-                                        label="Destino (Almacén)"
-                                        labelPlacement="outside"
-                                        startContent={<BuildingStorefrontIcon className="size-5 text-primary" />}
-                                        classNames={{
-                                            base: "max-w-md",
-                                            listbox: "rounded-2xl",
-                                            popoverContent: "rounded-2xl",
-                                            selectorButton: "text-primary"
-                                        }}
-                                        inputProps={{
-                                          classNames: {
-                                              inputWrapper: "h-11 px-4 rounded-xl bg-primary/10 border-none font-bold text-sm",
-                                              input: "placeholder:font-normal",
-                                              label: "text-[10px] font-bold uppercase text-primary mb-1 ml-1"
-                                          }
-                                        }}
-                                    >
-                                        {(item) => (
-                                          <AutocompleteItem key={item._id} textValue={item.name}>
-                                            <span className="font-bold text-sm text-default-800">{item.name}</span>
-                                          </AutocompleteItem>
-                                        )}
-                                    </Autocomplete>
-                                )}
-                            />
-                        </div>
-                    </div>
-
-                    <div className="flex flex-wrap items-center gap-4 ml-6">
-                        <div className="flex flex-col">
-                            <span className="text-[10px] uppercase font-bold text-default-400">No. Entrada</span>
-                            <Controller
-                                name="folio"
-                                control={control}
-                                render={({ field }) => (
-                                    <input
-                                        {...field}
-                                        type="text"
-                                        readOnly
-                                        placeholder="Automático"
-                                        className="text-sm font-semibold bg-default-50 border border-default-200 rounded-lg px-2 py-1 outline-none w-24 cursor-default"
-                                    />
-                                )}
-                            />
-                        </div>
-                        <div className="flex flex-col">
-                            <span className="text-[10px] uppercase font-bold text-default-400">Estado</span>
-                            <Controller
-                                name="status"
-                                control={control}
-                                render={({ field }) => (
-                                    <Select
-                                        {...field}
-                                        size="sm"
-                                        variant="faded"
-                                        isDisabled={!canEditPaymentStatus}
-                                        className="w-28 text-sm font-semibold"
-                                        classNames={{ trigger: "h-8 min-h-8 bg-default-50 border-default-200" }}
-                                        selectedKeys={field.value ? [field.value] : []}
-                                        onChange={(e) => field.onChange(e.target.value)}
-                                    >
-                                        <SelectItem key="Pendiente" textValue="Pendiente">Pendiente</SelectItem>
-                                        <SelectItem key="Pagado" textValue="Pagado">Pagado</SelectItem>
-                                        <SelectItem key="Cancelado" textValue="Cancelado">Cancelado</SelectItem>
-                                    </Select>
-                                )}
-                            />
-                        </div>
-                        <div className="flex flex-col">
-                            <span className="text-[10px] uppercase font-bold text-default-400">Recepción</span>
-                            <Controller
-                                name="receptionStatus"
-                                control={control}
-                                render={({ field }) => (
-                                    <Select
-                                        {...field}
-                                        size="sm"
-                                        variant="faded"
-                                        isDisabled={!canEditReceptionStatus}
-                                        className="w-32 text-sm font-semibold"
-                                        classNames={{ trigger: "h-8 min-h-8 bg-default-50 border-default-200" }}
-                                        selectedKeys={field.value ? [field.value] : []}
-                                        onChange={(e) => field.onChange(e.target.value)}
-                                    >
-                                        <SelectItem key="Completa" textValue="Completa">Completa</SelectItem>
-                                        <SelectItem key="Faltante" textValue="Faltante">Faltante</SelectItem>
-                                        <SelectItem key="Pendiente" textValue="Pendiente">Pendiente</SelectItem>
-                                    </Select>
-                                )}
-                            />
-                        </div>
-                        <div className="flex flex-col">
-                            <span className="text-[10px] uppercase font-bold text-default-400">Fecha</span>
-                            <Controller
-                                name="date"
-                                control={control}
-                                render={({ field }) => (
-                                    <input
-                                        {...field}
-                                        type="date"
-                                        disabled={!canEditDate}
-                                        className="text-sm font-semibold bg-default-50 border border-default-200 rounded-lg px-2 py-1 outline-none focus:border-primary/50 transition-colors w-36"
-                                    />
-                                )}
-                            />
-                        </div>
+                    <div>
+                        <h2 className="text-base font-semibold text-default-800 leading-none">
+                            {isEdit ? "Editar Entrada" : "Registro de Entrada"}
+                        </h2>
+                        <p className="text-[11px] text-default-400 mt-1">Complete la información del documento</p>
                     </div>
                 </div>
 
-                <div className="flex items-center gap-2 ml-auto pl-6 border-l border-default-100">
+                <div className="flex items-center justify-between md:justify-end gap-3">
                     <div className="flex flex-col items-end">
-                        <div className="flex items-center justify-center h-8 rounded-full border border-default-300 bg-white px-4 shadow-sm">
-                            <span className="text-sm font-bold text-default-900 leading-none">
-                                ${montoTotalFormatted}
+                        <span className="text-[10px] uppercase font-bold text-default-400 mb-1">Monto Total</span>
+                        <div className="flex items-center justify-center h-9 rounded-lg border border-primary/20 bg-primary/5 px-3">
+                            <span className="text-base font-bold text-primary leading-none">
+                                <span className="text-xs mr-1 font-bold text-primary/60">$</span>
+                                {montoTotalFormatted}
                             </span>
                         </div>
                     </div>
                     <Button
                         color="primary"
                         size="md"
-                        className="rounded-full font-bold px-6"
+                        className="rounded-lg font-semibold px-6"
                         onPress={() => handleSubmit(onFormSubmit)()}
                     >
-                        {isEdit ? "Guardar" : "Registrar"}
+                        {isEdit ? "Guardar Cambios" : "Finalizar Registro"}
                     </Button>
                 </div>
             </div>
 
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div className="bg-white p-3 rounded-xl border border-default-200 shadow-sm transition-all group">
+                    <div className="flex items-center gap-2 mb-3 ml-1">
+                        <TruckIcon className="size-4 text-primary" />
+                        <h3 className="text-xs font-bold uppercase text-primary/80">Origen (Proveedor)</h3>
+                    </div>
+                    <Controller
+                        name="supplierId"
+                        control={control}
+                        render={({ field }) => (
+                            <Autocomplete
+                                defaultItems={suppliers}
+                                placeholder="Buscar proveedor..."
+                                className="w-full"
+                                onSelectionChange={(val) => field.onChange(val ? String(val) : "")}
+                                selectedKey={field.value || null}
+                                variant="flat"
+                                color="primary"
+                                size="md"
+                                classNames={{
+                                    base: "w-full",
+                                    listbox: "rounded-2xl",
+                                    popoverContent: "rounded-2xl shadow-xl",
+                                }}
+                                inputProps={{
+                                    classNames: {
+                                        inputWrapper: "rounded-lg bg-default-50 font-semibold min-h-10",
+                                        input: "text-sm font-semibold",
+                                    }
+                                }}
+                            >
+                                {(item) => (
+                                    <AutocompleteItem key={item._id} textValue={item.businessName} className="rounded-xl">
+                                        <div className="flex flex-col">
+                                            <span className="font-bold text-sm text-default-800">{item.businessName}</span>
+                                            <span className="text-[10px] text-default-400">RFC: {item.rfc}</span>
+                                        </div>
+                                    </AutocompleteItem>
+                                )}
+                            </Autocomplete>
+                        )}
+                    />
+                </div>
+
+                <div className="bg-white p-3 rounded-xl border border-default-200 shadow-sm transition-all group">
+                    <div className="flex items-center gap-2 mb-3 ml-1">
+                        <BuildingStorefrontIcon className="size-4 text-secondary" />
+                        <h3 className="text-xs font-bold uppercase text-secondary/80">Almacén Destino</h3>
+                    </div>
+                    <Controller
+                        name="bodegaId"
+                        control={control}
+                        render={({ field }) => (
+                            <Autocomplete
+                                defaultItems={bodegas}
+                                placeholder="Seleccionar bodega..."
+                                className="w-full"
+                                onSelectionChange={(val) => field.onChange(val ? String(val) : "")}
+                                selectedKey={field.value || null}
+                                variant="flat"
+                                color="secondary"
+                                size="md"
+                                classNames={{
+                                    base: "w-full",
+                                    listbox: "rounded-2xl",
+                                    popoverContent: "rounded-2xl shadow-xl",
+                                }}
+                                inputProps={{
+                                    classNames: {
+                                        inputWrapper: "rounded-lg bg-default-50 font-semibold min-h-10",
+                                        input: "text-sm font-semibold",
+                                    }
+                                }}
+                            >
+                                {(item) => (
+                                    <AutocompleteItem key={item._id} textValue={item.name} className="rounded-xl">
+                                        <span className="font-bold text-sm text-default-800">{item.name}</span>
+                                    </AutocompleteItem>
+                                )}
+                            </Autocomplete>
+                        )}
+                    />
+                </div>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-3 p-3 bg-white rounded-xl border border-default-200 shadow-sm">
+                <div className="flex flex-col flex-1 min-w-[200px]">
+                    <span className="text-[10px] uppercase font-bold text-default-400 ml-1 mb-1.5">No. Folio / Entrada</span>
+                    <Controller
+                        name="folio"
+                        control={control}
+                        render={({ field }) => (
+                            <Input
+                                {...field}
+                                size="sm"
+                                variant="bordered"
+                                placeholder="Se genera al guardar"
+                                isReadOnly
+                                classNames={{
+                                    inputWrapper: "h-10 rounded-xl border-default-200 bg-default-50/50",
+                                    input: "font-bold"
+                                }}
+                            />
+                        )}
+                    />
+                </div>
+
+                <div className="flex flex-col w-36">
+                    <span className="text-[10px] uppercase font-bold text-default-400 ml-1 mb-1.5">Estado Pago</span>
+                    <Controller
+                        name="status"
+                        control={control}
+                        render={({ field }) => (
+                            <Select
+                                {...field}
+                                size="sm"
+                                variant="bordered"
+                                isDisabled={!canEditPaymentStatus}
+                                classNames={{ trigger: "h-10 rounded-xl border-default-200 bg-default-50/50" }}
+                                selectedKeys={field.value ? [field.value] : []}
+                                onChange={(e) => field.onChange(e.target.value)}
+                            >
+                                <SelectItem key="Pendiente" textValue="Pendiente">Pendiente</SelectItem>
+                                <SelectItem key="Pagado" textValue="Pagado">Pagado</SelectItem>
+                                <SelectItem key="Cancelado" textValue="Cancelado">Cancelado</SelectItem>
+                            </Select>
+                        )}
+                    />
+                </div>
+
+                <div className="flex flex-col w-40">
+                    <span className="text-[10px] uppercase font-bold text-default-400 ml-1 mb-1.5">Estado Entrega</span>
+                    <Controller
+                        name="receptionStatus"
+                        control={control}
+                        render={({ field }) => (
+                            <Select
+                                {...field}
+                                size="sm"
+                                variant="bordered"
+                                isDisabled={!canEditReceptionStatus}
+                                classNames={{ trigger: "h-10 rounded-xl border-default-200 bg-default-50/50" }}
+                                selectedKeys={field.value ? [field.value] : []}
+                                onChange={(e) => field.onChange(e.target.value)}
+                            >
+                                <SelectItem key="Completa" textValue="Completa">Completa</SelectItem>
+                                <SelectItem key="Faltante" textValue="Faltante">Faltante</SelectItem>
+                                <SelectItem key="Pendiente" textValue="Pendiente">Pendiente</SelectItem>
+                            </Select>
+                        )}
+                    />
+                </div>
+
+                <div className="flex flex-col w-44">
+                    <span className="text-[10px] uppercase font-bold text-default-400 ml-1 mb-1.5">Fecha del Documento</span>
+                    <Controller
+                        name="date"
+                        control={control}
+                        render={({ field }) => (
+                            <div className="flex items-center h-10 px-4 rounded-xl border-2 border-default-200 bg-default-50/50">
+                                <input
+                                    {...field}
+                                    type="date"
+                                    disabled={!canEditDate}
+                                    className="w-full text-sm font-bold bg-transparent outline-none cursor-pointer"
+                                />
+                            </div>
+                        )}
+                    />
+                </div>
+            </div>
+
             {/* Product Entry Area */}
-            <div className="flex items-center gap-3 w-full">
+            <div className="flex items-center gap-2 w-full">
                 <div className="relative flex-1">
                     <Input
                         ref={productInputRef}
@@ -467,7 +479,7 @@ export function BodegaEntradaForm({
                         onFocus={() => setShowResults(true)}
                         onKeyDown={handleKeyDown}
                         classNames={{
-                            inputWrapper: "h-11 px-6 rounded-full bg-white border border-default-200 shadow-sm",
+                            inputWrapper: "h-10 px-4 rounded-lg bg-white border border-default-200 shadow-sm",
                             input: "text-sm font-semibold"
                         }}
                         endContent={<MagnifyingGlassIcon className="size-6 text-default-300" />}
@@ -503,7 +515,7 @@ export function BodegaEntradaForm({
                     )}
                 </div>
 
-                <div className="flex items-center justify-center h-11 px-6 rounded-full border border-default-200 bg-white">
+                <div className="flex items-center justify-center h-10 px-4 rounded-lg border border-default-200 bg-white">
                     <input
                         ref={qtyInputRef}
                         type="number"
@@ -521,7 +533,7 @@ export function BodegaEntradaForm({
                     />
                 </div>
 
-                <div className="flex items-center justify-center h-11 px-4 rounded-full border border-default-200 bg-white gap-2">
+                <div className="flex items-center justify-center h-10 px-3 rounded-lg border border-default-200 bg-white gap-2">
                     <span className="text-base font-bold text-default-400">$</span>
                     <input
                         ref={costInputRef}
@@ -540,7 +552,7 @@ export function BodegaEntradaForm({
                     />
                 </div>
 
-                <div className="flex items-center justify-center h-11 px-6 rounded-full border border-default-400 bg-default-50">
+                <div className="flex items-center justify-center h-10 px-4 rounded-lg border border-default-300 bg-default-50">
                     <span className="text-base font-bold text-default-500 italic">
                         {selectedProduct 
                             ? `${productStockInBodega ?? "..."} pz` 
@@ -548,21 +560,21 @@ export function BodegaEntradaForm({
                     </span>
                 </div>
 
-                <Button isIconOnly className="size-11 rounded-full bg-white border border-default-100 shadow-sm min-w-0" variant="bordered">
+                <Button isIconOnly className="size-10 rounded-lg bg-white border border-default-200 shadow-sm min-w-0" variant="bordered">
                     <FunnelIcon className="size-5 text-default-600" />
                 </Button>
 
                 <Button
                     isIconOnly
                     onPress={handleAddProduct}
-                    className="size-11 rounded-full bg-primary shadow-lg shadow-primary/20 min-w-0"
+                    className="size-10 rounded-lg bg-primary shadow-sm min-w-0"
                 >
                     <PlusIcon className="size-5 text-white" />
                 </Button>
             </div>
 
             {/* Table Area with HeroUI Table */}
-            <div className="bg-white rounded-3xl border border-default-100 shadow-sm overflow-hidden min-h-[400px]">
+            <div className="bg-white rounded-xl border border-default-200 shadow-sm overflow-hidden min-h-[520px]">
                 <Table
                     aria-label="Tabla de entradas"
                     shadow="none"
