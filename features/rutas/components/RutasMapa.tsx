@@ -9,7 +9,7 @@ import {
     InformationCircleIcon,
     PhoneIcon
 } from "@heroicons/react/24/outline";
-import { type RutaRow } from "@/shared/mocks";
+import type { Route } from "@/features/configuracion/components/routes/types";
 
 type Point = {
     id: number;
@@ -44,10 +44,10 @@ declare global {
     }
 }
 
-export function RutasMapa({ selectedRuta }: { selectedRuta: RutaRow }) {
+export function RutasMapa({ selectedRuta }: { selectedRuta: Route }) {
     const mapRef = useRef<any>(null);
     const containerRef = useRef<HTMLDivElement>(null);
-    const cityCoords = COORDS[selectedRuta.destino] || [19.24, -103.73];
+    const cityCoords = COORDS[selectedRuta.destination] || [19.24, -103.73];
 
     useEffect(() => {
         if (typeof window === "undefined" || !window.L || !containerRef.current) return;
@@ -132,8 +132,8 @@ export function RutasMapa({ selectedRuta }: { selectedRuta: RutaRow }) {
                                 <TruckIcon className="size-6" />
                             </div>
                             <div>
-                                <h3 className="text-sm font-bold text-default-400 uppercase tracking-wider">Ruta: {selectedRuta.ruta}</h3>
-                                <p className="text-lg font-black text-foreground">{selectedRuta.destino}</p>
+                                <h3 className="text-sm font-bold text-default-400 uppercase tracking-wider">Ruta: {selectedRuta.name}</h3>
+                                <p className="text-lg font-black text-foreground">{selectedRuta.destination}</p>
                             </div>
                         </div>
                         
@@ -170,7 +170,15 @@ export function RutasMapa({ selectedRuta }: { selectedRuta: RutaRow }) {
                                                 <p className="font-bold text-xs truncate">{point.name}</p>
                                                 <span className="text-[9px] font-black text-default-400">{point.time}</span>
                                             </div>
-                                            <p className="text-[9px] text-default-400 mt-0.5 group-hover:text-primary transition-colors">Ver ubicación exacta</p>
+                                            {selectedRuta.routeType === "Externa" ? (
+                                                <p className="text-[9px] text-default-400 mt-0.5 group-hover:text-primary transition-colors">
+                                                    Precio: ${((point.id * 127.35) % 900 + 100).toFixed(2)}
+                                                </p>
+                                            ) : (
+                                                <p className="text-[9px] text-default-400 mt-0.5 group-hover:text-primary transition-colors">
+                                                    Cantidad: {point.id * 3} unidades
+                                                </p>
+                                            )}
                                         </div>
                                     </div>
                                 </CardBody>

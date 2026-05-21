@@ -26,13 +26,10 @@ import {
   MapPinIcon,
   CalendarDaysIcon,
   CurrencyDollarIcon,
-  EyeIcon,
-  EyeSlashIcon,
 } from "@heroicons/react/24/outline";
 import { Client, ROUTES } from "./types";
 import { StateSelector, MunicipalitySelector, LocalitySelector } from "@/shared/components/locations";
-import { ClientLocationPreview } from "./ClientLocationPreview";
-import { getGoogleMapsLink } from "./location-utils";
+import { parseCoordinatesFromMapsUrl } from "./location-utils";
 
 interface ClientModalProps {
   isOpen: boolean;
@@ -41,6 +38,38 @@ interface ClientModalProps {
   onSave: (data: ClientFormValues) => void;
   onClose: () => void;
   isLoading?: boolean;
+}
+
+function getAddressReferenceFromMapsUrl(mapsUrl?: string): string {
+  const raw = (mapsUrl || "").trim();
+  if (!raw) return "";
+  try {
+    const url = new URL(raw);
+    const query = url.searchParams.get("query") || url.searchParams.get("q");
+    if (!query) return "";
+    const decoded = decodeURIComponent(query).trim();
+    return decoded;
+  } catch {
+    return raw;
+  }
+}
+
+function buildMapsSearchUrl(reference: string): string {
+  const trimmed = reference.trim();
+  if (!trimmed) return "";
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(trimmed)}`;
+}
+
+function buildAddressReference(args: {
+  address?: string;
+  townName?: string;
+  municipalityName?: string;
+  stateName?: string;
+}): string {
+  const chunks = [args.address, args.townName, args.municipalityName, args.stateName]
+    .map((v) => (v || "").trim())
+    .filter(Boolean);
+  return chunks.join(", ");
 }
 
 export function ClientModal({
@@ -87,10 +116,13 @@ export function ClientModal({
   const lat = watch("lat");
   const lng = watch("lng");
   const mapsUrl = watch("mapsUrl");
+  const townName = watch("townName");
+  const municipalityName = watch("municipalityName");
+  const stateName = watch("stateName");
 
   useEffect(() => {
     if (typeof lat === "number" && typeof lng === "number") {
-      const generated = getGoogleMapsLink(lat, lng, "");
+      const generated = buildMapsSearchUrl(`${lat},${lng}`);
       if (generated && mapsUrl !== generated) {
         setValue("mapsUrl", generated, { shouldValidate: true, shouldDirty: true });
       }
@@ -100,6 +132,10 @@ export function ClientModal({
   useEffect(() => {
     if (isOpen) {
       if (selectedClient) {
+        const parsedCoords =
+          (typeof selectedClient.lat === "number" && typeof selectedClient.lng === "number")
+            ? { lat: selectedClient.lat, lng: selectedClient.lng }
+            : parseCoordinatesFromMapsUrl(selectedClient.mapsUrl);
         reset({
           commercialName: selectedClient.commercialName,
           buyerName: selectedClient.buyerName,
@@ -108,8 +144,8 @@ export function ClientModal({
           rfc: selectedClient.rfc,
           taxRegime: selectedClient.taxRegime,
           mapsUrl: selectedClient.mapsUrl,
-          lat: selectedClient.lat,
-          lng: selectedClient.lng,
+          lat: parsedCoords?.lat,
+          lng: parsedCoords?.lng,
           townId: selectedClient.townId,
           townName: selectedClient.townName,
           municipalityId: selectedClient.municipalityId,
@@ -147,7 +183,20 @@ export function ClientModal({
   }, [isOpen, selectedClient, reset]);
 
   const onSubmit = (data: ClientFormValues) => {
-    onSave(data);
+    const address = getAddressReferenceFromMapsUrl(data.mapsUrl);
+    const fullReference = buildAddressReference({
+      address,
+      townName: data.townName,
+      municipalityName: data.municipalityName,
+      stateName: data.stateName,
+    });
+    const normalizedMapsUrl = fullReference
+      ? buildMapsSearchUrl(fullReference)
+      : (data.mapsUrl || "");
+    onSave({
+      ...data,
+      mapsUrl: normalizedMapsUrl,
+    });
   };
 
   return (
@@ -287,44 +336,6 @@ export function ClientModal({
                     Ubicación y Zona
                   </h4>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="grid grid-cols-2 gap-4">
-                      <Controller
-                        name="lat"
-                        control={control}
-                        render={({ field }) => (
-                          <Input
-                            label="Latitud"
-                            placeholder="Ej. 19.4326"
-                            variant="bordered"
-                            labelPlacement="outside"
-                            type="number"
-                            value={typeof field.value === "number" ? String(field.value) : ""}
-                            onValueChange={(value) => {
-                              const parsed = Number(value);
-                              field.onChange(Number.isFinite(parsed) ? parsed : undefined);
-                            }}
-                          />
-                        )}
-                      />
-                      <Controller
-                        name="lng"
-                        control={control}
-                        render={({ field }) => (
-                          <Input
-                            label="Longitud"
-                            placeholder="Ej. -99.1332"
-                            variant="bordered"
-                            labelPlacement="outside"
-                            type="number"
-                            value={typeof field.value === "number" ? String(field.value) : ""}
-                            onValueChange={(value) => {
-                              const parsed = Number(value);
-                              field.onChange(Number.isFinite(parsed) ? parsed : undefined);
-                            }}
-                          />
-                        )}
-                      />
-                    </div>
                     <Controller
                       name="mapsUrl"
                       control={control}
@@ -334,10 +345,9 @@ export function ClientModal({
                           placeholder="Colonia, calle, punto de referencia"
                           variant="bordered"
                           labelPlacement="outside"
-                          value={field.value ? decodeURIComponent(field.value.split("query=")[1] || field.value) : ""}
+                          value={getAddressReferenceFromMapsUrl(field.value)}
                           onValueChange={(value) => {
-                            const trimmed = value.trim();
-                            field.onChange(trimmed ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(trimmed)}` : "");
+                            field.onChange(buildMapsSearchUrl(value));
                           }}
                           isInvalid={!!errors.mapsUrl}
                           errorMessage={errors.mapsUrl?.message}
@@ -362,6 +372,9 @@ export function ClientModal({
                           />
                         )}
                       />
+                      {errors.stateId ? (
+                        <p className="col-span-2 text-danger text-tiny">{errors.stateId.message}</p>
+                      ) : null}
                       <Controller
                         name="municipalityId"
                         control={control}
@@ -378,6 +391,9 @@ export function ClientModal({
                           />
                         )}
                       />
+                      {errors.municipalityId ? (
+                        <p className="col-span-2 text-danger text-tiny">{errors.municipalityId.message}</p>
+                      ) : null}
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                       <Controller
@@ -395,6 +411,9 @@ export function ClientModal({
                           />
                         )}
                       />
+                      {errors.townId ? (
+                        <p className="col-span-2 text-danger text-tiny">{errors.townId.message}</p>
+                      ) : null}
                       <Controller
                         name="townName"
                         control={control}
@@ -410,12 +429,25 @@ export function ClientModal({
                         )}
                       />
                     </div>
+                    <div className="md:col-span-2">
+                      <p className="text-tiny text-default-500">
+                        La ubicación exacta puede agregarse posteriormente.
+                      </p>
+                      {mapsUrl ? (
+                        <Button
+                          as="a"
+                          href={mapsUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          size="sm"
+                          variant="flat"
+                          className="mt-2"
+                        >
+                          Abrir en Google Maps
+                        </Button>
+                      ) : null}
+                    </div>
                   </div>
-                  <ClientLocationPreview
-                    mapsUrl={watch("mapsUrl")}
-                    lat={watch("lat")}
-                    lng={watch("lng")}
-                  />
                 </div>
 
                 <Divider />

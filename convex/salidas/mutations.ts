@@ -1,7 +1,34 @@
 import { mutation } from "../_generated/server";
 import { v } from "convex/values";
 import { salidaFields } from "./schema";
-import { hasPermission, isAdmin, requireIdentity, requirePermission } from "../common/utils";
+import { hasPermission, isAdmin, isSuperAdmin, requireIdentity, requirePermission } from "../common/utils";
+import type { MutationCtx } from "../_generated/server";
+
+async function getNextSalidaNumber(ctx: MutationCtx) {
+  const existing = await ctx.db
+    .query("sequences")
+    .withIndex("by_key", (q) => q.eq("key", "salida_folio"))
+    .unique();
+
+  if (existing) {
+    const next = existing.value + 1;
+    await ctx.db.patch(existing._id, { value: next });
+    return `SAL-${String(next).padStart(5, "0")}`;
+  }
+
+  const salidas = await ctx.db.query("salidas").collect();
+  let maxLegacy = 0;
+  for (const salida of salidas) {
+    const parsed = Number((salida.numeroSalida || "").match(/SAL-(\d+)/i)?.[1] || 0);
+    if (Number.isFinite(parsed) && parsed > maxLegacy) {
+      maxLegacy = parsed;
+    }
+  }
+
+  const next = maxLegacy + 1;
+  await ctx.db.insert("sequences", { key: "salida_folio", value: next });
+  return `SAL-${String(next).padStart(5, "0")}`;
+}
 
 export const create = mutation({
   args: salidaFields,
@@ -20,7 +47,11 @@ export const create = mutation({
         throw new Error("Acceso denegado: no puedes asignar responsable/ruta en salidas.");
       }
     }
-    const id = await ctx.db.insert("salidas", args);
+    const generatedNumeroSalida = await getNextSalidaNumber(ctx);
+    const id = await ctx.db.insert("salidas", {
+      ...args,
+      numeroSalida: generatedNumeroSalida,
+    });
     
     // Opcional: Descontar del inventario si es una carga/salida real
     for (const item of args.items) {
@@ -64,7 +95,13 @@ export const update = mutation({
       }
     }
 
-    await ctx.db.patch(id, args);
+    const superAdmin = await isSuperAdmin(ctx);
+    const nextNumeroSalida = superAdmin ? args.numeroSalida : current.numeroSalida;
+
+    await ctx.db.patch(id, {
+      ...args,
+      numeroSalida: nextNumeroSalida,
+    });
     return id;
   },
 });

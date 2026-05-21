@@ -4,6 +4,7 @@ export const routeSchema = z.object({
   name: z.string().min(3, "El nombre debe tener al menos 3 caracteres"),
   destination: z.string().min(1, "El destino es requerido"),
   deliveryType: z.enum(["sucursal", "envio"]),
+  routeType: z.enum(["Interna", "Externa"]).default("Interna"),
   assignedUserId: z.string().min(1, "Debes asignar un usuario"),
   assetId: z.string().min(1, "Debes asignar un transporte (activo)"),
   operationDays: z.array(z.string()).min(1, "Selecciona al menos un día de operación"),

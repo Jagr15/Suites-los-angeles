@@ -82,6 +82,7 @@ export function RouteModal({
       name: "",
       destination: "",
       deliveryType: "sucursal",
+      routeType: "Interna",
       assignedUserId: "",
       assetId: "",
       operationDays: [],
@@ -108,6 +109,7 @@ export function RouteModal({
         name: selectedRoute.name,
         destination: selectedRoute.destination,
         deliveryType: selectedRoute.deliveryType,
+        routeType: selectedRoute.routeType || "Interna",
         assignedUserId: selectedRoute.assignedUserId || "",
         assetId: selectedRoute.assetId,
         operationDays: selectedRoute.operationDays,
@@ -131,6 +133,7 @@ export function RouteModal({
         name: "",
         destination: "",
         deliveryType: "sucursal",
+        routeType: "Interna",
         assignedUserId: "",
         assetId: "",
         operationDays: [],
@@ -362,6 +365,31 @@ export function RouteModal({
                                 </SelectItem>
                               ))}
                             </Select>
+                          )}
+                        />
+                        <Controller
+                          name="routeType"
+                          control={control}
+                          render={({ field }) => (
+                            <div className="flex items-center justify-between rounded-xl border border-default-200 px-3 py-2">
+                              <div className="flex flex-col">
+                                <span className="text-small font-medium text-default-700">Tipo de Ruta</span>
+                                <span className="text-tiny text-default-400">
+                                  {field.value === "Externa" ? "Ruta externa (precio)" : "Ruta interna (cantidad)"}
+                                </span>
+                              </div>
+                              <Switch
+                                isSelected={field.value === "Externa"}
+                                onValueChange={(checked) => field.onChange(checked ? "Externa" : "Interna")}
+                                color="primary"
+                                size="sm"
+                                thumbIcon={() => (
+                                  <span className="text-[10px] font-bold">
+                                    {field.value === "Externa" ? "E" : "I"}
+                                  </span>
+                                )}
+                              />
+                            </div>
                           )}
                         />
                       </div>

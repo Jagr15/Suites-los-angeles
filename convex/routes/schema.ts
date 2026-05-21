@@ -5,6 +5,7 @@ export const routeFields = {
   name: v.string(),
   destination: v.optional(v.string()),
   deliveryType: v.optional(v.union(v.literal("sucursal"), v.literal("envio"))),
+  routeType: v.optional(v.union(v.literal("Interna"), v.literal("Externa"))),
   assignedUserId: v.optional(v.id("users")),
   assignedProfileId: v.optional(v.id("profiles")),
   assetId: v.optional(v.id("assets")),

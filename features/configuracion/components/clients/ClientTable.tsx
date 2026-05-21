@@ -78,7 +78,7 @@ export function ClientTable({ items, onEdit, onDelete }: ClientTableProps) {
       case "locationPreview": {
         const embedSrc = getGoogleMapsEmbedSrc(client.lat, client.lng, client.mapsUrl);
         if (!embedSrc) {
-          return <span className="text-tiny text-default-400">Sin ubicación</span>;
+          return <span className="text-tiny text-default-400">Sin ubicacion exacta</span>;
         }
         return (
           <div className="h-20 w-32 overflow-hidden rounded-lg border border-default-200">

@@ -10,7 +10,10 @@ export const create = mutation({
   args: routeFields,
   handler: async (ctx, args) => {
     await requireAdmin(ctx);
-    return await ctx.db.insert("routes", args);
+    return await ctx.db.insert("routes", {
+      ...args,
+      routeType: args.routeType || "Interna",
+    });
   },
 });
 
@@ -25,7 +28,10 @@ export const update = mutation({
   handler: async (ctx, args) => {
     await requireAdmin(ctx);
     const { id, ...data } = args;
-    await ctx.db.patch(id, data);
+    await ctx.db.patch(id, {
+      ...data,
+      routeType: data.routeType || "Interna",
+    });
     return id;
   },
 });

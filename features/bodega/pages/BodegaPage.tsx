@@ -37,7 +37,7 @@ export function BodegaPage() {
   const updateSalida = useMutation(api.salidas.mutations.update);
   const removeSalida = useMutation(api.salidas.mutations.remove);
   const updateReceptionStatus = useMutation(api.purchases.mutations.updateReceptionStatus);
-  const { hasPermission, isAdmin } = useRoles();
+  const { hasPermission, isAdmin, isSuperAdmin } = useRoles();
   const canViewInventoryTab = isAdmin || hasPermission("warehouse:allow_inventory_tab");
   const canAdjustInventory = isAdmin || hasPermission("inventory:allow_manual_adjustments");
   const canAssignRouteResponsible = isAdmin || hasPermission("warehouse_outputs:assign_route_responsible");
@@ -157,8 +157,13 @@ export function BodegaPage() {
 
         const totalAmount = cleanItems.reduce((acc: number, it: any) => acc + it.subtotal, 0);
 
+        const currentSalida = editId
+          ? (salidas || []).find((s: any) => String(s._id || s.id) === String(editId))
+          : null;
         const payload = {
-          numeroSalida: values.numeroCarga,
+          numeroSalida: isSuperAdmin && editId
+            ? values.numeroCarga
+            : (currentSalida?.numeroSalida || values.numeroCarga || "Se genera al guardar"),
           fecha: values.fecha,
           status: values.status,
           responsable: values.responsable,
@@ -185,7 +190,7 @@ export function BodegaPage() {
         addToast({ title: "Error", description: String(error), color: "danger" });
       }
     },
-    [createSalida, updateSalida]
+    [createSalida, isSuperAdmin, salidas, updateSalida]
   );
 
   const handleSubmitInventoryAdjustment = useCallback(

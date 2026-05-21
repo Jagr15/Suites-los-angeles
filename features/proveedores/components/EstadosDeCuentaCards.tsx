@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useRef } from "react";
-import { Card, CardBody, CardHeader, Chip, Button, Divider } from "@heroui/react";
+import { Card, CardBody, CardHeader } from "@heroui/react";
 import { BanknotesIcon, CalendarDaysIcon, ArrowRightIcon } from "@heroicons/react/24/outline";
 import type { EstadoCuentaRow } from "@/shared/mocks";
 
@@ -54,16 +54,7 @@ export function EstadosDeCuentaCards({ items, supplierIdSeleccionado, onSelect }
               </div>
             </CardHeader>
             <CardBody className="px-6 py-4">
-              <div className="space-y-4">
-                <div className="flex flex-col">
-                  <span className="text-tiny text-default-400 font-semibold uppercase">Deuda Acumulada</span>
-                  <span className="text-3xl font-black tracking-tight text-foreground">
-                    {item.total}
-                  </span>
-                </div>
-
-                <Divider className="opacity-50" />
-
+              <div className="space-y-3">
                 <div className="flex items-center justify-between">
                   <div className="flex flex-col">
                     <div className="flex items-center gap-1.5 mb-1">

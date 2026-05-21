@@ -79,8 +79,8 @@ function formatMonthDisplay(date: Date): string {
 export function ProveedoresPage() {
   const suppliers = useQuery(api.suppliers.queries.listWithMetrics);
   const supplierTransactions = useQuery(api.supplierTransactions.queries.listAll) as SupplierTxn[] | undefined;
-  const { hasPermission, isAdmin } = useRoles();
-  const canDeleteRecords = isAdmin || !hasPermission("records:restrict_delete");
+  const { hasPermission, isAdmin, isBodega } = useRoles();
+  const canDeleteRecords = !isBodega && (isAdmin || !hasPermission("records:restrict_delete"));
   const [activeTab, setActiveTab] = useState<TabKey>("compras");
   const { purchases, isLoading: loadingPurchases, addPurchase, updatePurchase, deletePurchase } = usePurchases();
 

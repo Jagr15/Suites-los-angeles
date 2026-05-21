@@ -12,6 +12,7 @@ export function useRoutes() {
 
   const routes = (convexRoutes || []).map(r => ({
     ...r,
+    routeType: r.routeType || "Interna",
     id: r._id,
   })) as Route[];
 

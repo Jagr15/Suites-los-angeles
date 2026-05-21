@@ -21,6 +21,7 @@ export function useRoles() {
     normalizedRole === "administrador" ||
     normalizedRole === "superadmin" ||
     normalizedRole === "super admin";
+  const isSuperAdmin = normalizedRole === "superadmin" || normalizedRole === "super admin";
   const isBodega = normalizedRole === "bodega" || normalizedRole === "bodeguero";
   const isVendedor = normalizedRole === "vendedor";
 
@@ -77,6 +78,7 @@ export function useRoles() {
   return {
     user,
     role: roleName,
+    isSuperAdmin,
     isAdmin,
     isBodega,
     isVendedor,

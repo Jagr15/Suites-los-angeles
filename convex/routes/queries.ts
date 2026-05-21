@@ -50,6 +50,7 @@ export const list = query({
         const asset = await safeGetAssetFromRoute(ctx, route);
         return {
           ...route,
+          routeType: route.routeType || "Interna",
           assetId: route.assetId || asset?._id,
           assignedUserName: userProfile?.fullName ?? user?.name ?? user?.email ?? "Desconocido",
           assignedProfileName: profile?.fullName ?? userProfile?.fullName ?? "Desconocido",
@@ -85,6 +86,7 @@ export const listByProfile = query({
         const asset = await safeGetAssetFromRoute(ctx, route);
         return {
           ...route,
+          routeType: route.routeType || "Interna",
           assetId: route.assetId || asset?._id,
           vehicleInfo: asset ? `${asset.name} (${asset.plate || "S/P"})` : "Sin transporte",
         };
@@ -118,6 +120,7 @@ export const listByCurrentUser = query({
         const asset = await safeGetAssetFromRoute(ctx, route);
         return {
           ...route,
+          routeType: route.routeType || "Interna",
           assetId: route.assetId || asset?._id,
           assignedUserName: user.name || user.email || "Desconocido",
           vehicleInfo: asset ? `${asset.name} (${asset.plate || "S/P"})` : "Sin transporte",

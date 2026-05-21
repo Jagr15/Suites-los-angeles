@@ -2,6 +2,20 @@ import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Client } from "./types";
 import { Id } from "@/convex/_generated/dataModel";
+import { getGoogleMapsLink } from "./location-utils";
+
+function toOptionalNumber(value: unknown): number | undefined {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "string" && value.trim()) {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : undefined;
+  }
+  return undefined;
+}
+
+function normalizeMapsUrl(lat?: number, lng?: number, mapsUrl?: string): string {
+  return getGoogleMapsLink(lat, lng, mapsUrl || "");
+}
 
 export function useClients() {
   const rawClients = useQuery(api.clients.queries.list);
@@ -40,6 +54,8 @@ export function useClients() {
     // Extraer campos que no existen en el validador del servidor
     const { _id, _creationTime, ...fields } = client as any;
     
+    const lat = toOptionalNumber(fields.lat);
+    const lng = toOptionalNumber(fields.lng);
     const cleanData = {
       ...fields,
       // Garantizar que los strings requeridos existan siempre
@@ -51,13 +67,15 @@ export function useClients() {
       stateName: fields.stateName || "",
       townId: fields.townId || "",
       townName: fields.townName || "",
-      mapsUrl: fields.mapsUrl || "",
+      mapsUrl: normalizeMapsUrl(lat, lng, fields.mapsUrl),
       
       // Garantizar booleanos y números
       requiresInvoice: !!fields.requiresInvoice,
       creditLimit: Number(fields.creditLimit) || 0,
       creditDays: Number(fields.creditDays) || 0,
       visitFrequency: fields.visitFrequency || "Semanal",
+      lat,
+      lng,
 
       // Manejo especial de IDs opcionales de Convex
       assignedRouteId: (fields.assignedRouteId === "" || !fields.assignedRouteId) ? undefined : fields.assignedRouteId,
@@ -69,6 +87,8 @@ export function useClients() {
   const updateClient = async (id: string, client: Partial<Client>) => {
     const { id: _, _id, _creationTime, ...data } = client as any;
     
+    const lat = toOptionalNumber(data.lat);
+    const lng = toOptionalNumber(data.lng);
     const cleanData = {
       ...data,
       // Garantizar que los strings requeridos existan siempre
@@ -78,13 +98,15 @@ export function useClients() {
       municipalityName: data.municipalityName || "",
       townId: data.townId || "",
       townName: data.townName || "",
-      mapsUrl: data.mapsUrl || "",
+      mapsUrl: normalizeMapsUrl(lat, lng, data.mapsUrl),
       
       // Garantizar booleanos y números
       requiresInvoice: !!data.requiresInvoice,
       creditLimit: Number(data.creditLimit) || 0,
       creditDays: Number(data.creditDays) || 0,
       visitFrequency: data.visitFrequency || "Semanal",
+      lat,
+      lng,
 
       // Manejo de IDs
       assignedRouteId: (data.assignedRouteId === "" || !data.assignedRouteId) ? undefined : data.assignedRouteId,

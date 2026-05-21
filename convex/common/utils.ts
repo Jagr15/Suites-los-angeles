@@ -11,6 +11,11 @@ function isAdminRoleName(role?: string | null) {
   return normalized === "admin" || normalized === "superadmin" || normalized === "super admin";
 }
 
+function isSuperAdminRoleName(role?: string | null) {
+  const normalized = (role || "").trim().toLowerCase();
+  return normalized === "superadmin" || normalized === "super admin";
+}
+
 /**
  * Verifica si el usuario actual tiene rol de administrador.
  */
@@ -51,6 +56,17 @@ export async function isAdmin(ctx: QueryCtx | MutationCtx) {
     }
   }
 
+  return false;
+}
+
+/**
+ * Verifica si el usuario actual tiene rol de superadministrador.
+ */
+export async function isSuperAdmin(ctx: QueryCtx | MutationCtx) {
+  const current = await getCurrentUserWithRole(ctx);
+  if (!current) return false;
+  if (isSuperAdminRoleName(current.user.role)) return true;
+  if (isSuperAdminRoleName(current.roleData?.name)) return true;
   return false;
 }
 

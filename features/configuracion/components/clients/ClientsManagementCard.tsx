@@ -50,9 +50,10 @@ export function ClientsManagementCard() {
       onOpenChange(); // Close modal
     } catch (error) {
       console.error("Error saving client:", error);
+      const message = error instanceof Error ? error.message : "No se pudo guardar la información del cliente.";
       addToast({
         title: "Error",
-        description: "No se pudo guardar la información del cliente.",
+        description: message,
         color: "danger",
       });
     } finally {
