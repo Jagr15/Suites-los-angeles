@@ -3,12 +3,6 @@
 import { useEffect, useMemo, useState, useRef } from "react";
 import { useForm, Controller, useWatch } from "react-hook-form";
 import {
-    Table,
-    TableHeader,
-    TableColumn,
-    TableBody,
-    TableRow,
-    TableCell,
     Button,
     Input,
     Select,
@@ -18,7 +12,6 @@ import {
 } from "@heroui/react";
 import {
     MagnifyingGlassIcon,
-    FunnelIcon,
     TruckIcon,
     BuildingStorefrontIcon,
     PlusIcon,
@@ -464,172 +457,166 @@ export function BodegaEntradaForm({
                 </div>
             </div>
 
-            {/* Product Entry Area */}
-            <div className="flex items-center gap-2 w-full">
-                <div className="relative flex-1">
-                    <Input
-                        ref={productInputRef}
-                        size="md"
-                        placeholder="Buscar producto..."
-                        value={productInput}
-                        onValueChange={(val) => {
-                            setProductInput(val);
-                            setShowResults(true);
-                        }}
-                        onFocus={() => setShowResults(true)}
-                        onKeyDown={handleKeyDown}
-                        classNames={{
-                            inputWrapper: "h-10 px-4 rounded-lg bg-white border border-default-200 shadow-sm",
-                            input: "text-sm font-semibold"
-                        }}
-                        endContent={<MagnifyingGlassIcon className="size-6 text-default-300" />}
-                    />
-                    {showResults && productInput && filteredProducts.length > 0 && (
-                        <div className="absolute z-50 mt-2 w-full p-2 bg-white rounded-3xl border border-default-200 shadow-xl max-h-60 overflow-y-auto">
-                            {filteredProducts.map((p, index) => (
-                                <button
-                                    key={p._id}
-                                    className={`flex w-full items-center justify-between p-4 rounded-2xl transition-colors text-left ${
-                                        index === activeIndex ? "bg-primary-50 border-primary/20 border" : "hover:bg-default-50"
-                                    }`}
-                                    onClick={() => {
-                                        setSelectedProduct(p);
-                                        setProductInput(p.producto);
-                                        setAddCost(p.lista1 || "0");
-                                        setShowResults(false);
-                                        setTimeout(() => qtyInputRef.current?.focus(), 50);
-                                    }}
-                                    onMouseEnter={() => setActiveIndex(index)}
-                                    type="button"
-                                >
-                                    <div>
-                                        <p className="font-semibold text-base">{p.producto}</p>
-                                        <p className="text-xs text-default-400 font-mono italic">SKU: {p.sku}</p>
-                                    </div>
-                                    <div className="text-right">
-                                        <p className="font-bold text-primary text-base">${p.lista1 || "0.00"}</p>
-                                    </div>
-                                </button>
-                            ))}
-                        </div>
-                    )}
-                </div>
-
-                <div className="flex items-center justify-center h-10 px-4 rounded-lg border border-default-200 bg-white">
-                    <input
-                        ref={qtyInputRef}
-                        type="number"
-                        className="w-16 text-base font-bold text-center outline-none bg-transparent"
-                        value={addQty}
-                        onChange={(e) => setAddQty(e.target.value)}
-                        placeholder="Cant."
-                        onFocus={(e) => e.target.select()}
-                        onKeyDown={(e) => {
-                            if (e.key === 'Enter') {
-                                e.preventDefault();
-                                costInputRef.current?.focus();
-                            }
-                        }}
-                    />
-                </div>
-
-                <div className="flex items-center justify-center h-10 px-3 rounded-lg border border-default-200 bg-white gap-2">
-                    <span className="text-base font-bold text-default-400">$</span>
-                    <input
-                        ref={costInputRef}
-                        type="number"
-                        className="w-20 text-base font-bold outline-none bg-transparent"
-                        value={addCost}
-                        onChange={(e) => setAddCost(e.target.value)}
-                        placeholder="Costo"
-                        onFocus={(e) => e.target.select()}
-                        onKeyDown={(e) => {
-                            if (e.key === 'Enter') {
-                                e.preventDefault();
-                                handleAddProduct();
-                            }
-                        }}
-                    />
-                </div>
-
-                <div className="flex items-center justify-center h-10 px-4 rounded-lg border border-default-300 bg-default-50">
-                    <span className="text-base font-bold text-default-500 italic">
-                        {selectedProduct 
-                            ? `${productStockInBodega ?? "..."} pz` 
-                            : "Stock"}
-                    </span>
-                </div>
-
-                <Button isIconOnly className="size-10 rounded-lg bg-white border border-default-200 shadow-sm min-w-0" variant="bordered">
-                    <FunnelIcon className="size-5 text-default-600" />
-                </Button>
-
-                <Button
-                    isIconOnly
-                    onPress={handleAddProduct}
-                    className="size-10 rounded-lg bg-primary shadow-sm min-w-0"
-                >
-                    <PlusIcon className="size-5 text-white" />
-                </Button>
-            </div>
-
-            {/* Table Area with HeroUI Table */}
-            <div className="bg-white rounded-xl border border-default-200 shadow-sm overflow-hidden min-h-[520px]">
-                <Table
-                    aria-label="Tabla de entradas"
-                    shadow="none"
-                    removeWrapper
-                    className="bg-transparent"
-                >
-                    <TableHeader>
-                        <TableColumn className="bg-default-50 text-[10px] uppercase font-bold text-default-400">Código</TableColumn>
-                        <TableColumn className="bg-default-50 text-[10px] uppercase font-bold text-default-400">SKU</TableColumn>
-                        <TableColumn className="bg-default-50 text-[10px] uppercase font-bold text-default-400 text-center">Cant.</TableColumn>
-                        <TableColumn className="bg-default-50 text-[10px] uppercase font-bold text-default-400">Producto</TableColumn>
-                        <TableColumn className="bg-default-50 text-[10px] uppercase font-bold text-default-400">Categoría</TableColumn>
-                        <TableColumn className="bg-default-50 text-[10px] uppercase font-bold text-default-400 text-right">Costo</TableColumn>
-                        <TableColumn className="bg-default-50 text-[10px] uppercase font-bold text-default-400 text-right">Total</TableColumn>
-                        <TableColumn className="bg-default-50 text-[10px] uppercase font-bold text-default-400 text-center leading-none">
-                            Stock <br /> <span className="text-[8px]">Anterior</span>
-                        </TableColumn>
-                        <TableColumn className="bg-default-50 text-[10px] uppercase font-bold text-default-400 italic text-center leading-none">
-                            Stock <br /> <span className="text-[8px]">Nuevo</span>
-                        </TableColumn>
-                        <TableColumn className="bg-default-50 w-10 text-right">Acciones</TableColumn>
-                    </TableHeader>
-                    <TableBody items={formItems} emptyContent={<div className="p-16 text-center text-default-300 italic font-semibold text-lg uppercase tracking-widest">Sin productos agregados</div>}>
-                        {(p: EntryItem) => (
-                            <TableRow key={p.rowId} className="border-b border-default-100 last:border-0 hover:bg-default-50/50 transition-colors">
-                                <TableCell className="text-xs font-semibold text-default-600">
-                                    {typeof p.productId === 'string' ? p.productId.slice(-4) : 'N/A'}
-                                </TableCell>
-                                <TableCell className="text-xs font-bold text-default-800">{p.sku || '---'}</TableCell>
-                                <TableCell className="text-sm font-bold text-default-900 text-center">{p.quantity}</TableCell>
-                                <TableCell>
-                                    <div className="flex flex-col">
-                                        <span className="text-sm font-semibold text-default-700">{p.name}</span>
-                                    </div>
-                                </TableCell>
-                                <TableCell className="text-xs text-default-500">{p.category}</TableCell>
-                                <TableCell className="text-right text-sm font-semibold text-default-800">${p.unitCost.toFixed(2)}</TableCell>
-                                <TableCell className="text-right font-bold text-primary text-base">${p.totalCost.toFixed(2)}</TableCell>
-                                <TableCell className="text-center text-xs font-semibold text-default-400 italic">{p.stockAnterior}</TableCell>
-                                <TableCell className="text-center font-bold text-default-800 italic underline decoration-1 underline-offset-4">{p.stockNuevo}</TableCell>
-                                <TableCell className="text-right">
-                                    <Button
-                                        isIconOnly
-                                        size="sm"
-                                        variant="light"
-                                        color="danger"
-                                        onPress={() => setValue("items", formItems.filter((it) => it.rowId !== p.rowId))}
+            <div className="bg-white p-4 rounded-xl border border-default-200 shadow-sm space-y-4">
+                <div className="flex gap-3 items-end">
+                    <div className="relative flex-1">
+                        <Input
+                            ref={productInputRef}
+                            label="Buscar producto"
+                            placeholder="Nombre o SKU"
+                            value={productInput}
+                            onValueChange={(value) => {
+                                setProductInput(value);
+                                setShowResults(true);
+                            }}
+                            onFocus={() => setShowResults(true)}
+                            onKeyDown={handleKeyDown}
+                            endContent={<MagnifyingGlassIcon className="size-5 text-default-400" />}
+                        />
+                        {showResults && productInput && filteredProducts.length > 0 && (
+                            <div className="absolute z-50 mt-1 max-h-[320px] w-full overflow-y-auto rounded-xl border border-default-200 bg-content1 p-1 shadow-xl">
+                                {filteredProducts.map((p, index) => (
+                                    <button
+                                        key={p._id}
+                                        type="button"
+                                        onClick={() => {
+                                            setSelectedProduct(p);
+                                            setProductInput(p.producto);
+                                            setAddCost(p.lista1 || "0");
+                                            setShowResults(false);
+                                            setTimeout(() => qtyInputRef.current?.focus(), 50);
+                                        }}
+                                        onMouseEnter={() => setActiveIndex(index)}
+                                        className={`group flex w-full items-center justify-between rounded-lg px-4 py-2.5 text-left transition-all ${
+                                            index === activeIndex ? "bg-primary text-white shadow-md" : "hover:bg-default-100"
+                                        }`}
                                     >
-                                        <TrashIcon className="size-4" />
-                                    </Button>
-                                </TableCell>
-                            </TableRow>
+                                        <div className="flex items-center gap-4 flex-1">
+                                            <span className="font-bold text-sm truncate max-w-[220px] lg:max-w-md">{p.producto}</span>
+                                            <div className="flex items-center gap-3 text-xs">
+                                                <span className={`px-2 py-0.5 rounded-full font-bold ${index === activeIndex ? "bg-white/20" : "bg-default-100"}`}>
+                                                    Stock: {selectedProduct?._id === p._id ? (productStockInBodega ?? "...") : "-"}
+                                                </span>
+                                                <span className={`font-bold ${index === activeIndex ? "text-white" : "text-primary"}`}>
+                                                    ${Number(p.lista1 || 0).toFixed(2)}
+                                                </span>
+                                            </div>
+                                        </div>
+                                        <PlusIcon className={`size-5 ${index === activeIndex ? "text-white" : "text-primary"}`} />
+                                    </button>
+                                ))}
+                            </div>
                         )}
-                    </TableBody>
-                </Table>
+                    </div>
+
+                    <div className="w-28">
+                        <Input
+                            ref={qtyInputRef}
+                            label="Cant."
+                            type="number"
+                            min={1}
+                            value={addQty}
+                            onValueChange={setAddQty}
+                            onKeyDown={(e) => {
+                                if (e.key === "Enter") {
+                                    e.preventDefault();
+                                    costInputRef.current?.focus();
+                                }
+                            }}
+                        />
+                    </div>
+
+                    <div className="w-36">
+                        <Input
+                            ref={costInputRef}
+                            label="Precio"
+                            type="number"
+                            min={0}
+                            value={addCost}
+                            onValueChange={setAddCost}
+                            onKeyDown={(e) => {
+                                if (e.key === "Enter") {
+                                    e.preventDefault();
+                                    handleAddProduct();
+                                }
+                            }}
+                        />
+                    </div>
+
+                    <Button
+                        isIconOnly
+                        color="primary"
+                        className="h-14 w-14 min-w-14 rounded-xl shadow-lg shadow-primary/20"
+                        onPress={handleAddProduct}
+                    >
+                        <PlusIcon className="size-6" />
+                    </Button>
+                </div>
+
+                <div className="overflow-hidden rounded-xl border border-default-100">
+                    <table className="w-full text-left text-sm text-foreground">
+                        <thead className="border-b border-default-100 bg-default-50 text-default-500">
+                            <tr>
+                                <th className="px-4 py-3 font-semibold">SKU</th>
+                                <th className="px-4 py-3 font-semibold">Descripción</th>
+                                <th className="px-4 py-3 text-right font-semibold">Cant.</th>
+                                <th className="px-4 py-3 text-right font-semibold">Precio</th>
+                                <th className="px-4 py-3 text-right font-semibold">Subtotal</th>
+                                <th className="px-4 py-3 text-right font-semibold"></th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-default-100">
+                            {formItems.map((p: EntryItem, idx: number) => (
+                                <tr key={p.rowId} className="hover:bg-default-50 transition-colors">
+                                    <td className="px-4 py-3 font-mono text-xs font-bold">{p.sku}</td>
+                                    <td className="px-4 py-3 font-medium">{p.name}</td>
+                                    <td className="px-4 py-3 text-right">
+                                        <Input
+                                            type="number"
+                                            size="sm"
+                                            min={1}
+                                            className="max-w-24 ml-auto"
+                                            value={String(p.quantity || 1)}
+                                            onValueChange={(value) => {
+                                                const next = [...formItems];
+                                                const quantity = Math.max(1, parseInt(value || "1", 10) || 1);
+                                                next[idx] = {
+                                                    ...next[idx],
+                                                    quantity,
+                                                    totalCost: quantity * Number(next[idx].unitCost || 0),
+                                                    stockNuevo: Number(next[idx].stockAnterior || 0) + quantity,
+                                                };
+                                                setValue("items", next);
+                                            }}
+                                        />
+                                    </td>
+                                    <td className="px-4 py-3 text-right font-mono">${Number(p.unitCost || 0).toFixed(2)}</td>
+                                    <td className="px-4 py-3 text-right font-mono font-bold text-primary">
+                                        ${(Number(p.unitCost || 0) * Number(p.quantity || 0)).toFixed(2)}
+                                    </td>
+                                    <td className="px-4 py-3 text-right">
+                                        <Button
+                                            isIconOnly
+                                            size="sm"
+                                            variant="light"
+                                            color="danger"
+                                            onPress={() => setValue("items", formItems.filter((it) => it.rowId !== p.rowId))}
+                                        >
+                                            <TrashIcon className="size-4" />
+                                        </Button>
+                                    </td>
+                                </tr>
+                            ))}
+                            {formItems.length === 0 && (
+                                <tr>
+                                    <td colSpan={6} className="px-4 py-10 text-center text-default-400 italic">
+                                        No hay productos agregados a la entrada.
+                                    </td>
+                                </tr>
+                            )}
+                        </tbody>
+                    </table>
+                </div>
             </div>
 
             {/* Notes Area */}
@@ -637,21 +624,13 @@ export function BodegaEntradaForm({
                 name="notes"
                 control={control}
                 render={({ field }) => (
-                    <div className="relative group">
-                        <div className="flex items-center min-h-[50px] w-full p-5 rounded-3xl border border-default-200 bg-white transition-all group-focus-within:border-primary">
-                            <span className="text-base font-bold text-default-800 mr-2 shrink-0">Nota:</span>
-                            <textarea
-                                {...field}
-                                placeholder="Introduzca observaciones aquí..."
-                                className="flex-1 text-sm font-semibold text-danger bg-transparent border-none outline-none focus:ring-0 p-0 resize-none h-auto overflow-hidden"
-                                rows={1}
-                                onInput={(e: React.FormEvent<HTMLTextAreaElement>) => {
-                                    e.currentTarget.style.height = 'auto';
-                                    e.currentTarget.style.height = `${e.currentTarget.scrollHeight}px`;
-                                }}
-                            />
-                        </div>
-                    </div>
+                    <Input
+                        label="Nota"
+                        placeholder="Observaciones de entrada"
+                        variant="flat"
+                        value={field.value || ""}
+                        onValueChange={field.onChange}
+                    />
                 )}
             />
         </div>

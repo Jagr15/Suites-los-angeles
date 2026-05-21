@@ -102,6 +102,7 @@ export function BodegaSalidaForm({
 
   const rawProducts = useQuery(api.products.queries.list) || [];
   const bodegas = useQuery(api.bodegas.queries.list) || [];
+  const routes = useQuery(api.routes.queries.list) || [];
 
   const products = useMemo(() => {
     return rawProducts.map((raw) => {
@@ -130,8 +131,15 @@ export function BodegaSalidaForm({
   });
 
   const tipoEntrega = useWatch({ control, name: "tipoEntrega", defaultValue: "sucursal" });
+  const selectedRouteName = useWatch({ control, name: "ruta", defaultValue: "" });
   const statusOptions = useMemo(() => getBodegaStatusOptionsByTipo(tipoEntrega), [tipoEntrega]);
   const formItems = watch("productos") || [];
+  const selectedRoute = useMemo(
+    () => routes.find((route: any) => route.name === selectedRouteName) || null,
+    [routes, selectedRouteName]
+  );
+  const selectedRouteType = selectedRoute?.routeType || "Interna";
+  const isExternalRoute = selectedRouteType === "Externa";
 
   const [selectedProduct, setSelectedProduct] = useState<(typeof products)[number] | null>(null);
   const [productInput, setProductInput] = useState("");
@@ -184,6 +192,9 @@ export function BodegaSalidaForm({
   const montoTotalValue = useMemo(() => {
     return formItems.reduce((acc: number, p: any) => acc + Number(p.precio || 0) * Number(p.cantidad || 0), 0);
   }, [formItems]);
+  const cantidadTotal = useMemo(() => {
+    return formItems.reduce((acc: number, p: any) => acc + Number(p.cantidad || 0), 0);
+  }, [formItems]);
 
   const montoTotalFormatted = useMemo(() => {
     return montoTotalValue.toLocaleString("en-US", { minimumFractionDigits: 2 });
@@ -193,7 +204,7 @@ export function BodegaSalidaForm({
     if (!selectedProduct) return;
 
     const qty = Math.max(1, parseInt(addQty || "1", 10) || 1);
-    const price = Number(selectedProduct.lista1 || 0);
+    const price = isExternalRoute ? Number(selectedProduct.lista1 || 0) : 0;
     const existingIndex = formItems.findIndex((i: any) => i.productId === selectedProduct._id || i.id === selectedProduct._id);
 
     if (existingIndex >= 0) {
@@ -224,6 +235,16 @@ export function BodegaSalidaForm({
     setAddQty("1");
     setShowResults(false);
     setTimeout(() => productInputRef.current?.focus(), 50);
+  };
+
+  const handleRouteSelection = (routeName: string) => {
+    setValue("ruta", routeName);
+    const route = routes.find((item: any) => item.name === routeName);
+    if (!route) return;
+    setValue("destino", route.destination || "");
+    if (canAssignResponsible) {
+      setValue("responsable", route.assignedProfileName || route.assignedUserName || "");
+    }
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -277,11 +298,19 @@ export function BodegaSalidaForm({
 
         <div className="flex items-center justify-between md:justify-end gap-3">
           <div className="flex flex-col items-end">
-            <span className="text-[10px] uppercase font-bold text-default-400 mb-1">Monto Total</span>
+            <span className="text-[10px] uppercase font-bold text-default-400 mb-1">
+              {isExternalRoute ? "Total Cotización" : "Cantidad Total"}
+            </span>
             <div className="flex items-center justify-center h-9 rounded-lg border border-primary/20 bg-primary/5 px-3">
               <span className="text-base font-bold text-primary leading-none">
-                <span className="text-xs mr-1 font-bold text-primary/60">$</span>
-                {montoTotalFormatted}
+                {isExternalRoute ? (
+                  <>
+                    <span className="text-xs mr-1 font-bold text-primary/60">$</span>
+                    {montoTotalFormatted}
+                  </>
+                ) : (
+                  `${cantidadTotal} pz`
+                )}
               </span>
             </div>
           </div>
@@ -328,15 +357,50 @@ export function BodegaSalidaForm({
         <div className="bg-white p-3 rounded-xl border border-default-200 shadow-sm transition-all group">
           <div className="flex items-center gap-2 mb-3 ml-1">
             <TruckIcon className="size-4 text-primary" />
-            <h3 className="text-xs font-bold uppercase text-primary/80">Destino (Vendedor / Ruta)</h3>
+            <h3 className="text-xs font-bold uppercase text-primary/80">Ruta y Destino</h3>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <Controller
+              name="ruta"
+              control={control}
+              render={({ field }) => (
+                <Autocomplete
+                  defaultItems={routes as any[]}
+                  placeholder="Seleccionar ruta"
+                  onSelectionChange={(val) => handleRouteSelection(val ? String(routes.find((route: any) => route._id === val)?.name || "") : "")}
+                  selectedKey={(routes.find((route: any) => route.name === field.value)?._id as string) || null}
+                  variant="flat"
+                  color="primary"
+                  isDisabled={!canAssignResponsible}
+                >
+                  {(item: any) => (
+                    <AutocompleteItem key={item._id} textValue={item.name}>
+                      {item.name}
+                    </AutocompleteItem>
+                  )}
+                </Autocomplete>
+              )}
+            />
+            <Controller
+              name="destino"
+              control={control}
+              render={({ field }) => (
+                <Input
+                  label="Destino"
+                  placeholder="Destino de la ruta"
+                  variant="flat"
+                  value={field.value || ""}
+                  onValueChange={field.onChange}
+                  isDisabled={!canAssignResponsible}
+                />
+              )}
+            />
             <Controller
               name="responsable"
               control={control}
               render={({ field }) => (
                 <Input
-                  label="Vendedor"
+                  label="Responsable"
                   placeholder="Nombre del responsable"
                   variant="flat"
                   value={field.value || ""}
@@ -344,19 +408,6 @@ export function BodegaSalidaForm({
                   isDisabled={!canAssignResponsible}
                   isInvalid={!!errors.responsable}
                   errorMessage={errors.responsable?.message?.toString()}
-                />
-              )}
-            />
-            <Controller
-              name="ruta"
-              control={control}
-              render={({ field }) => (
-                <Input
-                  label="Ruta"
-                  placeholder="Ruta asignada"
-                  variant="flat"
-                  value={field.value || ""}
-                  onValueChange={field.onChange}
                 />
               )}
             />
@@ -470,9 +521,11 @@ export function BodegaSalidaForm({
                         <span className={`px-2 py-0.5 rounded-full font-bold ${index === activeIndex ? "bg-white/20" : "bg-default-100"}`}>
                           Stock: {prod.stock}
                         </span>
-                        <span className={`font-bold ${index === activeIndex ? "text-white" : "text-primary"}`}>
-                          ${Number(prod.lista1 || 0).toFixed(2)}
-                        </span>
+                        {isExternalRoute ? (
+                          <span className={`font-bold ${index === activeIndex ? "text-white" : "text-primary"}`}>
+                            ${Number(prod.lista1 || 0).toFixed(2)}
+                          </span>
+                        ) : null}
                       </div>
                     </div>
                     <PlusIcon className={`size-5 ${index === activeIndex ? "text-white" : "text-primary"}`} />
@@ -516,8 +569,8 @@ export function BodegaSalidaForm({
                 <th className="px-4 py-3 font-semibold">SKU</th>
                 <th className="px-4 py-3 font-semibold">Descripción</th>
                 <th className="px-4 py-3 text-right font-semibold">Cant.</th>
-                <th className="px-4 py-3 text-right font-semibold">Precio</th>
-                <th className="px-4 py-3 text-right font-semibold">Subtotal</th>
+                {isExternalRoute ? <th className="px-4 py-3 text-right font-semibold">Precio</th> : null}
+                {isExternalRoute ? <th className="px-4 py-3 text-right font-semibold">Subtotal</th> : null}
                 <th className="px-4 py-3 text-right font-semibold"></th>
               </tr>
             </thead>
@@ -540,10 +593,14 @@ export function BodegaSalidaForm({
                       }}
                     />
                   </td>
-                  <td className="px-4 py-3 text-right font-mono">${Number(prod.precio || 0).toFixed(2)}</td>
-                  <td className="px-4 py-3 text-right font-mono font-bold text-primary">
-                    ${(Number(prod.precio || 0) * Number(prod.cantidad || 0)).toFixed(2)}
-                  </td>
+                  {isExternalRoute ? (
+                    <td className="px-4 py-3 text-right font-mono">${Number(prod.precio || 0).toFixed(2)}</td>
+                  ) : null}
+                  {isExternalRoute ? (
+                    <td className="px-4 py-3 text-right font-mono font-bold text-primary">
+                      ${(Number(prod.precio || 0) * Number(prod.cantidad || 0)).toFixed(2)}
+                    </td>
+                  ) : null}
                   <td className="px-4 py-3 text-right">
                     <Button
                       isIconOnly
@@ -559,7 +616,7 @@ export function BodegaSalidaForm({
               ))}
               {formItems.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="px-4 py-10 text-center text-default-400 italic">
+                  <td colSpan={isExternalRoute ? 6 : 4} className="px-4 py-10 text-center text-default-400 italic">
                     No hay productos agregados a la salida.
                   </td>
                 </tr>
