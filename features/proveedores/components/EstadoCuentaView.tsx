@@ -94,9 +94,8 @@ export function EstadoCuentaView({ estadoCuenta, onBack, onProviderChange }: Est
         <Button isIconOnly variant="light" onPress={onBack} className="rounded-full">
           <ArrowLeftIcon className="size-5" />
         </Button>
-        <h1 className="text-xl font-bold text-default-800">Proveedores</h1>
         
-        <div className="flex-1 overflow-x-auto no-scrollbar ml-4">
+        <div className="flex-1 overflow-x-auto no-scrollbar">
           <Tabs 
             variant="underlined" 
             aria-label="Proveedores"

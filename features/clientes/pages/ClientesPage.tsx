@@ -1,7 +1,6 @@
 "use client";
 
 import { 
-    ClientesFilters, 
     ClientesSimulador, 
     ClientesGeographicAnalysis, 
     ClientesProfitabilityHeatmap, 
@@ -15,9 +14,6 @@ export function ClientesPage() {
         <div className="flex flex-col min-h-screen bg-default-50/30">
             <div className="flex-1 flex flex-col items-center">
                 <main className="w-full max-w-[1920px] p-4 md:p-5 space-y-4">
-                    {/* Filter Bar */}
-                    <ClientesFilters />
-
                     {/* Simulator Row */}
                     <ClientesSimulador />
 

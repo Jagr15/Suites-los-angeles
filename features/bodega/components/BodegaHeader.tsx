@@ -22,8 +22,7 @@ export function BodegaHeader({ selectedKey, onSelectionChange, visibleTabs }: Bo
   const allowedTabs = visibleTabs?.length ? tabs.filter((tab) => visibleTabs.includes(tab.key)) : tabs;
 
   return (
-    <div className="flex flex-col gap-4">
-      <h1 className="text-xl font-semibold text-foreground">Bodega</h1>
+    <div>
       <Tabs
         aria-label="Compras Inventario"
         color="primary"

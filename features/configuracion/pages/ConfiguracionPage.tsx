@@ -30,15 +30,6 @@ export function ConfiguracionPage() {
   return (
     <div className="flex flex-col min-h-screen">
       <div className="flex flex-col gap-4 p-4 md:p-5">
-        <div className="flex flex-col gap-1">
-          <h1 className="text-xl font-semibold text-foreground">
-            Configuración del Sistema
-          </h1>
-          <span className="text-sm text-default-500">
-            Distribuidora Los Angelos
-          </span>
-        </div>
-
         <Tabs
           selectedKey={activeTab}
           onSelectionChange={(key) => setActiveTab(String(key))}

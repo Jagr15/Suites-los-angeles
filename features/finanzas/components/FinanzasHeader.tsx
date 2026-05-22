@@ -18,8 +18,7 @@ interface FinanzasHeaderProps {
 
 export function FinanzasHeader({ selectedKey, onSelectionChange }: FinanzasHeaderProps) {
   return (
-    <div className="flex flex-col gap-4">
-      <h1 className="text-xl font-semibold text-foreground">Finanzas</h1>
+    <div>
       <Tabs
         aria-label="Finanzas sections"
         color="primary"
