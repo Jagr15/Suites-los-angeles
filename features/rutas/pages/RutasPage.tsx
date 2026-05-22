@@ -2,8 +2,6 @@
 
 import { useState, useCallback, useMemo } from "react";
 import { addToast, Button, Tabs, Tab } from "@heroui/react";
-import { useQuery } from "convex/react";
-import { api } from "@/convex/_generated/api";
 import { ConfirmModal } from "@/shared/components";
 import { RutasHeader, RutaModal, RutasGastos, RutasCreditos, RutasVentas, RutasMapa, RutasCargasTable, RutasInventarioTable, RutasCardGrid } from "../components";
 import { mockRutaCargas, mockBodega } from "@/shared/mocks";
@@ -11,11 +9,28 @@ import { ArrowLeftIcon } from "@heroicons/react/24/outline";
 import { useRoutes } from "@/features/configuracion/components/routes/use-routes";
 import { Route } from "@/features/configuracion/components/routes/types";
 
+function normalizeText(value?: string) {
+  return (value || "").trim().toLowerCase();
+}
+
+function routeDestinationLabel(route: Route) {
+  return route.destination?.trim() || route.name?.trim() || "Ruta";
+}
+
+function routeTabLabel(route: Route) {
+  return route.name?.trim() || route.destination?.trim() || "Ruta";
+}
+
+function routeCode(route: Route) {
+  const source = route.name || "";
+  const match = source.match(/(\d+)/);
+  return match ? match[1] : "";
+}
+
 export function RutasPage() {
   const [activeTab, setActiveTab] = useState<string>("cargas");
   const { routes: convexRoutes = [], isLoading, deleteRoute } = useRoutes();
   const [selectedRuta, setSelectedRuta] = useState<Route | null>(null);
-  const [selectedResponsable, setSelectedResponsable] = useState("Todos");
   const [isModalOpen, setModalOpen] = useState(false);
   const [rutaToEdit, setRutaToEdit] = useState<Route | null>(null);
   const [rutaToDelete, setRutaToDelete] = useState<Route | null>(null);
@@ -25,22 +40,19 @@ export function RutasPage() {
     setModalOpen(true);
   }, []);
 
-  const responsibles = useMemo(() => {
-    if (!selectedRuta || !convexRoutes) return ["Todos"];
-    
-    // Buscamos todas las rutas en Convex que compartan el mismo destino
-    const rutasAlMismoDestino = convexRoutes.filter(
-      (r) => r.destination === selectedRuta.destination
-    );
-    
-    // Extraemos los nombres de los responsables asignados en el sistema
-    const nombres = rutasAlMismoDestino.map((r) => r.assignedProfileName);
-    
-    // Devolvemos "Todos" más la lista de nombres únicos
-    const unicos = Array.from(new Set(nombres));
-    
-    return ["Todos", ...unicos];
-  }, [selectedRuta, convexRoutes]);
+  const routeTabs = useMemo(() => {
+    return convexRoutes.map((route) => ({
+      key: route.id,
+      label: routeTabLabel(route),
+      route,
+    }));
+  }, [convexRoutes]);
+
+  const selectedRouteCode = useMemo(() => (selectedRuta ? routeCode(selectedRuta) : ""), [selectedRuta]);
+  const selectedRouteLabel = useMemo(
+    () => (selectedRuta ? routeDestinationLabel(selectedRuta) : ""),
+    [selectedRuta]
+  );
 
   const handleSubmitRuta = useCallback(
     async (row: any, editId?: string) => {
@@ -86,7 +98,6 @@ export function RutasPage() {
               onBorrar={setRutaToDelete}
               onSelect={(r) => {
                 setSelectedRuta(r);
-                setSelectedResponsable("Todos");
               }}
             />
           </div>
@@ -108,18 +119,20 @@ export function RutasPage() {
                     {selectedRuta.name}
                   </h1>
                   <span className="text-xs font-bold text-primary uppercase tracking-wider mt-1">
-                    Destino: {selectedRuta.destination}
+                    {selectedRouteLabel}
                   </span>
                 </div>
               </div>
 
-              {/* Responsables Filter Tabs - Top Level */}
               <div className="px-1">
                 <Tabs 
                     variant="underlined"
-                    aria-label="Filtro por responsable"
-                    selectedKey={selectedResponsable}
-                    onSelectionChange={(key) => setSelectedResponsable(key as string)}
+                    aria-label="Accesos rápidos por ruta"
+                    selectedKey={selectedRuta.id}
+                    onSelectionChange={(key) => {
+                      const next = convexRoutes.find((r) => r.id === String(key));
+                      if (next) setSelectedRuta(next);
+                    }}
                     classNames={{
                         base: "w-full",
                         tabList: "gap-6 w-full relative rounded-none p-0 border-b border-divider overflow-x-auto",
@@ -128,8 +141,8 @@ export function RutasPage() {
                         tabContent: "group-data-[selected=true]:text-primary font-bold text-default-500 uppercase text-xs tracking-widest"
                     }}
                 >
-                    {responsibles.map((r) => (
-                        <Tab key={r} title={r} />
+                    {routeTabs.map((r) => (
+                        <Tab key={r.key} title={r.label} />
                     ))}
                 </Tabs>
               </div>
@@ -146,22 +159,31 @@ export function RutasPage() {
               {activeTab === "cargas" && (
                 <RutasCargasTable 
                   items={mockRutaCargas.filter(c => 
-                    c.destino === selectedRuta.destination && 
-                    (selectedResponsable === "Todos" || c.responsable === selectedResponsable)
+                    normalizeText(c.destino) === normalizeText(selectedRouteLabel) ||
+                    normalizeText(c.destino) === normalizeText(selectedRuta.name)
                   )} 
                 />
               )}
 
-              {activeTab === "gastos" && <RutasGastos />}
-              {activeTab === "creditos" && <RutasCreditos selectedRutaName={selectedRuta.name} />}
-              {activeTab === "ventas" && <RutasVentas selectedRutaName={selectedRuta.name} />}
+              {activeTab === "gastos" && (
+                <RutasGastos selectedRoute={selectedRuta} allRoutes={convexRoutes} />
+              )}
+              {activeTab === "creditos" && <RutasCreditos selectedRutaName={selectedRouteLabel} />}
+              {activeTab === "ventas" && (
+                <RutasVentas
+                  selectedRouteName={selectedRuta.name}
+                  selectedDestination={selectedRouteLabel}
+                  selectedRouteCode={selectedRouteCode}
+                />
+              )}
               {activeTab === "inventario" && (
                 <RutasInventarioTable 
                   items={mockBodega.filter(i => 
-                    i.ruta === selectedRuta.name && 
-                    (selectedResponsable === "Todos" || i.responsable === selectedResponsable)
+                    normalizeText(i.destino) === normalizeText(selectedRouteLabel) ||
+                    normalizeText(i.ruta) === normalizeText(selectedRouteCode) ||
+                    normalizeText(i.ruta) === normalizeText(selectedRuta.name)
                   )} 
-                  selectedRuta={selectedRuta.name} 
+                  selectedRuta={selectedRouteLabel} 
                 />
               )}
 
