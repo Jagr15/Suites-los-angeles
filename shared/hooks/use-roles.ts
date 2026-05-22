@@ -24,13 +24,40 @@ export function useRoles() {
   const isSuperAdmin = normalizedRole === "superadmin" || normalizedRole === "super admin";
   const isBodega = normalizedRole === "bodega" || normalizedRole === "bodeguero";
   const isVendedor = normalizedRole === "vendedor";
+  const userPermissions = user?.effectivePermissions || user?.roleData?.permissions || [];
+  const hasAllPermissions = userPermissions.includes("all");
+
+  const hasPermission = (permission: string) => {
+    if (isAdmin) return true;
+    if (hasAllPermissions) return true;
+    return userPermissions.includes(permission);
+  };
 
   const canAccessPath = (pathname: string) => {
     if (!pathname.startsWith("/dashboard")) return true;
     if (isAdmin) return true;
-
-    if (pathname.startsWith("/dashboard/configuracion")) return false;
-    if (pathname.startsWith("/dashboard/finanzas")) return false;
+    if (pathname.startsWith("/dashboard/configuracion")) {
+      return hasPermission("settings:view") || hasPermission("settings:manage") || hasPermission("users:view") || hasPermission("users:manage");
+    }
+    if (pathname.startsWith("/dashboard/finanzas")) {
+      return hasPermission("finance:view") || hasPermission("finance:manage");
+    }
+    if (pathname.startsWith("/dashboard/productos")) {
+      return hasPermission("products:view") || hasPermission("products:manage");
+    }
+    if (pathname.startsWith("/dashboard/proveedores")) {
+      return hasPermission("suppliers:view") || hasPermission("suppliers:manage");
+    }
+    if (pathname.startsWith("/dashboard/rutas")) {
+      return hasPermission("routes:view") || hasPermission("routes:manage");
+    }
+    if (pathname.startsWith("/dashboard/clientes")) {
+      return hasPermission("clients:view") || hasPermission("clients:manage");
+    }
+    if (pathname.startsWith("/dashboard/bodega")) {
+      return hasPermission("warehouse:view") || hasPermission("warehouse:manage");
+    }
+    if (pathname.startsWith("/dashboard/cuenta")) return true;
 
     if (isBodega) {
       return (
@@ -52,19 +79,6 @@ export function useRoles() {
     }
 
     return pathname.startsWith("/dashboard/cuenta");
-  };
-  
-  /**
-   * Verifica si el usuario tiene un permiso específico o un rol que lo incluya.
-   */
-  const hasPermission = (permission: string) => {
-    if (isAdmin) return true;
-    
-    // Si tenemos una lista de permisos en el objeto del usuario, la consultamos
-    const userPermissions = user?.effectivePermissions || user?.roleData?.permissions || [];
-    if (userPermissions.includes("all")) return true;
-    
-    return userPermissions.includes(permission);
   };
 
   /**

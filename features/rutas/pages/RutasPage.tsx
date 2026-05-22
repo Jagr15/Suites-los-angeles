@@ -30,7 +30,7 @@ function routeCode(route: Route) {
 export function RutasPage() {
   const [activeTab, setActiveTab] = useState<string>("cargas");
   const { routes: convexRoutes = [], isLoading, deleteRoute } = useRoutes();
-  const [selectedRuta, setSelectedRuta] = useState<Route | null>(null);
+  const [selectedRutaId, setSelectedRutaId] = useState<string | null>(null);
   const [isModalOpen, setModalOpen] = useState(false);
   const [rutaToEdit, setRutaToEdit] = useState<Route | null>(null);
   const [rutaToDelete, setRutaToDelete] = useState<Route | null>(null);
@@ -39,6 +39,11 @@ export function RutasPage() {
     setRutaToEdit(item);
     setModalOpen(true);
   }, []);
+
+  const selectedRuta = useMemo(
+    () => (selectedRutaId ? convexRoutes.find((route) => route.id === selectedRutaId) || null : null),
+    [convexRoutes, selectedRutaId]
+  );
 
   const routeTabs = useMemo(() => {
     return convexRoutes.map((route) => ({
@@ -53,9 +58,13 @@ export function RutasPage() {
     () => (selectedRuta ? routeDestinationLabel(selectedRuta) : ""),
     [selectedRuta]
   );
+  const selectedRouteResponsible = useMemo(() => {
+    if (!selectedRuta) return "";
+    return selectedRuta.assignedProfileName?.trim() || selectedRuta.assignedUserName?.trim() || "Sin responsable";
+  }, [selectedRuta]);
 
   const handleSubmitRuta = useCallback(
-    async (row: any, editId?: string) => {
+    async (_row: unknown, _editId?: string) => {
       // Por ahora mantenemos esta lógica simple o la conectamos a useRoutes
       // Para efectos del requerimiento "que salgan las reales", ya estamos usando convexRoutes arriba.
       setModalOpen(false);
@@ -74,7 +83,7 @@ export function RutasPage() {
         color: "success",
       });
       setRutaToDelete(null);
-    } catch (error) {
+    } catch (_error) {
       addToast({
         title: "Error",
         description: "No se pudo eliminar la ruta.",
@@ -97,7 +106,7 @@ export function RutasPage() {
               onEditar={handleEditar}
               onBorrar={setRutaToDelete}
               onSelect={(r) => {
-                setSelectedRuta(r);
+                setSelectedRutaId(r.id);
               }}
             />
           </div>
@@ -108,19 +117,25 @@ export function RutasPage() {
                 <Button
                   isIconOnly
                   variant="flat"
-                  onPress={() => setSelectedRuta(null)}
+                  onPress={() => setSelectedRutaId(null)}
                   radius="full"
                   className="bg-content1 border border-default-200 shadow-sm"
                 >
                   <ArrowLeftIcon className="size-5" />
                 </Button>
-                <div className="flex flex-col">
-                  <h1 className="text-xl font-black text-foreground uppercase tracking-tight leading-none">
-                    {selectedRuta.name}
-                  </h1>
-                  <span className="text-xs font-bold text-primary uppercase tracking-wider mt-1">
-                    {selectedRouteLabel}
-                  </span>
+                <div className="grid flex-1 gap-3 rounded-xl border border-default-200 bg-content1 p-3 sm:grid-cols-3">
+                  <div className="min-w-0">
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-default-400">Ruta</p>
+                    <p className="truncate text-sm font-bold uppercase text-foreground">{selectedRuta.name}</p>
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-default-400">Destino</p>
+                    <p className="truncate text-sm font-semibold text-foreground">{selectedRouteLabel}</p>
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-default-400">Responsable</p>
+                    <p className="truncate text-sm font-semibold text-foreground">{selectedRouteResponsible}</p>
+                  </div>
                 </div>
               </div>
 
@@ -131,7 +146,7 @@ export function RutasPage() {
                     selectedKey={selectedRuta.id}
                     onSelectionChange={(key) => {
                       const next = convexRoutes.find((r) => r.id === String(key));
-                      if (next) setSelectedRuta(next);
+                      if (next) setSelectedRutaId(next.id);
                     }}
                     classNames={{
                         base: "w-full",
@@ -171,7 +186,6 @@ export function RutasPage() {
               {activeTab === "creditos" && <RutasCreditos selectedRutaName={selectedRouteLabel} />}
               {activeTab === "ventas" && (
                 <RutasVentas
-                  selectedRouteName={selectedRuta.name}
                   selectedDestination={selectedRouteLabel}
                   selectedRouteCode={selectedRouteCode}
                 />

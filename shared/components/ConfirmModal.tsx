@@ -1,7 +1,7 @@
 "use client";
 
 import { Modal, ModalContent, ModalHeader, ModalBody, ModalFooter, Button, Input } from "@heroui/react";
-import { useState, useEffect, useCallback } from "react";
+import { useState } from "react";
 
 export type ConfirmModalVariant = "default" | "danger" | "warning";
 
@@ -38,13 +38,6 @@ export function ConfirmModal({
   const [password, setPassword] = useState("");
   const [error, setError] = useState(false);
 
-  useEffect(() => {
-    if (isOpen) {
-      setPassword("");
-      setError(false);
-    }
-  }, [isOpen]);
-
   const handleConfirm = async () => {
     if (requirePassword && adminPassword && password !== adminPassword) {
       setError(true);
@@ -54,7 +47,7 @@ export function ConfirmModal({
     try {
       await onConfirm();
       onClose();
-    } catch (e: any) {
+    } catch (e: unknown) {
       console.error("Error in confirmation:", e);
     }
   };
@@ -68,7 +61,18 @@ export function ConfirmModal({
   const confirmColor = variant === "danger" ? "danger" : variant === "warning" ? "warning" : "primary";
 
   return (
-    <Modal isOpen={isOpen} onOpenChange={(open) => !open && onClose()} size="md">
+    <Modal
+      isOpen={isOpen}
+      onOpenChange={(open) => {
+        if (open) {
+          setPassword("");
+          setError(false);
+          return;
+        }
+        onClose();
+      }}
+      size="md"
+    >
       <ModalContent>
         <ModalHeader>{title}</ModalHeader>
         <ModalBody>

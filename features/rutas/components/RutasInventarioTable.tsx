@@ -30,20 +30,27 @@ type RutasInventarioTableProps = {
     selectedRuta?: string | null;
 };
 
+type InventoryProduct = {
+    id: string | number;
+    sku: string;
+    descripcion: string;
+    categoria: string;
+    subcategoria?: string;
+    stock: number;
+    critico: number;
+    bajo: number;
+    optimo: number;
+    etiqueta: string;
+};
+
 export function RutasInventarioTable({ items, selectedRuta }: RutasInventarioTableProps) {
     const [page, setPage] = useState(1);
     const [search, setSearch] = useState("");
 
     const allInventoryItems = useMemo(() => {
-        // Si hay una ruta seleccionada, filtramos las cargas de esa ruta
-        if (selectedRuta) {
-            return items
-                .filter(i => i.ruta === selectedRuta)
-                .flatMap(i => i.productos || []) as any[];
-        }
-        // Si no, mostramos todos los productos de todas las cargas (como en BodegaInventory)
-        return items.flatMap((i) => i.productos || []) as any[];
-    }, [selectedRuta, items]);
+        // El filtrado por ruta se resuelve aguas arriba (RutasPage) para evitar inconsistencias de llave.
+        return items.flatMap((i) => i.productos || []) as InventoryProduct[];
+    }, [items]);
 
     const filteredItems = useMemo(() => {
         if (!search) return allInventoryItems;
@@ -133,7 +140,7 @@ export function RutasInventarioTable({ items, selectedRuta }: RutasInventarioTab
                         <TableColumn className="bg-default-50 text-default-500 font-semibold uppercase tracking-wider h-11 text-xs text-center px-6">Etiqueta</TableColumn>
                     </TableHeader>
                     <TableBody items={paginatedInventory} emptyContent="No hay productos en el inventario de esta ruta.">
-                        {(prod: any) => (
+                        {(prod: InventoryProduct) => (
                             <TableRow key={prod.id + prod.sku} className="border-b border-default-50 last:border-0 hover:bg-default-50/50 transition-colors h-14">
                                 <TableCell className="px-6 text-xs font-mono text-default-400">{prod.id}</TableCell>
                                 <TableCell className="px-6 text-xs font-mono font-bold text-default-500">{prod.sku}</TableCell>

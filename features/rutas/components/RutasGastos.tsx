@@ -1,294 +1,237 @@
 "use client";
 
-import { useState, useMemo } from "react";
-import {
-    Table,
-    TableHeader,
-    TableColumn,
-    TableBody,
-    TableRow,
-    TableCell,
-    Button,
-    Input,
-    Pagination,
-    Tooltip,
-} from "@heroui/react";
-import {
-    MagnifyingGlassIcon,
-    CalendarDaysIcon,
-    UsersIcon,
-    EyeIcon,
-} from "@heroicons/react/24/outline";
-import { useRouter } from "next/navigation";
+import { useMemo, useState } from "react";
+import { Input, Chip } from "@heroui/react";
+import { MagnifyingGlassIcon } from "@heroicons/react/24/outline";
 import { mockRutasGastos as mockData } from "@/shared/mocks/rutasGastos";
+import type { Route } from "@/features/configuracion/components/routes/types";
 
-const ROWS_PER_PAGE = 12;
+const FIELD_ORDER = ["manzanillo", "colima", "nayarit", "laPaz", "jalisco", "cdConstitucion"] as const;
+type RouteField = (typeof FIELD_ORDER)[number];
 
-const columns = [
-    { key: "categoria", label: "Categoría" },
-    { key: "total", label: "TOTAL" },
-    { key: "porcentaje", label: "%" },
-    { key: "manzanillo", label: "Manzanillo" },
-    { key: "colima", label: "Colima" },
-    { key: "nayarit", label: "Nayarit" },
-    { key: "laPaz", label: "La Paz" },
-    { key: "jalisco", label: "Jalisco" },
-    { key: "cdConstitucion", label: "CD Constitución" },
-];
+const FIELD_LABELS: Record<RouteField, string> = {
+  manzanillo: "Manzanillo",
+  colima: "Colima",
+  nayarit: "Nayarit",
+  laPaz: "La Paz",
+  jalisco: "Jalisco",
+  cdConstitucion: "Cd Constitución",
+};
 
-export function RutasGastos() {
-    const router = useRouter();
-    const [search, setSearch] = useState("");
-    const [page, setPage] = useState(1);
-    const [dateRange, setDateRange] = useState({ start: "", end: "" });
+const DESTINATION_TO_FIELD: Record<string, RouteField> = {
+  manzanillo: "manzanillo",
+  colima: "colima",
+  nayarit: "nayarit",
+  tepic: "nayarit",
+  "la paz": "laPaz",
+  lapaz: "laPaz",
+  jalisco: "jalisco",
+  vallarta: "jalisco",
+  "puerto vallarta": "jalisco",
+  centro: "cdConstitucion",
+  tecoman: "cdConstitucion",
+  "tecomán": "cdConstitucion",
+  "villa de alvarez": "cdConstitucion",
+  "villa de álvarez": "cdConstitucion",
+  constitucion: "cdConstitucion",
+  "cd constitucion": "cdConstitucion",
+  "cd constitución": "cdConstitucion",
+};
 
-    const totalPerRow = (item: any) => {
-        return (item.manzanillo || 0) + (item.colima || 0) + (item.nayarit || 0) + 
-               (item.laPaz || 0) + (item.jalisco || 0) + (item.cdConstitucion || 0);
-    };
+function normalizeText(value?: string) {
+  return (value || "").trim().toLowerCase();
+}
 
-    const filteredItems = useMemo(() => {
-        return mockData.filter((item) => {
-            const matchesSearch = item.categoria.toLowerCase().includes(search.toLowerCase());
-            return matchesSearch;
-        });
-    }, [search]);
+function pickRouteField(route: Route): RouteField | null {
+  const destination = normalizeText(route.destination);
+  const name = normalizeText(route.name);
+  return DESTINATION_TO_FIELD[destination] || DESTINATION_TO_FIELD[name] || null;
+}
 
-    const paginatedRows = useMemo(() => {
-        const start = (page - 1) * ROWS_PER_PAGE;
-        const rows = filteredItems.slice(start, start + ROWS_PER_PAGE);
+function formatCurrency(value: number) {
+  if (value <= 0) return "-";
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+    minimumFractionDigits: 0,
+  }).format(value);
+}
 
-        if (rows.length > 0) {
-            // We append a special "total" item that will be rendered as a total row
-            return [
-                ...rows,
-                {
-                    id: "total-row",
-                    categoria: "Total General",
-                    isTotal: true,
-                } as any,
-            ];
-        }
-        return rows;
-    }, [filteredItems, page]);
+function formatPercent(value: number) {
+  return `${Math.round(value)}%`;
+}
 
-    const totalPages = Math.ceil(filteredItems.length / ROWS_PER_PAGE);
+export function RutasGastos({ selectedRoute, allRoutes }: { selectedRoute: Route; allRoutes: Route[] }) {
+  const [search, setSearch] = useState("");
+  const selectedField = useMemo(() => pickRouteField(selectedRoute), [selectedRoute]);
 
-    const totals = useMemo(() => {
-        return filteredItems.reduce(
-            (acc, item) => ({
-                manzanillo: acc.manzanillo + (item.manzanillo || 0),
-                colima: acc.colima + (item.colima || 0),
-                nayarit: acc.nayarit + (item.nayarit || 0),
-                laPaz: acc.laPaz + (item.laPaz || 0),
-                jalisco: acc.jalisco + (item.jalisco || 0),
-                cdConstitucion: acc.cdConstitucion + (item.cdConstitucion || 0),
-            }),
-            {
-                manzanillo: 0,
-                colima: 0,
-                nayarit: 0,
-                laPaz: 0,
-                jalisco: 0,
-                cdConstitucion: 0,
-            }
-        );
-    }, [filteredItems]);
+  const visibleFields = useMemo(() => {
+    const unique = new Map<RouteField, string>();
+    for (const route of allRoutes) {
+      const field = pickRouteField(route);
+      if (!field || unique.has(field)) continue;
+      unique.set(field, FIELD_LABELS[field]);
+    }
+    const ordered = FIELD_ORDER.filter((field) => unique.has(field)).map((field) => ({
+      field,
+      label: unique.get(field) || FIELD_LABELS[field],
+    }));
+    return ordered.length > 0
+      ? ordered
+      : FIELD_ORDER.map((field) => ({ field, label: FIELD_LABELS[field] }));
+  }, [allRoutes]);
 
-    const formatCurrency = (value: number) => {
-        if (value === 0) return "-";
-        return new Intl.NumberFormat("en-US", {
-            style: "currency",
-            currency: "USD",
-            minimumFractionDigits: 0,
-        }).format(value);
-    };
+  const filteredItems = useMemo(() => {
+    const q = normalizeText(search);
+    if (!q) return mockData;
+    return mockData.filter((item) => normalizeText(item.categoria).includes(q));
+  }, [search]);
 
-    const renderCellWithPercentage = (value: number, total: number, isTotalRow?: boolean, isGlobalColumn?: boolean) => {
-        if (value === 0) return <span className="text-default-300">-</span>;
-        const percentage = total > 0 ? (value / total) * 100 : 0;
-        return (
-            <div className="flex items-center justify-center gap-2">
-                <span className={isTotalRow || isGlobalColumn ? "font-bold text-primary" : "font-semibold"}>
-                    {formatCurrency(value)}
-                </span>
-                {percentage > 0 && !isGlobalColumn && (
-                    <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${
-                        isTotalRow ? "bg-primary text-white" : "bg-primary/10 text-primary"
-                    }`}>
-                        {percentage.toFixed(0)}%
-                    </span>
-                )}
-            </div>
-        );
-    };
+  const rows = useMemo(() => {
+    return filteredItems.map((item) => {
+      const byField = visibleFields.map(({ field }) => ({
+        field,
+        amount: Number(item[field] || 0),
+      }));
+      const total = byField.reduce((acc, entry) => acc + entry.amount, 0);
+      const routesWithExpense = byField.filter((entry) => entry.amount > 0).length;
+      const promedio = routesWithExpense > 0 ? total / routesWithExpense : 0;
+      const pctOfGeneral = 0;
+      return {
+        id: item.id,
+        categoria: item.categoria,
+        total,
+        promedio,
+        pctOfGeneral,
+        byField,
+      };
+    });
+  }, [filteredItems, visibleFields]);
 
-    const globalTotal = useMemo(() => {
-        return Object.values(totals).reduce((a, b) => a + b, 0);
-    }, [totals]);
+  const totals = useMemo(() => {
+    const totalGeneral = rows.reduce((acc, row) => acc + row.total, 0);
+    const rowsWithExpense = rows.filter((row) => row.total > 0).length;
+    const promedioGeneral = rowsWithExpense > 0 ? totalGeneral / rowsWithExpense : 0;
+    const totalsByField = visibleFields.map(({ field }) => ({
+      field,
+      total: rows.reduce((acc, row) => acc + (row.byField.find((entry) => entry.field === field)?.amount || 0), 0),
+    }));
+    return { totalGeneral, promedioGeneral, totalsByField };
+  }, [rows, visibleFields]);
 
-    return (
-        <div className="flex flex-col gap-6 animate-in fade-in slide-in-from-top-4 duration-500">
-            {/* Toolbar */}
-            <div className="flex flex-col md:flex-row items-center gap-4">
-                <div className="flex flex-1 items-center gap-3 w-full">
-                    <Input
-                        placeholder="Buscar por categoría..."
-                        value={search}
-                        onChange={(e) => setSearch(e.target.value)}
-                        startContent={<MagnifyingGlassIcon className="size-5 text-default-400" />}
-                        className="max-w-xs"
-                        variant="bordered"
-                        radius="lg"
-                    />
-                    <div className="flex items-center gap-2 border border-default-200 rounded-xl px-3 h-10 bg-content1 shadow-sm">
-                        <CalendarDaysIcon className="size-5 text-default-400" />
-                        <input
-                            type="date"
-                            className="bg-transparent text-sm focus:outline-none"
-                            value={dateRange.start}
-                            onChange={(e) => setDateRange((prev) => ({ ...prev, start: e.target.value }))}
-                        />
-                        <span className="text-default-400">-</span>
-                        <input
-                            type="date"
-                            className="bg-transparent text-sm focus:outline-none"
-                            value={dateRange.end}
-                            onChange={(e) => setDateRange((prev) => ({ ...prev, end: e.target.value }))}
-                        />
-                    </div>
-                </div>
-                <Button
-                    color="secondary"
-                    variant="flat"
-                    startContent={<UsersIcon className="size-5" />}
-                    onPress={() => router.push("/proveedores")}
-                    className="shrink-0 font-semibold"
-                    radius="lg"
-                >
-                    Ver Proveedores
-                </Button>
-            </div>
+  const computedRows = useMemo(() => {
+    return rows.map((row) => ({
+      ...row,
+      pctOfGeneral: totals.totalGeneral > 0 ? (row.total / totals.totalGeneral) * 100 : 0,
+    }));
+  }, [rows, totals.totalGeneral]);
 
-            {/* Table */}
-            <div className="bg-content1 rounded-3xl border border-default-100 overflow-hidden shadow-sm">
-                <div className="overflow-x-auto">
-                    <Table
-                        aria-label="Tabla de gastos de rutas"
-                        shadow="none"
-                        removeWrapper
-                        className="bg-transparent"
-                    >
-                        <TableHeader>
-                            {columns.map((col) => (
-                                <TableColumn
-                                    key={col.key}
-                                    className={`bg-default-50 text-default-500 font-bold uppercase tracking-wider h-12 text-[10px] ${
-                                        col.key === "total" ? "text-primary" : ""
-                                    }`}
-                                    align={col.key === "categoria" ? "start" : "center"}
-                                >
-                                    {col.label}
-                                </TableColumn>
-                            ))}
-                        </TableHeader>
-                        <TableBody items={paginatedRows} emptyContent="No se encontraron registros.">
-                            {(item: any) => (
-                                <TableRow
-                                    key={item.id}
-                                    className={
-                                        item.isTotal
-                                            ? "bg-primary/10 hover:bg-primary/20 transition-colors h-16 border-t-2 border-primary/20"
-                                            : "border-b border-default-50 last:border-0 hover:bg-default-50/50 transition-colors h-14"
-                                    }
-                                >
-                                    <TableCell className={item.isTotal ? "font-bold text-primary text-sm uppercase" : "font-bold text-foreground text-sm"}>
-                                        {item.categoria}
-                                    </TableCell>
-                                    
-                                    <TableCell className="text-center">
-                                        {item.isTotal ? (
-                                            <span className="font-black text-primary text-base">
-                                                {formatCurrency(globalTotal)}
-                                            </span>
-                                        ) : (
-                                            <span className="font-black text-primary">
-                                                {formatCurrency(totalPerRow(item))}
-                                            </span>
-                                        )}
-                                    </TableCell>
+  const hasData = totals.totalGeneral > 0;
 
-                                    <TableCell className={item.isTotal ? "text-center font-bold text-primary" : "text-center font-medium text-primary bg-primary/5 rounded-lg"}>
-                                        {item.isTotal ? "-" : item.porcentaje}
-                                    </TableCell>
-                                    
-                                    <TableCell className="text-center">
-                                        {(() => {
-                                            const val = item.isTotal ? totals.manzanillo : item.manzanillo;
-                                            const rowTotal = item.isTotal ? globalTotal : totalPerRow(item);
-                                            return renderCellWithPercentage(val, rowTotal, item.isTotal);
-                                        })()}
-                                    </TableCell>
-                                    
-                                    <TableCell className="text-center">
-                                        {(() => {
-                                            const val = item.isTotal ? totals.colima : item.colima;
-                                            const rowTotal = item.isTotal ? globalTotal : totalPerRow(item);
-                                            return renderCellWithPercentage(val, rowTotal, item.isTotal);
-                                        })()}
-                                    </TableCell>
-                                    
-                                    <TableCell className="text-center">
-                                        {(() => {
-                                            const val = item.isTotal ? totals.nayarit : item.nayarit;
-                                            const rowTotal = item.isTotal ? globalTotal : totalPerRow(item);
-                                            return renderCellWithPercentage(val, rowTotal, item.isTotal);
-                                        })()}
-                                    </TableCell>
-                                    
-                                    <TableCell className="text-center">
-                                        {(() => {
-                                            const val = item.isTotal ? totals.laPaz : item.laPaz;
-                                            const rowTotal = item.isTotal ? globalTotal : totalPerRow(item);
-                                            return renderCellWithPercentage(val, rowTotal, item.isTotal);
-                                        })()}
-                                    </TableCell>
-                                    
-                                    <TableCell className="text-center">
-                                        {(() => {
-                                            const val = item.isTotal ? totals.jalisco : item.jalisco;
-                                            const rowTotal = item.isTotal ? globalTotal : totalPerRow(item);
-                                            return renderCellWithPercentage(val, rowTotal, item.isTotal);
-                                        })()}
-                                    </TableCell>
-                                    
-                                    <TableCell className="text-center">
-                                        {(() => {
-                                            const val = item.isTotal ? totals.cdConstitucion : item.cdConstitucion;
-                                            const rowTotal = item.isTotal ? globalTotal : totalPerRow(item);
-                                            return renderCellWithPercentage(val, rowTotal, item.isTotal);
-                                        })()}
-                                    </TableCell>
-                                </TableRow>
-                            )}
-                        </TableBody>
-                    </Table>
-                </div>
+  return (
+    <div className="flex flex-col gap-4 animate-in fade-in slide-in-from-top-4 duration-500">
+      <div className="flex items-center gap-3">
+        <Input
+          placeholder="Buscar por categoría..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          startContent={<MagnifyingGlassIcon className="size-5 text-default-400" />}
+          className="max-w-sm"
+          variant="bordered"
+          radius="lg"
+        />
+      </div>
 
-                {totalPages > 1 && (
-                    <div className="p-4 flex justify-center border-t border-default-50 bg-default-50/30">
-                        <Pagination
-                            showControls
-                            page={page}
-                            total={totalPages}
-                            onChange={setPage}
-                            classNames={{
-                                cursor: "bg-primary font-bold shadow-lg shadow-primary/20",
-                            }}
-                        />
-                    </div>
-                )}
-            </div>
+      {!hasData ? (
+        <div className="rounded-2xl border border-default-200 bg-default-50 px-4 py-3 text-sm font-medium text-default-600">
+          Sin gastos registrados para esta ruta.
         </div>
-    );
+      ) : (
+        <div className="bg-content1 rounded-3xl border border-default-100 overflow-hidden shadow-sm">
+          <div className="overflow-x-auto">
+            <table className="min-w-[1000px] w-full border-separate border-spacing-0">
+              <thead>
+                <tr>
+                  <th className="bg-default-50 text-default-500 font-semibold uppercase tracking-wider h-11 text-xs px-4 text-left border-b border-default-100">Categoría</th>
+                  <th className="bg-default-50 text-default-500 font-semibold uppercase tracking-wider h-11 text-xs px-4 text-center border-b border-default-100">Total</th>
+                  <th className="bg-default-50 text-default-500 font-semibold uppercase tracking-wider h-11 text-xs px-4 text-center border-b border-default-100">Promedio</th>
+                  <th className="bg-default-50 text-default-500 font-semibold uppercase tracking-wider h-11 text-xs px-4 text-center border-b border-default-100">%</th>
+                  {visibleFields.map(({ field, label }) => (
+                    <th key={field} className="bg-default-50 text-default-500 font-semibold uppercase tracking-wider h-11 text-xs px-4 text-center border-b border-default-100">
+                      {label}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {computedRows.map((row) => (
+                  <tr key={row.id} className="border-b border-default-50 last:border-0 hover:bg-default-50/50 transition-colors">
+                    <td className="px-4 py-3 text-sm font-semibold text-foreground border-b border-default-100">{row.categoria}</td>
+                    <td className="px-4 py-3 text-center text-sm font-bold text-default-900 border-b border-default-100">{formatCurrency(row.total)}</td>
+                    <td className="px-4 py-3 text-center text-sm font-semibold text-default-700 border-b border-default-100">{formatCurrency(row.promedio)}</td>
+                    <td className="px-4 py-3 text-center border-b border-default-100">
+                      <Chip size="sm" variant="flat" color="primary" className="text-[10px] font-bold">
+                        {formatPercent(row.pctOfGeneral)}
+                      </Chip>
+                    </td>
+                    {visibleFields.map(({ field }) => {
+                      const amount = row.byField.find((entry) => entry.field === field)?.amount || 0;
+                      const routePct = row.total > 0 ? (amount / row.total) * 100 : 0;
+                      return (
+                        <td key={field} className="px-4 py-3 text-center border-b border-default-100">
+                          {amount > 0 ? (
+                            <div className="flex flex-col items-center gap-1">
+                              <span className={`text-sm font-semibold ${selectedField === field ? "text-primary" : "text-default-700"}`}>
+                                {formatCurrency(amount)}
+                              </span>
+                              <Chip size="sm" variant="flat" className="text-[10px] font-bold text-primary">
+                                {formatPercent(routePct)}
+                              </Chip>
+                            </div>
+                          ) : (
+                            <span className="text-sm text-default-300">-</span>
+                          )}
+                        </td>
+                      );
+                    })}
+                  </tr>
+                ))}
+
+                <tr className="bg-primary/5">
+                  <td className="px-4 py-3 text-sm font-bold text-primary border-t border-primary/20">TOTAL GENERAL</td>
+                  <td className="px-4 py-3 text-center text-sm font-bold text-primary border-t border-primary/20">{formatCurrency(totals.totalGeneral)}</td>
+                  <td className="px-4 py-3 text-center text-sm font-bold text-primary border-t border-primary/20">{formatCurrency(totals.promedioGeneral)}</td>
+                  <td className="px-4 py-3 text-center border-t border-primary/20">
+                    <Chip size="sm" variant="flat" color="primary" className="text-[10px] font-bold">
+                      100%
+                    </Chip>
+                  </td>
+                  {visibleFields.map(({ field }) => {
+                    const routeTotal = totals.totalsByField.find((entry) => entry.field === field)?.total || 0;
+                    const routePct = totals.totalGeneral > 0 ? (routeTotal / totals.totalGeneral) * 100 : 0;
+                    return (
+                      <td key={field} className="px-4 py-3 text-center border-t border-primary/20">
+                        {routeTotal > 0 ? (
+                          <div className="flex flex-col items-center gap-1">
+                            <span className={`text-sm font-bold ${selectedField === field ? "text-primary" : "text-default-700"}`}>
+                              {formatCurrency(routeTotal)}
+                            </span>
+                            <Chip size="sm" variant="flat" className="text-[10px] font-bold text-primary">
+                              {formatPercent(routePct)}
+                            </Chip>
+                          </div>
+                        ) : (
+                          <span className="text-sm text-default-300">-</span>
+                        )}
+                      </td>
+                    );
+                  })}
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+    </div>
+  );
 }

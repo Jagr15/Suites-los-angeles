@@ -18,6 +18,7 @@ import { usePurchases } from "../hooks/use-purchases";
 import { Purchase } from "../hooks/use-purchases";
 import { useRoles } from "@/shared/hooks";
 import { mockPresupuestoCompras, type CompraRow, type EstadoCuentaRow } from "@/shared/mocks";
+import { addCreditDaysLocal, formatShortDate, parseLocalDate, paymentStatusLabel } from "@/shared/utils/date";
 import * as XLSX from "xlsx";
 
 type TabKey = "compras" | "presupuesto-compras" | "estados-de-cuenta";
@@ -37,41 +38,8 @@ type PaymentProjection = {
   amount: number;
 };
 
-function parseIsoDateSafe(value?: string): Date | null {
-  if (!value) return null;
-  const d = new Date(value);
-  if (Number.isNaN(d.getTime())) return null;
-  return d;
-}
-
-function addDays(base: Date, days: number): Date {
-  const d = new Date(base);
-  d.setDate(d.getDate() + days);
-  return d;
-}
-
-function addMonths(base: Date, months: number): Date {
-  const d = new Date(base);
-  d.setMonth(d.getMonth() + months);
-  return d;
-}
-
 function formatMoney(amount: number): string {
   return `$${amount.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-}
-
-function formatDateDisplay(date: Date): string {
-  return new Intl.DateTimeFormat("es-MX", {
-    day: "numeric",
-    month: "long",
-  }).format(date);
-}
-
-function formatDayMonthDisplay(date: Date): string {
-  return new Intl.DateTimeFormat("es-MX", {
-    day: "numeric",
-    month: "long",
-  }).format(date);
 }
 
 export function ProveedoresPage() {
@@ -92,9 +60,9 @@ export function ProveedoresPage() {
     }
 
     const today = new Date();
-    const dayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    const dayStart = parseLocalDate(today)!;
 
-    return (suppliers || []).map((s) => {
+    const estados = (suppliers || []).map((s) => {
       const supplierId = String(s._id);
       const supplierPurchases = purchases.filter((p) => p.supplierId === supplierId);
       const supplierTx = txBySupplier.get(supplierId) || [];
@@ -102,7 +70,7 @@ export function ProveedoresPage() {
       const confirmedAbonoByReference = new Map<string, number>();
       for (const tx of supplierTx) {
         if (tx.type !== "Abono" || !tx.referenceId) continue;
-        const txDate = parseIsoDateSafe(tx.date);
+        const txDate = parseLocalDate(tx.date);
         if (!txDate || txDate > today) continue;
         const key = String(tx.referenceId);
         confirmedAbonoByReference.set(key, (confirmedAbonoByReference.get(key) || 0) + tx.amount);
@@ -116,10 +84,10 @@ export function ProveedoresPage() {
         .map((p) => {
           const pAny = p as any;
           const purchaseId = String(pAny._id || p.id);
-          const baseDate = parseIsoDateSafe(pAny.dueDate) || parseIsoDateSafe(p.date);
+          const baseDate = parseLocalDate(p.date);
           if (!baseDate) return null;
-
-          const dueDate = parseIsoDateSafe(pAny.dueDate) || addDays(baseDate, Number(s.creditDays || 0));
+          const dueDate = parseLocalDate(pAny.dueDate) || addCreditDaysLocal(baseDate, Number(s.creditDays || 0));
+          if (!dueDate) return null;
           const fallbackRemaining = Math.max(
             0,
             p.totalAmount - (confirmedAbonoByReference.get(purchaseId) || 0)
@@ -134,49 +102,39 @@ export function ProveedoresPage() {
         })
         .filter((x): x is PaymentProjection => !!x)
         .sort((a, b) => a.dueDate.getTime() - b.dueDate.getTime());
-
-      const futureProjections = projections.filter((p) => p.dueDate >= dayStart);
-      const baseProjection =
-        futureProjections[0] ||
-        projections[0] || {
-          dueDate: addDays(dayStart, Number(s.creditDays || 0)),
-          amount: s.metrics?.outstandingBalance || 0,
-        };
-
-      const nextThreeRaw = futureProjections.slice(1, 4);
-      while (nextThreeRaw.length < 3) {
-        const nextDateBase =
-          nextThreeRaw.length > 0
-            ? nextThreeRaw[nextThreeRaw.length - 1].dueDate
-            : baseProjection.dueDate;
-        nextThreeRaw.push({
-          dueDate: addMonths(nextDateBase, 1),
-          amount: baseProjection.amount,
-        });
-      }
+      if (projections.length === 0) return null;
+      const baseProjection = projections[0];
+      const nextPayments = projections.slice(1);
 
       return {
         id: supplierId,
         proveedor: s.businessName,
         total: formatMoney(s.metrics?.outstandingBalance || 0),
-        fechaPago: formatDateDisplay(baseProjection.dueDate),
+        fechaPago: formatShortDate(baseProjection.dueDate),
         montoAPagar: formatMoney(baseProjection.amount),
-        proximoPagoFecha: formatDateDisplay(baseProjection.dueDate),
+        proximoPagoFecha: formatShortDate(baseProjection.dueDate),
         proximoPagoMonto: formatMoney(baseProjection.amount),
-        siguientesPagos: nextThreeRaw.map((payment) => ({
-          mes: formatDayMonthDisplay(payment.dueDate),
+        siguientesPagos: nextPayments.map((payment) => ({
+          mes: formatShortDate(payment.dueDate),
           monto: formatMoney(payment.amount),
+          estado: paymentStatusLabel(payment.dueDate, dayStart),
         })),
       };
-    }) as EstadoCuentaRow[];
+    });
+    return estados.filter(Boolean) as EstadoCuentaRow[];
   }, [purchases, supplierTransactions, suppliers]);
   
   const [isFormVisible, setIsFormVisible] = useState(false);
   const [compraToEdit, setCompraToEdit] = useState<Purchase | null>(null);
   const [compraToDelete, setCompraToDelete] = useState<Purchase | null>(null);
   const [supplierIdForEstadoCuenta, setSupplierIdForEstadoCuenta] = useState<string | null>(null);
-  const [selectedEstadoCuentaDetails, setSelectedEstadoCuentaDetails] = useState<EstadoCuentaRow | null>(null);
+  const [selectedEstadoCuentaId, setSelectedEstadoCuentaId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+
+  const selectedEstadoCuentaDetails = useMemo(
+    () => realEstadosDeCuenta.find((m) => m.id === selectedEstadoCuentaId) || null,
+    [realEstadosDeCuenta, selectedEstadoCuentaId]
+  );
 
   const displayCompras = useMemo(() => {
     const q = searchQuery.toLowerCase().trim();
@@ -314,34 +272,28 @@ export function ProveedoresPage() {
 
   const handleTabChange = useCallback((key: React.Key) => {
     setActiveTab(key as TabKey);
-    if (key !== "estados-de-cuenta") setSupplierIdForEstadoCuenta(null);
+    if (key !== "estados-de-cuenta") {
+      setSupplierIdForEstadoCuenta(null);
+      setSelectedEstadoCuentaId(null);
+    }
   }, []);
 
   const handleVerEstadoCuenta = useCallback((item: Purchase) => {
     setSupplierIdForEstadoCuenta(item.supplierId);
     setActiveTab("estados-de-cuenta");
-    // Buscar automáticamente los detalles para abrir la vista
-    const details = realEstadosDeCuenta.find(m => m.id === item.supplierId);
-    if (details) {
-      setSelectedEstadoCuentaDetails(details);
-    }
-  }, [realEstadosDeCuenta]);
+    setSelectedEstadoCuentaId(item.supplierId);
+  }, []);
 
   const handleSelectEstadoCuenta = useCallback((item: EstadoCuentaRow) => {
-    setSelectedEstadoCuentaDetails(item);
+    setSelectedEstadoCuentaId(item.id);
   }, []);
 
   const handleProviderChange = useCallback((supplierId: string) => {
-    const details = realEstadosDeCuenta.find(m => m.id === supplierId);
-    if (details) {
-      setSelectedEstadoCuentaDetails(details);
-    } else {
-      setSelectedEstadoCuentaDetails(null);
-    }
-  }, [realEstadosDeCuenta]);
+    setSelectedEstadoCuentaId(supplierId);
+  }, []);
 
   const handleBackFromEstadoCuenta = useCallback(() => {
-    setSelectedEstadoCuentaDetails(null);
+    setSelectedEstadoCuentaId(null);
   }, []);
   
   const handleImportExcel = useCallback((file: File) => {

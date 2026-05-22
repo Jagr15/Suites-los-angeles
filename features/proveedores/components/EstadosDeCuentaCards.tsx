@@ -78,12 +78,19 @@ export function EstadosDeCuentaCards({ items, supplierIdSeleccionado, onSelect }
                     Próximos Pagos
                   </span>
                   <div className="mt-1.5 space-y-1.5">
-                    {(item.siguientesPagos || []).map((pago, idx) => (
-                      <div key={`${item.id}-pago-${idx}`} className="flex items-center justify-between text-sm">
-                        <span className="font-semibold text-default-700">{pago.mes}</span>
-                        <span className="font-bold text-foreground">{pago.monto}</span>
-                      </div>
-                    ))}
+                    {(item.siguientesPagos || []).length === 0 ? (
+                      <p className="text-xs text-default-400 font-medium">Sin pagos pendientes.</p>
+                    ) : (
+                      (item.siguientesPagos || []).map((pago, idx) => (
+                        <div key={`${item.id}-pago-${idx}`} className="flex items-center justify-between text-sm">
+                          <div className="flex flex-col">
+                            <span className="font-semibold text-default-700">{pago.mes}</span>
+                            {pago.estado && <span className="text-[10px] text-default-400">{pago.estado}</span>}
+                          </div>
+                          <span className="font-bold text-foreground">{pago.monto}</span>
+                        </div>
+                      ))
+                    )}
                   </div>
                 </div>
 

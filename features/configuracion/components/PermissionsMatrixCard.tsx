@@ -1,13 +1,12 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import {
   Card,
   CardHeader,
   CardBody,
   Select,
   SelectItem,
-  Divider,
   Switch,
   Button,
   addToast,
@@ -43,7 +42,7 @@ export function PermissionsMatrixCard() {
   const roles = useQuery(api.roles.queries.listAll) || [];
   const updateRole = useMutation(api.roles.mutations.update);
   const [selectedRoleId, setSelectedRoleId] = useState<string | null>(null);
-  const [draftPermissions, setDraftPermissions] = useState<Set<string>>(new Set());
+  const [draftPermissions, setDraftPermissions] = useState<Set<string> | null>(null);
   const [isSaving, setIsSaving] = useState(false);
 
   const selectedRole = useMemo(() => {
@@ -51,10 +50,10 @@ export function PermissionsMatrixCard() {
     return roles.find((r) => r._id === selectedRoleId) || null;
   }, [roles, selectedRoleId]);
 
-  useEffect(() => {
-    if (!selectedRole) return;
-    setDraftPermissions(new Set(selectedRole.permissions || []));
-  }, [selectedRole]);
+  const currentDraftPermissions = useMemo(
+    () => draftPermissions ?? new Set(selectedRole?.permissions || []),
+    [draftPermissions, selectedRole]
+  );
 
   const roleScopedCatalog = useMemo(() => {
     const roleName = (selectedRole?.name || "").trim().toLowerCase();
@@ -80,7 +79,7 @@ export function PermissionsMatrixCard() {
 
   const togglePermission = (key: string, enabled: boolean) => {
     setDraftPermissions((prev) => {
-      const next = new Set(prev);
+      const next = new Set(prev ?? selectedRole?.permissions ?? []);
       if (enabled) next.add(key);
       else next.delete(key);
       return next;
@@ -93,7 +92,7 @@ export function PermissionsMatrixCard() {
     try {
       const currentPermissions = selectedRole.permissions || [];
       const nonCatalog = currentPermissions.filter((p) => !PERMISSION_KEYS.has(p));
-      const payload = Array.from(new Set([...nonCatalog, ...Array.from(draftPermissions)]));
+      const payload = Array.from(new Set([...nonCatalog, ...Array.from(currentDraftPermissions)]));
       await updateRole({
         id: selectedRole._id,
         name: selectedRole.name,
@@ -152,6 +151,7 @@ export function PermissionsMatrixCard() {
                   onSelectionChange={(keys) => {
                     const selectedKeys = keys === "all" ? [] : Array.from(keys);
                     setSelectedRoleId((selectedKeys[0] as string) || null);
+                    setDraftPermissions(null);
                   }}
                 >
                   {roles.map((role) => (
@@ -206,7 +206,7 @@ export function PermissionsMatrixCard() {
                       <CardBody className="px-2 py-2.5">
                         <div className="space-y-1.5">
                           {permissions.map((permission) => {
-                            const selectedRaw = draftPermissions.has(permission.key);
+                            const selectedRaw = currentDraftPermissions.has(permission.key);
                             const selected = permission.inverse ? !selectedRaw : selectedRaw;
                             return (
                               <div

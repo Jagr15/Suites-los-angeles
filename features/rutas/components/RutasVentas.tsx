@@ -11,8 +11,6 @@ import {
   Input,
   Button,
   Pagination,
-  Card,
-  CardBody,
 } from "@heroui/react";
 import { MagnifyingGlassIcon, FunnelIcon } from "@heroicons/react/24/outline";
 
@@ -28,22 +26,33 @@ const columns = [
 ];
 
 const initialVentas = [
-  { id: "1", ruta: "001", ticket: "1532", hora: "12:56", cliente: "Abarrotes Morales", encargado_compras: "Adrian Morales", tipo_compra: "Contado", monto: 232 },
-  { id: "2", ruta: "001", ticket: "1531", hora: "12:35", cliente: "Mini super don Pancho", encargado_compras: "Francisco Gonzalez", tipo_compra: "Crédito", monto: 189 },
-  { id: "3", ruta: "002", ticket: "1530", hora: "12:26", cliente: "Tienda del Centro", encargado_compras: "Luis Ramirez", tipo_compra: "Efectivo", monto: 69 },
-  { id: "4", ruta: "002", ticket: "1529", hora: "12:05", cliente: "Abarrotes Juquilita", encargado_compras: "Maria Elena", tipo_compra: "Transferencia", monto: 260 },
-  { id: "5", ruta: "003", ticket: "1528", hora: "11:49", cliente: "Miscelanea El Oasis", encargado_compras: "Pedro Sanchez", tipo_compra: "Contado", monto: null },
-  { id: "6", ruta: "005", ticket: "1527", hora: "11:32", cliente: "Super Mercadito", encargado_compras: "Ana Laura", tipo_compra: "Crédito", monto: null },
-  { id: "7", ruta: "006", ticket: "1526", hora: "12:21", cliente: "Bodega de la Esquina", encargado_compras: "Jorge Ruiz", tipo_compra: "Efectivo", monto: null },
-  { id: "8", ruta: "009", ticket: "1525", hora: "11:06", cliente: "Mini Super Rapido", encargado_compras: "Miguel Cervantes", tipo_compra: "Transferencia", monto: null },
+  { id: "1", ruta: "001", destino: "manzanillo", ticket: "1532", hora: "12:56", cliente: "Abarrotes Morales", encargado_compras: "Adrian Morales", tipo_compra: "Contado", monto: 232 },
+  { id: "2", ruta: "001", destino: "manzanillo", ticket: "1531", hora: "12:35", cliente: "Mini super don Pancho", encargado_compras: "Francisco Gonzalez", tipo_compra: "Crédito", monto: 189 },
+  { id: "3", ruta: "002", destino: "colima", ticket: "1530", hora: "12:26", cliente: "Tienda del Centro", encargado_compras: "Luis Ramirez", tipo_compra: "Efectivo", monto: 69 },
+  { id: "4", ruta: "002", destino: "colima", ticket: "1529", hora: "12:05", cliente: "Abarrotes Juquilita", encargado_compras: "Maria Elena", tipo_compra: "Transferencia", monto: 260 },
+  { id: "5", ruta: "003", destino: "la paz", ticket: "1528", hora: "11:49", cliente: "Miscelanea El Oasis", encargado_compras: "Pedro Sanchez", tipo_compra: "Contado", monto: null },
+  { id: "6", ruta: "005", destino: "tepic", ticket: "1527", hora: "11:32", cliente: "Super Mercadito", encargado_compras: "Ana Laura", tipo_compra: "Crédito", monto: null },
+  { id: "7", ruta: "006", destino: "vallarta", ticket: "1526", hora: "12:21", cliente: "Bodega de la Esquina", encargado_compras: "Jorge Ruiz", tipo_compra: "Efectivo", monto: null },
+  { id: "8", ruta: "009", destino: "cp constitucion", ticket: "1525", hora: "11:06", cliente: "Mini Super Rapido", encargado_compras: "Miguel Cervantes", tipo_compra: "Transferencia", monto: null },
 ];
 
-export function RutasVentas({ selectedRutaName }: { selectedRutaName: string }) {
+export function RutasVentas({
+  selectedDestination,
+  selectedRouteCode,
+}: {
+  selectedDestination: string;
+  selectedRouteCode: string;
+}) {
   const [filterValue, setFilterValue] = useState("");
   const [page, setPage] = useState(1);
 
   const filteredItems = useMemo(() => {
-    let filtered = initialVentas.filter(v => v.ruta === selectedRutaName);
+    const destination = selectedDestination.toLowerCase().trim();
+    let filtered = initialVentas.filter((v) => {
+      if (selectedRouteCode && v.ruta === selectedRouteCode) return true;
+      if (destination && v.destino === destination) return true;
+      return false;
+    });
     if (filterValue) {
       const q = filterValue.toLowerCase();
       filtered = filtered.filter((item) =>
@@ -54,7 +63,7 @@ export function RutasVentas({ selectedRutaName }: { selectedRutaName: string }) 
       );
     }
     return filtered;
-  }, [filterValue, selectedRutaName]);
+  }, [filterValue, selectedDestination, selectedRouteCode]);
 
   const pages = Math.ceil(filteredItems.length / ROWS_PER_PAGE) || 1;
 

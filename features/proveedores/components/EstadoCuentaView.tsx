@@ -16,6 +16,7 @@ import { ArrowLeftIcon, PrinterIcon, ShareIcon } from "@heroicons/react/24/outli
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import type { EstadoCuentaRow } from "@/shared/mocks";
+import { formatShortDate } from "@/shared/utils/date";
 
 type EstadoCuentaViewProps = {
   estadoCuenta: EstadoCuentaRow;
@@ -38,7 +39,7 @@ export function EstadoCuentaView({ estadoCuenta, onBack, onProviderChange }: Est
   const suppliers = useQuery(api.suppliers.queries.list);
   
   const selectedSupplier = useMemo(() => {
-    return (suppliers || []).find((s) => s._id === estadoCuenta.id);
+    return (suppliers || []).find((s) => String(s._id) === String(estadoCuenta.id));
   }, [suppliers, estadoCuenta.id]);
 
   const transactions = useQuery(
@@ -78,7 +79,7 @@ export function EstadoCuentaView({ estadoCuenta, onBack, onProviderChange }: Est
     return transactions.map(t => ({
       id: t._id,
       tipo: t.type === "Cargo" ? "Compra" : "Pago",
-      fecha: t.date,
+      fecha: formatShortDate(t.date, { includeYear: true }),
       detalle1: t.category || "-",
       detalle2: t.status,
       monto: t.amount,
@@ -106,12 +107,12 @@ export function EstadoCuentaView({ estadoCuenta, onBack, onProviderChange }: Est
               tab: "max-w-fit px-0 h-12",
               tabContent: "group-data-[selected=true]:text-primary font-bold text-default-500 uppercase text-xs tracking-widest"
             }}
-            selectedKey={estadoCuenta.id}
+            selectedKey={String(estadoCuenta.id)}
             onSelectionChange={(key) => onProviderChange?.(key as string)}
           >
             {(suppliers || []).map((p) => {
-              const name = p.name || p.businessName;
-              return <Tab key={p._id} title={name} />;
+              const name = p.businessName || p.name;
+              return <Tab key={String(p._id)} title={name} />;
             })}
           </Tabs>
         </div>

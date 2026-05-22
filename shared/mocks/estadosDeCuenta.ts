@@ -16,6 +16,7 @@ export type EstadoCuentaRow = {
   siguientesPagos?: Array<{
     mes: string;
     monto: string;
+    estado?: string;
   }>;
 };
 

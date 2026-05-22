@@ -19,21 +19,21 @@ function getCodigo(ruta: string): string {
 
 export function RutasCardGrid({ items, onEditar, onBorrar, onSelect }: RutasCardGridProps) {
   return (
-    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+    <div className="grid gap-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
       {items.map((item) => (
         <div
           key={item.id}
           onClick={() => onSelect?.(item)}
-          className="flex flex-col cursor-pointer rounded-3xl border border-default-200 bg-white p-6 shadow-sm transition-all hover:shadow-md hover:border-primary/50 relative group"
+          className="group relative flex cursor-pointer flex-col rounded-xl border border-default-200 bg-white p-3 shadow-sm transition-all hover:border-primary/50 hover:shadow-md"
         >
           <div className="flex justify-between items-start">
             <div>
-              <p className="text-xs font-black uppercase tracking-widest text-primary/70">
-                {item.name}
+              <h3 className="text-sm font-bold leading-tight text-default-800">{item.name}</h3>
+              <p className="mt-0.5 text-xs font-semibold text-default-500">
+                {item.assignedProfileName || "Sin responsable"}
               </p>
-              <h3 className="mt-1 text-xl font-bold text-default-800">{item.destination}</h3>
-              <p className="text-[10px] font-bold text-default-400 uppercase tracking-tighter">
-                {item.deliveryType === "sucursal" ? "Servicio Local" : "Foráneo / Envío"}
+              <p className="mt-1 text-[10px] font-bold uppercase tracking-tight text-default-400">
+                {item.destination || item.name}
               </p>
             </div>
             <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -70,11 +70,7 @@ export function RutasCardGrid({ items, onEditar, onBorrar, onSelect }: RutasCard
             </div>
           </div>
 
-          <p className="mt-4 text-sm font-medium text-default-400 italic">
-            Responsable: <span className="text-default-600 font-bold not-italic">{item.assignedProfileName}</span>
-          </p>
-
-          <div className="mt-4 flex items-center gap-2">
+          <div className="mt-2 flex items-center gap-1.5">
             <div className={`h-1.5 w-1.5 rounded-full ${item.isActive ? "bg-success animate-pulse" : "bg-danger"}`} />
             <span className="text-[10px] font-bold uppercase tracking-wider text-default-400">
                {item.isActive ? "Activa" : "Inactiva"}

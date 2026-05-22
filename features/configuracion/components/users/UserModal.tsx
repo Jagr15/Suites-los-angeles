@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import {
   Modal,
   ModalContent,
@@ -34,8 +34,8 @@ interface UserModalProps {
   isOpen: boolean;
   onOpenChange: () => void;
   selectedUser: User | null;
-  formState: Partial<User & { roleId?: string }>;
-  setFormState: React.Dispatch<React.SetStateAction<Partial<User & { roleId?: string }>>>;
+  formState: Partial<User & { roleId?: string; password?: string }>;
+  setFormState: React.Dispatch<React.SetStateAction<Partial<User & { roleId?: string; password?: string }>>>;
   onSave: () => void;
   onClose: () => void;
   isLoading?: boolean;
@@ -53,41 +53,22 @@ export function UserModal({
   isLoading,
   profiles,
 }: UserModalProps) {
-  const roles = useQuery(api.roles.queries.listAll) || [];
+  const rolesQuery = useQuery(api.roles.queries.listAll);
+  const roles = rolesQuery || [];
   const [isVisible, setIsVisible] = useState(false);
   const toggleVisibility = () => setIsVisible(!isVisible);
   const hasProfiles = profiles.length > 0;
   const isEditingSuperAdmin =
     !!selectedUser && ["superadmin", "super admin"].includes(normalizeRoleKey(selectedUser.role));
-  const isAdminRole = ["administrador", "admin", "superadmin", "super admin"].includes(
-    normalizeRoleKey(formState.role)
-  );
   const selectedRole = roles.find((role) => role._id === formState.roleId);
-  const roleName = normalizeRoleKey(selectedRole?.name || formState.role);
+  const roleName = normalizeRoleKey(selectedRole?.name);
+  const isAdminRole = ["administrador", "admin", "superadmin", "super admin"].includes(roleName);
   const scopedPermissions: PermissionDefinition[] =
     roleName === "vendedor"
       ? sellerPermissions
       : roleName === "bodeguero" || roleName === "bodega"
       ? warehousePermissions
       : [];
-
-  useEffect(() => {
-    if (!formState.roleId || roles.length === 0) return;
-    const selectedRole = roles.find((role) => role._id === formState.roleId);
-    if (!selectedRole) return;
-
-    setFormState((prev) => {
-      if (prev.role === selectedRole.name) {
-        return prev;
-      }
-      return {
-        ...prev,
-        role: selectedRole.name,
-        extraPermissions: prev.extraPermissions || [],
-        disabledPermissions: prev.disabledPermissions || [],
-      };
-    });
-  }, [formState.roleId, roles, setFormState]);
 
   const rolePermissions = selectedRole?.permissions || [];
   const effectivePermissions = getEffectivePermissions({
@@ -185,8 +166,8 @@ export function UserModal({
                     labelPlacement="outside"
                     placeholder="••••••••"
                     description="Mínimo 8 caracteres"
-                    value={(formState as any).password || ""}
-                    onValueChange={(v) => setFormState({ ...formState, password: v } as any)}
+                    value={formState.password || ""}
+                    onValueChange={(v) => setFormState({ ...formState, password: v })}
                     endContent={
                       <button
                         className="focus:outline-none"
@@ -207,10 +188,13 @@ export function UserModal({
                       selectedRoleId={formState.roleId}
                       rolesSource={isEditingSuperAdmin ? "all" : "assignable"}
                       isDisabled={isEditingSuperAdmin}
-                      onRoleChange={(roleId) => {
+                      onRoleChange={(roleId, roleNameFromRole) => {
                         setFormState((prev) => ({
                           ...prev,
                           roleId,
+                          role: roleNameFromRole,
+                          extraPermissions: [],
+                          disabledPermissions: [],
                         }));
                       }}
                     />

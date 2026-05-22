@@ -16,6 +16,7 @@ import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
 import type { EstadoCuentaRow } from "@/shared/mocks";
+import { formatShortDate } from "@/shared/utils/date";
 
 type EstadoCuentaModalProps = {
   isOpen: boolean;
@@ -24,37 +25,9 @@ type EstadoCuentaModalProps = {
   allEstados?: EstadoCuentaRow[];
 };
 
-type MovimientoDetalle = {
-  id: string;
-  tipo: "Compra" | "Pago";
-  fecha: string;
-  detalle1: string; // e.g. "Completa" (Compra) o "Miguel M" (Pago)
-  detalle2: string; // e.g. "Confirmada" (Compra) o "Revisar" (Pago)
-  monto: number;
-  isNegative?: boolean;
-  statusColor?: "success" | "danger" | "default";
-};
-
-const MOVIMIENTOS_MOCK_DETALLE: Record<string, MovimientoDetalle[]> = {
-  "Hugos": [
-    { id: "1", tipo: "Compra", fecha: "10 Febrero 2026", detalle1: "Completa", detalle2: "Confirmada", monto: 8756.42, isNegative: true },
-    { id: "2", tipo: "Pago", fecha: "9 Febrero 2026", detalle1: "Miguel M", detalle2: "Revisar", monto: 20000.00, statusColor: "danger" },
-    { id: "3", tipo: "Pago", fecha: "3 Febrero 2026", detalle1: "Andres A", detalle2: "Confirmado", monto: 10000.00 },
-    { id: "4", tipo: "Compra", fecha: "2 Febrero 2026", detalle1: "Faltante", detalle2: "Confirmada", monto: 15576.65, isNegative: true, statusColor: "danger" },
-    { id: "5", tipo: "Pago", fecha: "1 Febrero 2026", detalle1: "Admin", detalle2: "Confirmado", monto: 5000.00 },
-  ],
-  "Pamego": [
-    { id: "1", tipo: "Compra", fecha: "12 Febrero 2026", detalle1: "Completa", detalle2: "Confirmada", monto: 12500.00, isNegative: true },
-    { id: "2", tipo: "Pago", fecha: "10 Febrero 2026", detalle1: "Juan P", detalle2: "Confirmado", monto: 5000.00 },
-  ],
-  "MDMX": [
-    { id: "1", tipo: "Compra", fecha: "15 Febrero 2026", detalle1: "Completa", detalle2: "Confirmada", monto: 35000.00, isNegative: true },
-    { id: "2", tipo: "Pago", fecha: "14 Febrero 2026", detalle1: "Maria L", detalle2: "Revisar", monto: 15000.00, statusColor: "danger" },
-  ]
-};
-
 export function EstadoCuentaModal({ isOpen, onClose, estadoCuenta }: EstadoCuentaModalProps) {
   // 1. Llamar a los datos reales de Convex
+  const suppliers = useQuery(api.suppliers.queries.list);
   const movimientos = useQuery(api.supplierTransactions.queries.listBySupplier, 
     estadoCuenta?.id ? { supplierId: estadoCuenta.id as Id<"suppliers"> } : "skip"
   );
@@ -96,10 +69,10 @@ export function EstadoCuentaModal({ isOpen, onClose, estadoCuenta }: EstadoCuent
                       tab: "max-w-fit px-0 h-12",
                       tabContent: "group-data-[selected=true]:text-primary font-bold text-default-500 uppercase text-xs tracking-widest"
                     }}
-                    selectedKey={estadoCuenta.proveedor}
+                    selectedKey={String(estadoCuenta.id)}
                   >
-                    {["Huggos", "Pamego", "Dimuflo", "MDMX", "Papeleria", "Regalos Areli", "Farmacia"].map((p) => (
-                      <Tab key={p} title={p} />
+                    {(suppliers || []).map((p) => (
+                      <Tab key={String(p._id)} title={p.businessName || p.name} />
                     ))}
                   </Tabs>
                 </div>
@@ -157,7 +130,7 @@ export function EstadoCuentaModal({ isOpen, onClose, estadoCuenta }: EstadoCuent
                         </span>
                         
                         <span className="text-xl font-bold text-default-800 min-w-[180px]">
-                          {new Date(item.date).toLocaleDateString('es-MX', { day: 'numeric', month: 'long', year: 'numeric' })}
+                          {formatShortDate(item.date, { includeYear: true })}
                         </span>
 
                         <span className="text-xl font-bold italic text-default-800">

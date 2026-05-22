@@ -15,6 +15,7 @@ import {
 } from "@heroui/react";
 import { DocumentTextIcon, PencilSquareIcon, TrashIcon, EyeIcon } from "@heroicons/react/24/outline";
 import { Purchase } from "../hooks/use-purchases";
+import { formatShortDate } from "@/shared/utils/date";
 
 const ROWS_PER_PAGE = 8;
 
@@ -70,7 +71,7 @@ export function ComprasTable({ compras, onVer, onVerEstadoCuenta, onEditar, onBo
                 </TableCell>
                 <TableCell className="font-semibold text-foreground text-sm">{item.supplierName}</TableCell>
                 <TableCell className="text-default-500 text-sm">{item.bodegaName}</TableCell>
-                <TableCell className="text-default-500 text-sm font-normal">{item.date}</TableCell>
+                <TableCell className="text-default-500 text-sm font-normal">{formatShortDate(item.date)}</TableCell>
                 <TableCell>
                   <span className={`text-sm font-medium ${item.receptionStatus === "Faltante" ? "text-danger" : "text-default-700"}`}>
                     {item.receptionStatus}
