@@ -14,7 +14,6 @@ import {
   UsersIcon,
   MapIcon,
 } from "@heroicons/react/24/outline";
-import { DashboardHeader, DashboardBreadcrumb } from "@/features/dashboard/components";
 import {
   PermissionsMatrixCard,
   ProfilesManagementCard,
@@ -28,25 +27,9 @@ import {
 
 export function ConfiguracionPage() {
   const [activeTab, setActiveTab] = React.useState("usuarios");
-  const tabLabel =
-    activeTab === "perfiles"
-      ? "Perfiles"
-      : activeTab === "usuarios"
-      ? "Usuarios"
-      : activeTab === "proveedores"
-      ? "Proveedores"
-      : activeTab === "bodegas"
-      ? "Bodegas"
-      : activeTab === "rutas"
-      ? "Rutas"
-      : activeTab === "clientes"
-      ? "Clientes"
-      : "Finanzas";
   return (
     <div className="flex flex-col min-h-screen">
-      <DashboardHeader />
       <div className="flex flex-col gap-4 p-4 md:p-5">
-        <DashboardBreadcrumb module="Administración" submodule={tabLabel} />
         <div className="flex flex-col gap-1">
           <h1 className="text-xl font-semibold text-foreground">
             Configuración del Sistema

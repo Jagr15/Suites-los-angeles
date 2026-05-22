@@ -1,26 +1,14 @@
 "use client";
 
 import { useState } from "react";
-import { DashboardHeader, DashboardBreadcrumb } from "@/features/dashboard/components";
 import { FinanzasHeader, FinanzasCuentasPorPagar, FinanzasVentas, FinanzasCuentasPorCobrar, FinanzasEstadosFinancieros, FinanzasAnalisisFinanciero, FinanzasPresupuestos } from "../components";
-
-const TAB_LABELS: Record<string, string> = {
-  ventas: "Ventas",
-  "cuentas-por-pagar": "Cuentas por pagar",
-  "cuentas-por-cobrar": "Cuentas por cobrar",
-  "estados-financieros": "Estados financieros",
-  "analisis-financiero": "Análisis financiero",
-  presupuestos: "Presupuestos",
-};
 
 export function FinanzasPage() {
   const [activeTab, setActiveTab] = useState<string>("ventas");
 
   return (
     <div className="flex flex-col min-h-screen">
-      <DashboardHeader />
       <div className="space-y-4 p-4 md:p-5">
-        <DashboardBreadcrumb module="Finanzas" submodule={TAB_LABELS[activeTab] || "Ventas"} />
         <FinanzasHeader
           selectedKey={activeTab}
           onSelectionChange={(key) => setActiveTab(key as string)}

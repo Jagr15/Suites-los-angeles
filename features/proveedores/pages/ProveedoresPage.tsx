@@ -2,9 +2,7 @@
 
 import { useState, useCallback, useMemo } from "react";
 import { addToast, Button } from "@heroui/react";
-import { CheckIcon } from "@heroicons/react/24/outline";
 import { ConfirmModal } from "@/shared/components";
-import { DashboardHeader, DashboardBreadcrumb } from "@/features/dashboard/components";
 import {
   ProveedoresHeader,
   ProveedoresToolbar,
@@ -23,11 +21,6 @@ import { mockPresupuestoCompras, type CompraRow, type EstadoCuentaRow } from "@/
 import * as XLSX from "xlsx";
 
 type TabKey = "compras" | "presupuesto-compras" | "estados-de-cuenta";
-const TAB_LABELS: Record<TabKey, string> = {
-  compras: "Compras",
-  "presupuesto-compras": "Presupuesto",
-  "estados-de-cuenta": "Estados de cuenta",
-};
 
 type SupplierTxn = {
   _id: string;
@@ -401,9 +394,7 @@ export function ProveedoresPage() {
 
   return (
     <div className="flex flex-col min-h-screen bg-default-50/50">
-      <DashboardHeader />
       <div className="p-4 md:p-5 space-y-4">
-        <DashboardBreadcrumb module="Proveedores" submodule={TAB_LABELS[activeTab]} />
         {!isFormVisible && !selectedEstadoCuentaDetails && (
           <ProveedoresHeader
             selectedKey={activeTab}

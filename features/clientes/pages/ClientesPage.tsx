@@ -1,6 +1,5 @@
 "use client";
 
-import { DashboardHeader, DashboardBreadcrumb } from "@/features/dashboard/components";
 import { 
     ClientesFilters, 
     ClientesSimulador, 
@@ -14,11 +13,8 @@ import { Card } from "@heroui/react";
 export function ClientesPage() {
     return (
         <div className="flex flex-col min-h-screen bg-default-50/30">
-            <DashboardHeader />
-            
             <div className="flex-1 flex flex-col items-center">
                 <main className="w-full max-w-[1920px] p-4 md:p-5 space-y-4">
-                    <DashboardBreadcrumb module="Clientes" submodule="Registro" />
                     {/* Filter Bar */}
                     <ClientesFilters />
 

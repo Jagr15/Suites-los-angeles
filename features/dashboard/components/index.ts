@@ -1,7 +1,6 @@
 export { DashboardLayout } from "./DashboardLayout";
 export { DashboardSidebar } from "./DashboardSidebar";
 export { DashboardHeader } from "./DashboardHeader";
-export { DashboardBreadcrumb } from "./DashboardBreadcrumb";
 export { DashboardStats } from "./DashboardStats";
 export { DashboardQuickActions } from "./DashboardQuickActions";
 export { DashboardRecentActivity } from "./DashboardRecentActivity";

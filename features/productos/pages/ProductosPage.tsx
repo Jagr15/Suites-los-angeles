@@ -4,7 +4,6 @@ import { useState, useCallback, useMemo, useEffect } from "react";
 import { addToast, Button } from "@heroui/react";
 import { CheckIcon } from "@heroicons/react/24/outline";
 import { ConfirmModal } from "@/shared/components";
-import { DashboardHeader, DashboardBreadcrumb } from "@/features/dashboard/components";
 import { ProductosHeader, ProductosToolbar, ProductosTable, ProductoModal } from "../components";
 import { useProducts, type Product } from "../hooks/use-products";
 import { useRoles } from "@/shared/hooks";
@@ -235,9 +234,7 @@ export function ProductosPage() {
 
   return (
     <div className="flex flex-col">
-      <DashboardHeader />
       <div className="space-y-4 p-4 md:p-5">
-        <DashboardBreadcrumb module="Productos" submodule="Catálogo" />
         <ProductosHeader activeTab={activeTab} onTabChange={setActiveTab} visibleTabs={visibleTabs} />
         <ProductosToolbar 
           onAgregar={handleOpenCreate} 
