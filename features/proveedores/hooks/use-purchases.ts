@@ -26,7 +26,7 @@ export type PurchaseItem = {
 };
 
 export function usePurchases() {
-  const convexPurchases = useQuery(api.purchases.queries.list);
+  const convexPurchases = useQuery(api.purchases.queries.list, {});
   const createMutation = useMutation(api.purchases.mutations.create);
   const updateMutation = useMutation(api.purchases.mutations.update);
   const deleteMutation = useMutation(api.purchases.mutations.remove);

@@ -15,6 +15,7 @@ import {
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import {
+  BODEGUERO_FIXED_PERMISSION_KEYS,
   DEFAULT_PERMISSIONS_BY_ROLE,
   PERMISSION_CATALOG,
   PERMISSION_KEYS,
@@ -39,7 +40,8 @@ const SECTION_ORDER = [
 ] as const;
 
 export function PermissionsMatrixCard() {
-  const roles = useQuery(api.roles.queries.listAll) || [];
+  const rolesQuery = useQuery(api.roles.queries.listAll);
+  const roles = useMemo(() => rolesQuery || [], [rolesQuery]);
   const updateRole = useMutation(api.roles.mutations.update);
   const [selectedRoleId, setSelectedRoleId] = useState<string | null>(null);
   const [draftPermissions, setDraftPermissions] = useState<Set<string> | null>(null);
@@ -77,6 +79,11 @@ export function PermissionsMatrixCard() {
     return roleName === "admin" || roleName === "administrador" || roleName === "superadmin" || roleName === "super admin";
   }, [selectedRole]);
 
+  const isBodegueroRole = useMemo(() => {
+    const roleName = (selectedRole?.name || "").trim().toLowerCase();
+    return roleName === "bodeguero" || roleName === "bodega";
+  }, [selectedRole]);
+
   const togglePermission = (key: string, enabled: boolean) => {
     setDraftPermissions((prev) => {
       const next = new Set(prev ?? selectedRole?.permissions ?? []);
@@ -92,7 +99,8 @@ export function PermissionsMatrixCard() {
     try {
       const currentPermissions = selectedRole.permissions || [];
       const nonCatalog = currentPermissions.filter((p) => !PERMISSION_KEYS.has(p));
-      const payload = Array.from(new Set([...nonCatalog, ...Array.from(currentDraftPermissions)]));
+      const forcedPermissions = isBodegueroRole ? Array.from(BODEGUERO_FIXED_PERMISSION_KEYS) : [];
+      const payload = Array.from(new Set([...nonCatalog, ...Array.from(currentDraftPermissions), ...forcedPermissions]));
       await updateRole({
         id: selectedRole._id,
         name: selectedRole.name,
@@ -104,7 +112,7 @@ export function PermissionsMatrixCard() {
         description: `Se guardaron permisos para ${selectedRole.name}.`,
         color: "success",
       });
-    } catch (error) {
+    } catch {
       addToast({
         title: "Error",
         description: "No se pudieron guardar los permisos.",
@@ -119,7 +127,11 @@ export function PermissionsMatrixCard() {
     if (!selectedRole) return;
     const roleName = selectedRole.name as RoleName;
     const defaults = DEFAULT_PERMISSIONS_BY_ROLE[roleName] || [];
-    setDraftPermissions(new Set(defaults));
+    const seeded = new Set(defaults);
+    if ((selectedRole.name || "").trim().toLowerCase() === "bodeguero" || (selectedRole.name || "").trim().toLowerCase() === "bodega") {
+      for (const key of BODEGUERO_FIXED_PERMISSION_KEYS) seeded.add(key);
+    }
+    setDraftPermissions(seeded);
     addToast({
       title: "Valores restaurados",
       description: `Se cargaron defaults seguros para ${selectedRole.name}.`,
@@ -206,7 +218,9 @@ export function PermissionsMatrixCard() {
                       <CardBody className="px-2 py-2.5">
                         <div className="space-y-1.5">
                           {permissions.map((permission) => {
-                            const selectedRaw = currentDraftPermissions.has(permission.key);
+                            const selectedRaw =
+                              currentDraftPermissions.has(permission.key) ||
+                              (isBodegueroRole && BODEGUERO_FIXED_PERMISSION_KEYS.has(permission.key));
                             const selected = permission.inverse ? !selectedRaw : selectedRaw;
                             return (
                               <div
@@ -236,6 +250,7 @@ export function PermissionsMatrixCard() {
                                     size="sm"
                                     color={permission.sensitive ? "danger" : "primary"}
                                     isSelected={selected}
+                                    isDisabled={isBodegueroRole && BODEGUERO_FIXED_PERMISSION_KEYS.has(permission.key)}
                                     onValueChange={(value) => {
                                       const nextRaw = permission.inverse ? !value : value;
                                       togglePermission(permission.key, nextRaw);
@@ -251,6 +266,12 @@ export function PermissionsMatrixCard() {
                   );
                 })}
               </div>
+              {isBodegueroRole && (
+                <div className="mt-3 rounded-lg border border-primary-200 bg-primary-50/50 px-3 py-2">
+                  <p className="text-xs font-semibold text-primary-700">Accesos fijos de Bodeguero</p>
+                  <p className="text-xs text-primary-700/80">Bodega y Mi Cuenta permanecen habilitados para este rol.</p>
+                </div>
+              )}
             </div>
           )}
         </div>

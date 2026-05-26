@@ -30,6 +30,9 @@ import type { SalidaRow } from "@/shared/mocks";
 
 type BodegaSalidaFormProps = {
   salida?: SalidaRow | any | null;
+  selectedWarehouseId: string;
+  selectedWarehouseName: string;
+  reservedFolio?: string;
   onSubmit: (data: any, editId?: string) => void;
   onCancel: () => void;
   canAssignResponsible?: boolean;
@@ -80,6 +83,7 @@ function mapSalidaToFormValues(salida: any): CargaBodegaFormValues {
     clienteDireccion: salida?.clienteDireccion || "",
     agente: salida?.agente || "",
     almacen: salida?.almacen || "",
+    bodegaId: salida?.bodegaId || "",
     ruta: salida?.ruta || "",
     destino: salida?.destino || "",
     serie: salida?.serie || "",
@@ -91,6 +95,9 @@ function mapSalidaToFormValues(salida: any): CargaBodegaFormValues {
 
 export function BodegaSalidaForm({
   salida,
+  selectedWarehouseId,
+  selectedWarehouseName,
+  reservedFolio,
   onSubmit,
   onCancel,
   canAssignResponsible = true,
@@ -101,7 +108,6 @@ export function BodegaSalidaForm({
   const isSuperAdmin = normalizedRole === "superadmin" || normalizedRole === "super admin";
 
   const rawProducts = useQuery(api.products.queries.list) || [];
-  const bodegas = useQuery(api.bodegas.queries.list) || [];
   const routes = useQuery(api.routes.queries.list) || [];
 
   const products = useMemo(() => {
@@ -166,9 +172,14 @@ export function BodegaSalidaForm({
     if (isEdit && salida) {
       reset(mapSalidaToFormValues(salida));
     } else {
-      reset(defaultValues);
+      reset({
+        ...defaultValues,
+        numeroCarga: reservedFolio || "Se genera al guardar",
+        almacen: selectedWarehouseName,
+      });
+      setValue("bodegaId", selectedWarehouseId);
     }
-  }, [isEdit, salida, reset]);
+  }, [isEdit, salida, reset, reservedFolio, selectedWarehouseId, selectedWarehouseName, setValue]);
 
   useEffect(() => {
     if (!canAssignResponsible) {
@@ -274,6 +285,8 @@ export function BodegaSalidaForm({
     onSubmit(
       {
         ...data,
+        bodegaId: selectedWarehouseId,
+        almacen: selectedWarehouseName,
         totalAmount: montoTotalValue,
         productos: formItems,
       },
@@ -292,7 +305,7 @@ export function BodegaSalidaForm({
             <h2 className="text-base font-semibold text-default-800 leading-none">
               {isEdit ? "Editar Salida" : "Registro de Salida"}
             </h2>
-            <p className="text-[11px] text-default-400 mt-1">Complete la información del documento</p>
+            <p className="text-[11px] text-default-400 mt-1">Captura rápida de productos</p>
           </div>
         </div>
 
@@ -334,22 +347,13 @@ export function BodegaSalidaForm({
           <Controller
             name="almacen"
             control={control}
-            render={({ field }) => (
-              <Autocomplete
-                defaultItems={bodegas as any[]}
-                placeholder="Selecciona bodega origen"
-                onSelectionChange={(val) => field.onChange(val ? String(val) : "")}
-                selectedKey={field.value || null}
+            render={() => (
+              <Input
+                value={selectedWarehouseName || "Bodega no seleccionada"}
+                isReadOnly
                 variant="flat"
                 color="primary"
-                size="md"
-              >
-                {(item: any) => (
-                  <AutocompleteItem key={item._id} textValue={item.name}>
-                    {item.name}
-                  </AutocompleteItem>
-                )}
-              </Autocomplete>
+              />
             )}
           />
         </div>

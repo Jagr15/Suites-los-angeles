@@ -8,6 +8,7 @@ export const bodegaFields = {
   manager: v.optional(v.string()),
   phone: v.optional(v.string()),
   isActive: v.boolean(),
+  allowedUserIds: v.optional(v.array(v.id("users"))),
 };
 
 export const bodegasTable = defineTable(bodegaFields).index("by_name", ["name"]);

@@ -5,9 +5,15 @@ import { v } from "convex/values";
  * Lista todas las compras con información del proveedor.
  */
 export const list = query({
-  args: {},
-  handler: async (ctx) => {
-    const purchases = await ctx.db.query("purchases").order("desc").collect();
+  args: { bodegaId: v.optional(v.id("bodegas")) },
+  handler: async (ctx, args) => {
+    const purchases = args.bodegaId
+      ? await ctx.db
+          .query("purchases")
+          .withIndex("by_bodegaId", (q) => q.eq("bodegaId", args.bodegaId!))
+          .order("desc")
+          .collect()
+      : await ctx.db.query("purchases").order("desc").collect();
     return Promise.all(
       purchases.map(async (purchase) => {
         const [supplier, bodega] = await Promise.all([

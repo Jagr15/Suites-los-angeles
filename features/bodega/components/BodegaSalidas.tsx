@@ -101,6 +101,7 @@ export function BodegaSalidas({ items: initialItems, onAgregar, onEditar, onBorr
             await updateSalida({
                 id: id as any,
                 numeroSalida: cleanItem.numeroSalida,
+                bodegaId: (cleanItem as any).bodegaId,
                 responsable: cleanItem.responsable,
                 fecha: cleanItem.fecha,
                 status: cleanItem.status,
@@ -159,6 +160,7 @@ export function BodegaSalidas({ items: initialItems, onAgregar, onEditar, onBorr
                 await updateSalida({
                     id: id as any,
                     numeroSalida: item.numeroSalida,
+                    bodegaId: (item as any).bodegaId,
                     responsable: item.responsable,
                     fecha: item.fecha,
                     status: nextStatus,

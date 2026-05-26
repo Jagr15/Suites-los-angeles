@@ -13,10 +13,9 @@ import {
 import {
   PencilSquareIcon,
   TrashIcon,
-  MapPinIcon,
 } from "@heroicons/react/24/outline";
 import { Client } from "./types";
-import { getGoogleMapsEmbedSrc, getGoogleMapsLink } from "./location-utils";
+import { getAddressReferenceFromMapsUrl } from "./location-utils";
 
 interface ClientTableProps {
   items: Client[];
@@ -75,39 +74,24 @@ export function ClientTable({ items, onEdit, onDelete }: ClientTableProps) {
             {client.requiresInvoice ? "Fiscal" : "Nota"}
           </Chip>
         );
-      case "locationPreview": {
-        const embedSrc = getGoogleMapsEmbedSrc(client.lat, client.lng, client.mapsUrl);
-        if (!embedSrc) {
-          return <span className="text-tiny text-default-400">Sin ubicacion exacta</span>;
-        }
+      case "location": {
+        const address = getAddressReferenceFromMapsUrl(client.mapsUrl);
+        const locality = client.townName || "Sin localidad";
+        const zone = client.townName || "Sin zona";
+        const municipalityAndState = [client.municipalityName, client.stateName].filter(Boolean).join(" / ");
+
         return (
-          <div className="h-20 w-32 overflow-hidden rounded-lg border border-default-200">
-            <iframe
-              title={`Mapa ${client.commercialName}`}
-              src={embedSrc}
-              className="h-full w-full"
-              loading="lazy"
-              referrerPolicy="no-referrer-when-downgrade"
-            />
+          <div className="space-y-0.5">
+            <p className="text-tiny text-default-700">{address || "Dirección / referencia no registrada"}</p>
+            <p className="text-tiny text-default-500">Localidad: {locality}</p>
+            <p className="text-tiny text-default-500">Zona: {zone}</p>
+            <p className="text-tiny text-default-500">{municipalityAndState || "Municipio / Estado no registrado"}</p>
           </div>
         );
       }
       case "actions":
         return (
           <div className="relative flex items-center gap-2">
-            <Tooltip content="Ver ubicación">
-              <Button
-                isIconOnly
-                size="sm"
-                variant="light"
-                onPress={() => {
-                  const url = getGoogleMapsLink(client.lat, client.lng, client.mapsUrl);
-                  if (url) window.open(url, "_blank");
-                }}
-              >
-                <MapPinIcon className="size-5 text-default-400" />
-              </Button>
-            </Tooltip>
             <Tooltip content="Editar cliente">
               <Button
                 isIconOnly
@@ -144,7 +128,7 @@ export function ClientTable({ items, onEdit, onDelete }: ClientTableProps) {
         <TableColumn key="assignedRoute">RUTA</TableColumn>
         <TableColumn key="credit">CRÉDITO / DÍAS</TableColumn>
         <TableColumn key="requiresInvoice">FACTURA</TableColumn>
-        <TableColumn key="locationPreview">UBICACIÓN</TableColumn>
+        <TableColumn key="location">UBICACIÓN</TableColumn>
         <TableColumn key="actions">ACCIONES</TableColumn>
       </TableHeader>
       <TableBody items={items} emptyContent={"No se encontraron clientes"}>

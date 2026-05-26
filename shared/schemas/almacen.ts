@@ -7,6 +7,7 @@ export const almacenSchema = z.object({
   manager: z.string().optional(),
   phone: z.string().optional(),
   isActive: z.boolean().default(true),
+  allowedUserIds: z.array(z.string()).optional(),
 });
 
 export type AlmacenFormValues = z.infer<typeof almacenSchema>;

@@ -32,15 +32,19 @@ type BodegaGastosProps = {
     canShowDailyTotals?: boolean;
     canDelete?: boolean;
     canCreate?: boolean;
+    selectedWarehouseId?: string;
 };
 
-export function BodegaGastos({ canShowDailyTotals = true, canDelete = true, canCreate = true }: BodegaGastosProps) {
+export function BodegaGastos({ canShowDailyTotals = true, canDelete = true, canCreate = true, selectedWarehouseId }: BodegaGastosProps) {
     const [view, setView] = useState<"list" | "add">("list");
     const [page, setPage] = useState(1);
     const [search, setSearch] = useState("");
 
     // Convex Data
-    const items = useQuery(api.bodega_transactions.queries.listEgresos);
+    const items = useQuery(
+      api.bodega_transactions.queries.listEgresos,
+      selectedWarehouseId ? { bodegaId: selectedWarehouseId as any } : {}
+    );
 
     const filteredItems = useMemo(() => {
         if (!items) return [];

@@ -5,6 +5,7 @@ import { ConvexAuthProvider } from "@convex-dev/auth/react";
 import { ConvexReactClient } from "convex/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useState } from "react";
+import { WarehouseProvider } from "@/shared/context/warehouse-context";
 
 const convexUrl = process.env.NEXT_PUBLIC_CONVEX_URL;
 
@@ -24,8 +25,10 @@ export function Providers({ children }: { children: React.ReactNode }) {
     <ConvexAuthProvider client={convex}>
       <QueryClientProvider client={queryClient}>
         <HeroUIProvider>
-          {children}
-          <ToastProvider placement="top-right" />
+          <WarehouseProvider>
+            {children}
+            <ToastProvider placement="top-right" />
+          </WarehouseProvider>
         </HeroUIProvider>
       </QueryClientProvider>
     </ConvexAuthProvider>

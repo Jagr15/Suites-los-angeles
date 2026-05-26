@@ -36,6 +36,12 @@ export function useRoles() {
   const canAccessPath = (pathname: string) => {
     if (!pathname.startsWith("/dashboard")) return true;
     if (isAdmin) return true;
+
+    // Bodeguero: acceso exclusivo a Bodega y Mi Cuenta.
+    if (isBodega) {
+      return pathname.startsWith("/dashboard/bodega") || pathname.startsWith("/dashboard/cuenta");
+    }
+
     if (pathname.startsWith("/dashboard/configuracion")) {
       return hasPermission("settings:view") || hasPermission("settings:manage") || hasPermission("users:view") || hasPermission("users:manage");
     }
@@ -58,16 +64,6 @@ export function useRoles() {
       return hasPermission("warehouse:view") || hasPermission("warehouse:manage");
     }
     if (pathname.startsWith("/dashboard/cuenta")) return true;
-
-    if (isBodega) {
-      return (
-        pathname === "/dashboard" ||
-        pathname.startsWith("/dashboard/productos") ||
-        pathname.startsWith("/dashboard/proveedores") ||
-        pathname.startsWith("/dashboard/bodega") ||
-        pathname.startsWith("/dashboard/cuenta")
-      );
-    }
 
     if (isVendedor) {
       return (

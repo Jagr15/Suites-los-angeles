@@ -7,7 +7,6 @@ import {
   ChevronLeftIcon,
   ChevronRightIcon,
   HomeIcon,
-  ShoppingCartIcon,
   CubeIcon,
   UserGroupIcon,
   BuildingStorefrontIcon,
@@ -21,7 +20,6 @@ import {
   CompaniesDropdown,
   SidebarItem,
   SidebarMenu,
-  CollapseItems,
 } from "./sidebar";
 
 import { useQuery } from "convex/react";
@@ -40,7 +38,6 @@ export function DashboardSidebar() {
   const user = useQuery(api.users.queries.current);
   const { 
     isAdmin, 
-    isBodega, 
     isVendedor,
     role,
   } = useRoles();
@@ -96,16 +93,10 @@ export function DashboardSidebar() {
             className={`min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-contain py-5 scroll-smooth ${collapsed ? "flex flex-col items-center gap-2 px-2" : "px-3"}`}
             style={{ scrollbarGutter: "stable" }}
           >
-            <SidebarItem
-              title="Inicio"
-              icon={<HomeIcon className="size-5" />}
-              isActive={pathname === "/dashboard"}
-              href="/dashboard"
-              collapsed={collapsed}
-            />
+            <SidebarItem title="Inicio" icon={<HomeIcon className="size-5" />} isActive={pathname === "/dashboard"} href="/dashboard" collapsed={collapsed} />
 
             <SidebarMenu title="Menú principal" collapsed={collapsed}>
-              {(isAdmin || isBodega) && (
+              {isAdmin && (
                 <SidebarItem
                   title="Productos"
                   icon={<CubeIcon className="size-5" />}
@@ -114,7 +105,7 @@ export function DashboardSidebar() {
                   collapsed={collapsed}
                 />
               )}
-              {(isAdmin || isBodega) && (
+              {isAdmin && (
                 <SidebarItem
                   title="Proveedores"
                   icon={<UserGroupIcon className="size-5" />}
@@ -123,7 +114,7 @@ export function DashboardSidebar() {
                   collapsed={collapsed}
                 />
               )}
-              {(isAdmin || isBodega) && (
+              {isAdmin && (
                 <SidebarItem
                   title="Bodega"
                   icon={<BuildingStorefrontIcon className="size-5" />}

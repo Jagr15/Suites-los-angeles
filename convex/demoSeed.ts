@@ -849,6 +849,7 @@ async function ensureSalida(
   summary: DemoSummary,
   input: {
     numeroSalida: string;
+    bodegaId: Id<"bodegas">;
     fecha: string;
     responsable: string;
     almacen: string;
@@ -869,6 +870,7 @@ async function ensureSalida(
 
   const id = await ctx.db.insert("salidas", {
     numeroSalida: input.numeroSalida,
+    bodegaId: input.bodegaId,
     fecha: input.fecha,
     status: "Creado",
     responsable: input.responsable,
@@ -1328,6 +1330,7 @@ export const createMinimumDemoData = mutation({
       await Promise.all([
         ensureSalida(ctx, summary, {
           numeroSalida: "DEMO-SAL-001",
+          bodegaId: bodegas[0]._id,
           fecha: todayISO(),
           responsable: vendedor.name || "Vendedor Demo",
           almacen: bodegas[0].name,
@@ -1341,6 +1344,7 @@ export const createMinimumDemoData = mutation({
         }),
         ensureSalida(ctx, summary, {
           numeroSalida: "DEMO-SAL-002",
+          bodegaId: bodegas[1]._id,
           fecha: todayISO(),
           responsable: vendedor.name || "Vendedor Demo",
           almacen: bodegas[1].name,
@@ -1353,6 +1357,7 @@ export const createMinimumDemoData = mutation({
         }),
         ensureSalida(ctx, summary, {
           numeroSalida: "DEMO-SAL-003",
+          bodegaId: bodegas[2]._id,
           fecha: todayISO(),
           responsable: vendedor.name || "Vendedor Demo",
           almacen: bodegas[2].name,

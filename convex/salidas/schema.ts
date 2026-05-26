@@ -3,6 +3,7 @@ import { v } from "convex/values";
 
 export const salidaFields = {
   numeroSalida: v.string(),
+  bodegaId: v.optional(v.id("bodegas")),
   fecha: v.string(),
   status: v.string(),
   responsable: v.string(),
@@ -36,5 +37,6 @@ export const salidaFields = {
 
 export const salidasTable = defineTable(salidaFields)
   .index("by_numeroSalida", ["numeroSalida"])
+  .index("by_bodegaId", ["bodegaId"])
   .index("by_status", ["status"])
   .index("by_tipo", ["tipo"]);

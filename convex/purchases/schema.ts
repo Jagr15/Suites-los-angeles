@@ -35,6 +35,7 @@ export const purchaseItemFields = {
 
 export const purchasesTable = defineTable(purchaseFields)
   .index("by_supplierId", ["supplierId"])
+  .index("by_bodegaId", ["bodegaId"])
   .index("by_folio", ["folio"])
   .index("by_status", ["status"])
   .index("by_dueDate", ["dueDate"]);

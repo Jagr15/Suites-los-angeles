@@ -13,6 +13,7 @@ import {
   Input,
   Textarea,
   Switch,
+  Checkbox,
 } from "@heroui/react";
 import { almacenSchema, type AlmacenFormValues, type Almacen } from "@/shared/schemas";
 
@@ -22,6 +23,7 @@ interface BodegaModalProps {
   bodega: Almacen | null;
   onSubmit: (values: AlmacenFormValues) => Promise<void>;
   isLoading?: boolean;
+  bodegueroUsers?: Array<{ _id: string; name?: string; email?: string }>;
 }
 
 export function BodegaModal({
@@ -30,6 +32,7 @@ export function BodegaModal({
   bodega,
   onSubmit,
   isLoading,
+  bodegueroUsers = [],
 }: BodegaModalProps) {
   const {
     control,
@@ -43,6 +46,7 @@ export function BodegaModal({
       description: "",
       address: "",
       isActive: true,
+      allowedUserIds: [],
     },
   });
 
@@ -56,6 +60,7 @@ export function BodegaModal({
           manager: bodega.manager || "",
           phone: bodega.phone || "",
           isActive: bodega.isActive,
+          allowedUserIds: (bodega as any).allowedUserIds || [],
         });
       } else {
         reset({
@@ -65,6 +70,7 @@ export function BodegaModal({
           manager: "",
           phone: "",
           isActive: true,
+          allowedUserIds: [],
         });
       }
     }
@@ -164,6 +170,39 @@ export function BodegaModal({
                     color="success"
                     size="sm"
                   />
+                )}
+              />
+            </div>
+            <div className="space-y-2">
+              <p className="text-small font-medium text-default-700">Usuarios con acceso</p>
+              <Controller
+                name="allowedUserIds"
+                control={control}
+                render={({ field }) => (
+                  <div className="max-h-40 overflow-auto rounded-lg border border-default-200 p-2 space-y-1">
+                    {bodegueroUsers.length === 0 ? (
+                      <p className="text-xs text-default-500">No hay usuarios bodegueros disponibles.</p>
+                    ) : (
+                      bodegueroUsers.map((user) => {
+                        const selected = (field.value || []).includes(user._id);
+                        return (
+                          <Checkbox
+                            key={user._id}
+                            isSelected={selected}
+                            onValueChange={(isSelected) => {
+                              const current = field.value || [];
+                              const next = isSelected
+                                ? [...current, user._id]
+                                : current.filter((id: string) => id !== user._id);
+                              field.onChange(next);
+                            }}
+                          >
+                            {(user.name || user.email || user._id).trim()}
+                          </Checkbox>
+                        );
+                      })
+                    )}
+                  </div>
                 )}
               />
             </div>

@@ -3,13 +3,14 @@
 import { useState, useCallback, useMemo, useEffect } from "react";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
-import { addToast, Button, useDisclosure } from "@heroui/react";
+import { addToast, Button, Select, SelectItem, useDisclosure } from "@heroui/react";
 import { ConfirmModal } from "@/shared/components";
 import { useRoles } from "@/shared/hooks";
 import { BodegaHeader, BodegaToolbar, BodegaTable, BodegaEntradasTable, BodegaSalidaForm, BodegaEntradaForm, BodegaInventory, BodegaNominas, BodegaSalidas, BodegaGastos, BodegaIngresos, BodegaDeudas, BodegaInventoryForm, BodegaIngresoForm, BodegaGastoForm } from "../components";
 import { BodegaModal as BodegaCatalogModal } from "@/features/configuracion/components/bodegas/BodegaModal";
 import { mockNominas, mockSalidas, mockGastos, mockIngresos, type NominaRow, type SalidaRow, type GastoRow, type IngresoRow } from "@/shared/mocks";
 import { PlusIcon } from "@heroicons/react/24/outline";
+import { useWarehouse } from "@/shared/context/warehouse-context";
 
 type TabKey = "entradas" | "salidas" | "inventario" | "ingresos" | "egresos" | "nominas" | "catalogo";
 
@@ -26,17 +27,20 @@ const TIPO_LABELS: Record<TabKey, string> = {
 export function BodegaPage() {
   const [view, setView] = useState<"list" | "form">("list");
   const [activeTab, setActiveTab] = useState<TabKey>("entradas");
+  const { hasPermission, isAdmin, isSuperAdmin } = useRoles();
   // Convex Data
-  const bodegas = useQuery(api.bodegas.queries.list);
-  const purchases = useQuery(api.purchases.queries.list);
+  const { selectedWarehouseId, setSelectedWarehouseId } = useWarehouse();
+  const accessibleBodegas = useQuery(api.bodegas.queries.listAccessible);
+  const purchases = useQuery(api.purchases.queries.list, selectedWarehouseId ? { bodegaId: selectedWarehouseId as any } : "skip");
   const suppliers = useQuery(api.suppliers.queries.list);
   const products = useQuery(api.products.queries.list);
-  const salidas = useQuery(api.salidas.queries.list);
+  const salidas = useQuery(api.salidas.queries.list, selectedWarehouseId ? { bodegaId: selectedWarehouseId as any } : "skip");
+  const allBodegas = useQuery(api.bodegas.queries.list, isAdmin ? {} : "skip");
+  const users = useQuery(api.users.queries.listAll, isAdmin ? {} : "skip");
   const createSalida = useMutation(api.salidas.mutations.create);
   const updateSalida = useMutation(api.salidas.mutations.update);
   const removeSalida = useMutation(api.salidas.mutations.remove);
   const updateReceptionStatus = useMutation(api.purchases.mutations.updateReceptionStatus);
-  const { hasPermission, isAdmin, isSuperAdmin } = useRoles();
   const canViewInventoryTab = isAdmin || hasPermission("warehouse:allow_inventory_tab");
   const canAdjustInventory = isAdmin || hasPermission("inventory:allow_manual_adjustments");
   const canAssignRouteResponsible =
@@ -76,6 +80,8 @@ export function BodegaPage() {
   const removeBodega = useMutation(api.bodegas.mutations.remove);
 
   const createPurchase = useMutation(api.purchases.mutations.create);
+  const reservePurchaseFolio = useMutation(api.purchases.mutations.reserveFolio);
+  const reserveSalidaFolio = useMutation(api.salidas.mutations.reserveFolio);
   const updatePurchase = useMutation(api.purchases.mutations.update);
   const removePurchase = useMutation(api.purchases.mutations.remove);
 
@@ -87,11 +93,57 @@ export function BodegaPage() {
   const [salidaToDelete, setSalidaToDelete] = useState<SalidaRow | null>(null);
   const [selectedNomina, setSelectedNomina] = useState<NominaRow | null>(null);
   const [selectedCarga, setSelectedCarga] = useState<any>(null);
+  const [reservedEntradaFolio, setReservedEntradaFolio] = useState<string>("");
+  const [reservedEntradaFolioNumber, setReservedEntradaFolioNumber] = useState<number | undefined>(undefined);
+  const [reservedSalidaFolio, setReservedSalidaFolio] = useState<string>("");
+
+  const availableBodegas = useMemo(() => accessibleBodegas || [], [accessibleBodegas]);
+  const isWarehousesLoading = accessibleBodegas === undefined;
+  const hasWarehouses = availableBodegas.length > 0;
+  const selectedBodegaDoc = useMemo(
+    () => availableBodegas.find((b) => String(b._id) === String(selectedWarehouseId)) || null,
+    [availableBodegas, selectedWarehouseId]
+  );
+  const hasValidSelectedWarehouse = !!selectedWarehouseId && !!selectedBodegaDoc;
+  const safeSelectedWarehouseKeys = hasValidSelectedWarehouse && selectedWarehouseId ? [selectedWarehouseId] : [];
+  const bodegueroUsers = useMemo(
+    () =>
+      (users || []).filter((u: any) => {
+        const role = String(u?.roleData?.name || u?.role || "").toLowerCase();
+        return role === "bodeguero" || role === "bodega";
+      }),
+    [users]
+  );
+
+  useEffect(() => {
+    if (!availableBodegas.length) return;
+    if (!selectedWarehouseId) {
+      setSelectedWarehouseId(String(availableBodegas[0]._id));
+      return;
+    }
+    const stillAllowed = availableBodegas.some((b) => String(b._id) === String(selectedWarehouseId));
+    if (!stillAllowed) {
+      setSelectedWarehouseId(String(availableBodegas[0]._id));
+    }
+  }, [availableBodegas, selectedWarehouseId, setSelectedWarehouseId]);
 
   const handleAgregar = useCallback(() => {
+    if (!hasValidSelectedWarehouse) {
+      addToast({ title: "Selecciona una bodega", color: "warning" });
+      return;
+    }
     setBodegaToEdit(null);
+    if (activeTab === "entradas") {
+      reservePurchaseFolio().then((folio) => {
+        setReservedEntradaFolio(folio.folio);
+        setReservedEntradaFolioNumber(folio.folioNumber);
+      });
+    }
+    if (activeTab === "salidas") {
+      reserveSalidaFolio().then((folio) => setReservedSalidaFolio(folio.numeroSalida));
+    }
     setView("form");
-  }, []);
+  }, [activeTab, hasValidSelectedWarehouse, reservePurchaseFolio, reserveSalidaFolio]);
 
   const handleVer = useCallback((item: any) => {
     setSelectedCarga(item);
@@ -127,6 +179,8 @@ export function BodegaPage() {
           status: editId ? (canEditPayment ? status : existing?.status) : status,
           receptionStatus: editId ? (canEditReception ? receptionStatus : existing?.receptionStatus) : receptionStatus,
           notes,
+          folio: values.folio || undefined,
+          folioNumber: values.folioNumber || undefined,
           items: cleanItems
         };
 
@@ -171,6 +225,7 @@ export function BodegaPage() {
           responsable: values.responsable,
           tipoEntrega: values.tipoEntrega,
           almacen: values.almacen || "",
+          bodegaId: values.bodegaId,
           agente: values.agente || values.responsable || "",
           clienteDireccion: values.clienteDireccion || "",
           ruta: values.ruta || "",
@@ -239,8 +294,13 @@ export function BodegaPage() {
   }, [bodegaToDelete, removePurchase]);
 
   const handlePasarASalida = useCallback((item: any) => {
+    if (!selectedWarehouseId) {
+      addToast({ title: "Selecciona una bodega", color: "warning" });
+      return;
+    }
     const payload = {
       numeroSalida: `SAL-${item.folio || Math.floor(Math.random() * 1000)}`,
+      bodegaId: selectedWarehouseId,
       responsable: "Bodega",
       fecha: new Date().toISOString().split("T")[0],
       status: "Creado",
@@ -253,7 +313,7 @@ export function BodegaPage() {
       items: [], // En una implementación real, aquí se pasarían los items de la entrada
     };
     
-    createSalida(payload);
+    createSalida(payload as any);
     setActiveTab("salidas");
 
     addToast({
@@ -261,7 +321,7 @@ export function BodegaPage() {
       description: `La carga ${item.numeroCarga || "seleccionada"} pasó a salidas exitosamente.`,
       color: "success"
     });
-  }, [createSalida, setActiveTab]);
+  }, [createSalida, selectedWarehouseId, setActiveTab]);
 
   const handleAvanzarEntrada = useCallback(async (item: any) => {
     try {
@@ -284,11 +344,46 @@ export function BodegaPage() {
       <div className="flex-1 p-4 md:p-5">
         {view === "list" ? (
           <div className="mx-auto space-y-4">
+            {isWarehousesLoading ? (
+              <div className="flex h-48 items-center justify-center rounded-xl border border-default-200 bg-content1">
+                <p className="text-default-500">Cargando bodegas...</p>
+              </div>
+            ) : !hasWarehouses ? (
+              <div className="flex h-48 items-center justify-center rounded-xl border border-dashed border-default-300 bg-content1">
+                <p className="text-default-500">No hay bodegas registradas. Crea una bodega para iniciar.</p>
+              </div>
+            ) : !hasValidSelectedWarehouse ? (
+              <div className="flex h-48 items-center justify-center rounded-xl border border-default-200 bg-content1">
+                <p className="text-default-500">Inicializando bodega activa...</p>
+              </div>
+            ) : (
+              <>
             <BodegaHeader
               selectedKey={activeTab}
               onSelectionChange={(key) => setActiveTab(key as TabKey)}
               visibleTabs={visibleTabs}
             />
+            <div className="flex items-center gap-3 rounded-lg border border-default-200 bg-default-50 px-3 py-2">
+              <span className="text-xs font-semibold text-default-600">
+                Bodega actual: {selectedBodegaDoc?.name || "Sin bodega seleccionada"}
+              </span>
+              {availableBodegas.length > 1 ? (
+                <Select
+                  size="sm"
+                  selectedKeys={safeSelectedWarehouseKeys}
+                  onSelectionChange={(keys) => {
+                    const next = Array.from(keys)[0];
+                    setSelectedWarehouseId(next ? String(next) : null);
+                  }}
+                  className="max-w-xs"
+                  aria-label="Selector de bodega"
+                >
+                  {availableBodegas.map((b) => (
+                    <SelectItem key={String(b._id)}>{b.name}</SelectItem>
+                  ))}
+                </Select>
+              ) : null}
+            </div>
             {(activeTab === "entradas" || (activeTab === "nominas" && canViewPayroll)) && (
               <BodegaToolbar
                 onAgregar={handleAgregar}
@@ -321,11 +416,11 @@ export function BodegaPage() {
                   </Button>
                 </div>
                 <BodegaTable 
-                  items={bodegas || []} 
+                  items={allBodegas || []} 
                   onEdit={(b) => { setSelectedBodega(b); onOpenBodegaModal(); }} 
                   onDelete={setBodegaToDeleteRecord} 
                   canDelete={canDeleteRecords}
-                  isLoading={bodegas === undefined}
+                  isLoading={allBodegas === undefined}
                 />
               </div>
             ) : activeTab === "salidas" ? (
@@ -347,6 +442,7 @@ export function BodegaPage() {
               />
             ) : activeTab === "egresos" ? (
               <BodegaGastos
+                selectedWarehouseId={selectedWarehouseId || undefined}
                 canShowDailyTotals={canShowDailyTotals}
                 canDelete={canDeleteRecords}
                 canCreate={canCreateEgresos}
@@ -362,6 +458,7 @@ export function BodegaPage() {
               )
             ) : activeTab === "ingresos" ? (
               <BodegaIngresos
+                selectedWarehouseId={selectedWarehouseId || undefined}
                 canShowDailyTotals={canShowDailyTotals}
                 canDelete={canDeleteRecords}
                 canCreate={canCreateIngresos}
@@ -373,12 +470,22 @@ export function BodegaPage() {
                 </p>
               </div>
             )}
+              </>
+            )}
           </div>
         ) : (
+          !hasValidSelectedWarehouse ? (
+            <div className="mx-auto flex h-48 items-center justify-center rounded-xl border border-default-200 bg-content1">
+              <p className="text-default-500">Seleccionando bodega activa...</p>
+            </div>
+          ) : (
           activeTab === "salidas" || salidaToEdit ? (
             <BodegaSalidaForm
               key={salidaToEdit?._id || "new-salida"}
               salida={salidaToEdit}
+              selectedWarehouseId={selectedWarehouseId || ""}
+              selectedWarehouseName={selectedBodegaDoc?.name || ""}
+              reservedFolio={reservedSalidaFolio}
               onSubmit={handleSubmitSalida}
               canAssignResponsible={canAssignRouteResponsible}
               onCancel={() => {
@@ -406,6 +513,10 @@ export function BodegaPage() {
             <BodegaEntradaForm
               key={bodegaToEdit?._id || "new-entrada"}
               entrada={bodegaToEdit}
+              selectedWarehouseId={selectedWarehouseId || ""}
+              selectedWarehouseName={selectedBodegaDoc?.name || ""}
+              reservedFolio={reservedEntradaFolio}
+              reservedFolioNumber={reservedEntradaFolioNumber}
               onSubmit={handleSubmitEntrada}
               canEditPaymentStatus={isAdmin || hasPermission("purchases:edit_payment_status")}
               canEditReceptionStatus={isAdmin || hasPermission("purchases:edit_reception_status")}
@@ -416,6 +527,7 @@ export function BodegaPage() {
                 setView("list");
               }}
             />
+          )
           )
         )}
       </div>
@@ -449,12 +561,13 @@ export function BodegaPage() {
         isOpen={isBodegaModalOpen}
         onClose={onCloseBodegaModal}
         bodega={selectedBodega}
+        bodegueroUsers={bodegueroUsers.map((u: any) => ({ _id: String(u._id), name: u.name, email: u.email }))}
         onSubmit={async (values) => {
           if (selectedBodega) {
-            await updateBodega({ id: selectedBodega._id, ...values });
+            await updateBodega({ id: selectedBodega._id, ...(values as any) } as any);
             addToast({ title: "Bodega actualizada", color: "success" });
           } else {
-            await createBodega(values);
+            await createBodega(values as any);
             addToast({ title: "Bodega creada", color: "success" });
           }
         }}

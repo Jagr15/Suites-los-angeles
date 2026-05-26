@@ -15,9 +15,15 @@ export const listCategories = query({
 });
 
 export const listIngresos = query({
-  args: {},
-  handler: async (ctx) => {
-    const ingresos = await ctx.db.query("bodega_ingresos").order("desc").collect();
+  args: { bodegaId: v.optional(v.id("bodegas")) },
+  handler: async (ctx, args) => {
+    const ingresos = args.bodegaId
+      ? await ctx.db
+          .query("bodega_ingresos")
+          .withIndex("by_bodegaId", (q) => q.eq("bodegaId", args.bodegaId!))
+          .order("desc")
+          .collect()
+      : await ctx.db.query("bodega_ingresos").order("desc").collect();
     return Promise.all(
       ingresos.map(async (ingreso) => {
         const category = await ctx.db.get(ingreso.categoryId);
@@ -33,9 +39,15 @@ export const listIngresos = query({
 });
 
 export const listEgresos = query({
-  args: {},
-  handler: async (ctx) => {
-    const egresos = await ctx.db.query("bodega_egresos").order("desc").collect();
+  args: { bodegaId: v.optional(v.id("bodegas")) },
+  handler: async (ctx, args) => {
+    const egresos = args.bodegaId
+      ? await ctx.db
+          .query("bodega_egresos")
+          .withIndex("by_bodegaId", (q) => q.eq("bodegaId", args.bodegaId!))
+          .order("desc")
+          .collect()
+      : await ctx.db.query("bodega_egresos").order("desc").collect();
     return Promise.all(
       egresos.map(async (egreso) => {
         const category = await ctx.db.get(egreso.categoryId);
@@ -49,4 +61,3 @@ export const listEgresos = query({
     );
   },
 });
-

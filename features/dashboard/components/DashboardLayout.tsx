@@ -1,7 +1,7 @@
 "use client";
 
 import { useConvexAuth } from "convex/react";
-import { Button, Spinner } from "@heroui/react";
+import { Button, Dropdown, DropdownItem, DropdownMenu, DropdownTrigger, Spinner } from "@heroui/react";
 import { useRouter } from "next/navigation";
 import { usePathname } from "next/navigation";
 import { useEffect } from "react";
@@ -9,19 +9,51 @@ import { DashboardSidebar } from "./DashboardSidebar";
 import { SidebarProvider, useSidebarContext } from "./layout/layout-context";
 import { useRoles } from "@/shared/hooks";
 import { useAuthActions } from "@convex-dev/auth/react";
+import { useQuery } from "convex/react";
+import { api } from "@/convex/_generated/api";
+import { ChevronDownIcon } from "@heroicons/react/24/outline";
 
 const SIDEBAR_WIDTH = 272;
 const SIDEBAR_WIDTH_COLLAPSED = 80;
 
-function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
+function DashboardLayoutInner({ children, isBodega }: { children: React.ReactNode; isBodega: boolean }) {
   const { collapsed } = useSidebarContext();
+  const { signOut } = useAuthActions();
+  const router = useRouter();
+  const user = useQuery(api.users.queries.current);
+  const marginLeft = isBodega ? 0 : collapsed ? SIDEBAR_WIDTH_COLLAPSED : SIDEBAR_WIDTH;
+
+  const handleLogout = async () => {
+    await signOut();
+    router.replace("/login");
+  };
+
   return (
     <div className="flex min-h-screen bg-default-100">
-      <DashboardSidebar />
+      {!isBodega && <DashboardSidebar />}
       <div
         className="flex min-w-0 flex-1 flex-col transition-[margin] duration-300"
-        style={{ marginLeft: collapsed ? SIDEBAR_WIDTH_COLLAPSED : SIDEBAR_WIDTH }}
+        style={{ marginLeft }}
       >
+        {isBodega && (
+          <header className="sticky top-0 z-20 border-b border-default-200 bg-content1/95 px-4 py-3 backdrop-blur md:px-5">
+            <div className="flex items-center justify-end">
+              <Dropdown placement="bottom-end">
+                <DropdownTrigger>
+                  <Button variant="flat" endContent={<ChevronDownIcon className="size-4" />}>
+                    {user?.name || "Usuario"}
+                  </Button>
+                </DropdownTrigger>
+                <DropdownMenu aria-label="Acciones de cuenta">
+                  <DropdownItem key="account" onPress={() => router.push("/dashboard/cuenta")}>Mi cuenta</DropdownItem>
+                  <DropdownItem key="logout" color="danger" onPress={handleLogout}>
+                    Cerrar sesión
+                  </DropdownItem>
+                </DropdownMenu>
+              </Dropdown>
+            </div>
+          </header>
+        )}
         <main className="flex-1">{children}</main>
       </div>
     </div>
@@ -30,7 +62,7 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
 
 export function DashboardLayout({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, isLoading: isAuthLoading } = useConvexAuth();
-  const { isActive, isVendedor, isLoading: isRolesLoading, canAccessPath } = useRoles();
+  const { isActive, isBodega, isVendedor, isLoading: isRolesLoading, canAccessPath } = useRoles();
   const { signOut } = useAuthActions();
   const router = useRouter();
   const pathname = usePathname();
@@ -46,9 +78,9 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (!isLoading && isAuthenticated && !canAccessPath(pathname)) {
-      router.replace("/dashboard");
+      router.replace(isBodega ? "/dashboard/bodega" : "/dashboard");
     }
-  }, [isLoading, isAuthenticated, canAccessPath, pathname, router]);
+  }, [isLoading, isAuthenticated, canAccessPath, pathname, isBodega, router]);
 
   useEffect(() => {
     if (!isLoading && isAuthenticated && isVendedor) {
@@ -111,7 +143,7 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
   // Si llegamos aquí, es que estamos autenticados
   return (
     <SidebarProvider>
-      <DashboardLayoutInner>{children}</DashboardLayoutInner>
+      <DashboardLayoutInner isBodega={isBodega}>{children}</DashboardLayoutInner>
     </SidebarProvider>
   );
 }

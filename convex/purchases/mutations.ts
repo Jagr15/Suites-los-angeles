@@ -1,7 +1,7 @@
 import { mutation } from "../_generated/server";
 import { v } from "convex/values";
 import { purchaseFields } from "./schema";
-import { hasPermission, isAdmin, requireIdentity, requirePermission } from "../common/utils";
+import { hasPermission, isAdmin, requireIdentity, requirePermission, requireWarehouseAccess } from "../common/utils";
 import type { Id } from "../_generated/dataModel";
 import type { MutationCtx } from "../_generated/server";
 
@@ -240,6 +240,8 @@ export const create = mutation({
     status: purchaseFields.status,
     receptionStatus: purchaseFields.receptionStatus,
     notes: purchaseFields.notes,
+    folio: v.optional(v.string()),
+    folioNumber: v.optional(v.number()),
     items: v.optional(
       v.array(
         v.object({
@@ -251,7 +253,7 @@ export const create = mutation({
       )
     ),
   },
-  handler: async (ctx, { items = [], ...args }) => {
+  handler: async (ctx, { items = [], folio, folioNumber, ...args }) => {
     await requireIdentity(ctx);
     await requirePermission(
       ctx,
@@ -261,8 +263,16 @@ export const create = mutation({
 
     const supplier = await ctx.db.get(args.supplierId);
     if (!supplier) throw new Error("Proveedor no encontrado");
+    await requireWarehouseAccess(ctx, args.bodegaId);
 
-    const generatedFolio = await getNextPurchaseFolio(ctx);
+    const generatedFolio = folio && folioNumber
+      ? { folio, folioNumber }
+      : await getNextPurchaseFolio(ctx);
+    const existingFolio = await ctx.db
+      .query("purchases")
+      .withIndex("by_folio", (q) => q.eq("folio", generatedFolio.folio))
+      .unique();
+    if (existingFolio) throw new Error("El folio de entrada ya existe.");
     const dueDate = toDueDate(args.date, supplier.creditDays || 0);
     const isPaid = args.status === "Pagado";
     const isCancelled = args.status === "Cancelado";
@@ -335,6 +345,8 @@ export const update = mutation({
     if (!existingPurchase) {
       throw new Error("Compra no encontrada");
     }
+    await requireWarehouseAccess(ctx, existingPurchase.bodegaId);
+    await requireWarehouseAccess(ctx, fields.bodegaId);
 
     const existingItems = await ctx.db
       .query("purchase_items")
@@ -471,6 +483,15 @@ export const update = mutation({
     }
 
     return id;
+  },
+});
+
+export const reserveFolio = mutation({
+  args: {},
+  handler: async (ctx) => {
+    await requireIdentity(ctx);
+    const generatedFolio = await getNextPurchaseFolio(ctx);
+    return generatedFolio;
   },
 });
 

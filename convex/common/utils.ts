@@ -1,6 +1,7 @@
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { QueryCtx, MutationCtx } from "../_generated/server";
 import { getEffectivePermissions } from "../../shared/security/permissions";
+import type { Id } from "../_generated/dataModel";
 
 function looksLikeConvexId(value: string) {
   const trimmed = value.trim();
@@ -166,4 +167,32 @@ export async function requireIdentity(ctx: QueryCtx | MutationCtx) {
     throw new Error("No autenticado");
   }
   return userId;
+}
+
+export async function getAccessibleWarehouseIds(ctx: QueryCtx | MutationCtx) {
+  if (await isAdmin(ctx)) {
+    const bodegas = await ctx.db.query("bodegas").collect();
+    return bodegas.map((b) => b._id);
+  }
+  const current = await getCurrentUserWithRole(ctx);
+  if (!current) return [] as Id<"bodegas">[];
+  const userId = current.user._id;
+  const bodegas = await ctx.db.query("bodegas").collect();
+  return bodegas
+    .filter((b) => (b.allowedUserIds || []).some((id) => String(id) === String(userId)))
+    .map((b) => b._id);
+}
+
+export async function requireWarehouseAccess(
+  ctx: QueryCtx | MutationCtx,
+  bodegaId: Id<"bodegas">,
+  message = "Acceso denegado: no tienes acceso a esta bodega."
+) {
+  if (await isAdmin(ctx)) return;
+  const current = await getCurrentUserWithRole(ctx);
+  if (!current) throw new Error(message);
+  const bodega = await ctx.db.get(bodegaId);
+  if (!bodega) throw new Error("Bodega no encontrada.");
+  const allowed = (bodega.allowedUserIds || []).some((id) => String(id) === String(current.user._id));
+  if (!allowed) throw new Error(message);
 }

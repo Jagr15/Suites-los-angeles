@@ -29,7 +29,7 @@ import {
 } from "@heroicons/react/24/outline";
 import { Client, ROUTES } from "./types";
 import { StateSelector, MunicipalitySelector, LocalitySelector } from "@/shared/components/locations";
-import { parseCoordinatesFromMapsUrl } from "./location-utils";
+import { getAddressReferenceFromMapsUrl, getGoogleMapsEmbedSrc, parseCoordinatesFromMapsUrl } from "./location-utils";
 
 interface ClientModalProps {
   isOpen: boolean;
@@ -38,20 +38,6 @@ interface ClientModalProps {
   onSave: (data: ClientFormValues) => void;
   onClose: () => void;
   isLoading?: boolean;
-}
-
-function getAddressReferenceFromMapsUrl(mapsUrl?: string): string {
-  const raw = (mapsUrl || "").trim();
-  if (!raw) return "";
-  try {
-    const url = new URL(raw);
-    const query = url.searchParams.get("query") || url.searchParams.get("q");
-    if (!query) return "";
-    const decoded = decodeURIComponent(query).trim();
-    return decoded;
-  } catch {
-    return raw;
-  }
 }
 
 function buildMapsSearchUrl(reference: string): string {
@@ -119,6 +105,7 @@ export function ClientModal({
   const townName = watch("townName");
   const municipalityName = watch("municipalityName");
   const stateName = watch("stateName");
+  const embedSrc = getGoogleMapsEmbedSrc(lat, lng, mapsUrl);
 
   useEffect(() => {
     if (typeof lat === "number" && typeof lng === "number") {
@@ -430,22 +417,23 @@ export function ClientModal({
                       />
                     </div>
                     <div className="md:col-span-2">
-                      <p className="text-tiny text-default-500">
-                        La ubicación exacta puede agregarse posteriormente.
-                      </p>
-                      {mapsUrl ? (
-                        <Button
-                          as="a"
-                          href={mapsUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          size="sm"
-                          variant="flat"
-                          className="mt-2"
-                        >
-                          Abrir en Google Maps
-                        </Button>
-                      ) : null}
+                      <div className="rounded-xl border border-default-200 bg-content1 p-2">
+                        {embedSrc ? (
+                          <div className="overflow-hidden rounded-lg border border-default-200">
+                            <iframe
+                              title="Mapa de ubicación del cliente"
+                              src={embedSrc}
+                              className="h-40 w-full"
+                              loading="lazy"
+                              referrerPolicy="no-referrer-when-downgrade"
+                            />
+                          </div>
+                        ) : (
+                          <div className="flex h-40 items-center justify-center rounded-lg border border-dashed border-default-300 text-sm text-default-500">
+                            Ubicación no registrada
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </div>

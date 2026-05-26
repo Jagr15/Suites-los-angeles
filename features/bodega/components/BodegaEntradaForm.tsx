@@ -41,6 +41,7 @@ type EntryItem = {
 
 type BodegaEntradaFormValues = {
     folio: string;
+    folioNumber?: number;
     supplierId: string;
     bodegaId: string;
     date: string;
@@ -74,6 +75,10 @@ const parseCurrency = (val: string | number) => {
 
 type BodegaEntradaFormProps = {
     entrada?: (BodegaRow & { _id?: string; receptionStatus?: string; recepcion?: string; items?: EntryItem[] }) | null;
+    selectedWarehouseId: string;
+    selectedWarehouseName: string;
+    reservedFolio?: string;
+    reservedFolioNumber?: number;
     onSubmit: (data: BodegaEntradaFormValues, editId?: string) => void;
     canEditPaymentStatus?: boolean;
     canEditReceptionStatus?: boolean;
@@ -83,6 +88,10 @@ type BodegaEntradaFormProps = {
 
 export function BodegaEntradaForm({
     entrada,
+    selectedWarehouseId,
+    selectedWarehouseName,
+    reservedFolio,
+    reservedFolioNumber,
     onSubmit,
     canEditPaymentStatus = false,
     canEditReceptionStatus = false,
@@ -94,7 +103,6 @@ export function BodegaEntradaForm({
     // Convex Data
     const rawProducts = useQuery(api.products.queries.list) || [];
     const suppliers = useQuery(api.suppliers.queries.list) || [];
-    const bodegas = useQuery(api.bodegas.queries.list) || [];
     const products = useMemo(() => {
         return rawProducts.map((raw) => {
             const p = raw as Record<string, unknown>;
@@ -110,7 +118,7 @@ export function BodegaEntradaForm({
     
     const [selectedProduct, setSelectedProduct] = useState<(typeof products)[number] | null>(null);
     const [productInput, setProductInput] = useState("");
-    const [addQty, setAddQty] = useState("100");
+    const [addQty, setAddQty] = useState("");
     const [addCost, setAddCost] = useState("0");
 
     const {
@@ -153,12 +161,20 @@ export function BodegaEntradaForm({
         } else {
             reset({
                 ...defaultValues,
-                folio: "Se genera al guardar",
+                folio: reservedFolio || "Se genera al guardar",
+                folioNumber: reservedFolioNumber,
+                bodegaId: selectedWarehouseId,
                 date: new Date().toISOString().split("T")[0],
                 items: [],
             });
         }
-    }, [entrada, reset, setValue]);
+    }, [entrada, reset, reservedFolio, reservedFolioNumber, selectedWarehouseId, setValue]);
+
+    useEffect(() => {
+      if (!isEdit && selectedWarehouseId) {
+        setValue("bodegaId", selectedWarehouseId);
+      }
+    }, [isEdit, selectedWarehouseId, setValue]);
 
     const productInputRef = useRef<HTMLInputElement>(null);
     const qtyInputRef = useRef<HTMLInputElement>(null);
@@ -233,7 +249,7 @@ export function BodegaEntradaForm({
         setValue("items", [...formItems, newProduct]);
         setSelectedProduct(null);
         setProductInput("");
-        setAddQty("100");
+        setAddQty("");
         setAddCost("");
         setTimeout(() => {
             productInputRef.current?.focus();
@@ -260,7 +276,7 @@ export function BodegaEntradaForm({
                         <h2 className="text-base font-semibold text-default-800 leading-none">
                             {isEdit ? "Editar Entrada" : "Registro de Entrada"}
                         </h2>
-                        <p className="text-[11px] text-default-400 mt-1">Complete la información del documento</p>
+                        <p className="text-[11px] text-default-400 mt-1">Captura rápida de productos</p>
                     </div>
                 </div>
 
@@ -334,38 +350,11 @@ export function BodegaEntradaForm({
                         <BuildingStorefrontIcon className="size-4 text-secondary" />
                         <h3 className="text-xs font-bold uppercase text-secondary/80">Almacén Destino</h3>
                     </div>
-                    <Controller
-                        name="bodegaId"
-                        control={control}
-                        render={({ field }) => (
-                            <Autocomplete
-                                defaultItems={bodegas}
-                                placeholder="Seleccionar bodega..."
-                                className="w-full"
-                                onSelectionChange={(val) => field.onChange(val ? String(val) : "")}
-                                selectedKey={field.value || null}
-                                variant="flat"
-                                color="secondary"
-                                size="md"
-                                classNames={{
-                                    base: "w-full",
-                                    listbox: "rounded-2xl",
-                                    popoverContent: "rounded-2xl shadow-xl",
-                                }}
-                                inputProps={{
-                                    classNames: {
-                                        inputWrapper: "rounded-lg bg-default-50 font-semibold min-h-10",
-                                        input: "text-sm font-semibold",
-                                    }
-                                }}
-                            >
-                                {(item) => (
-                                    <AutocompleteItem key={item._id} textValue={item.name} className="rounded-xl">
-                                        <span className="font-bold text-sm text-default-800">{item.name}</span>
-                                    </AutocompleteItem>
-                                )}
-                            </Autocomplete>
-                        )}
+                    <Input
+                      value={selectedWarehouseName || "Bodega no seleccionada"}
+                      isReadOnly
+                      variant="flat"
+                      color="secondary"
                     />
                 </div>
             </div>

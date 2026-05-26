@@ -125,7 +125,6 @@ const warehouseDefaults = new Set<string>([
   "inventory:edit",
   "warehouse:view",
   "warehouse:edit",
-  "routes:view",
   "warehouse:allow_inventory_tab",
   "inventory:allow_manual_adjustments",
   "purchases:allow_create_entries",
@@ -165,6 +164,11 @@ export const warehousePermissionKeys = new Set<string>([
   "payroll:allow_mark_as_delivered",
   "evidence:require_photos_for_entries_expenses",
   "records:restrict_delete",
+]);
+
+export const BODEGUERO_FIXED_PERMISSION_KEYS = new Set<string>([
+  "warehouse:view",
+  "warehouse:edit",
 ]);
 
 export const sellerPermissions = PERMISSION_CATALOG.filter((permission) => sellerPermissionKeys.has(permission.key));

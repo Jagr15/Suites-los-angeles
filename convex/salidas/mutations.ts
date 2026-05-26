@@ -1,7 +1,7 @@
 import { mutation } from "../_generated/server";
 import { v } from "convex/values";
 import { salidaFields } from "./schema";
-import { hasPermission, isAdmin, isSuperAdmin, requireIdentity, requirePermission } from "../common/utils";
+import { hasPermission, isAdmin, isSuperAdmin, requireIdentity, requirePermission, requireWarehouseAccess } from "../common/utils";
 import type { MutationCtx } from "../_generated/server";
 
 async function getNextSalidaNumber(ctx: MutationCtx) {
@@ -31,7 +31,10 @@ async function getNextSalidaNumber(ctx: MutationCtx) {
 }
 
 export const create = mutation({
-  args: salidaFields,
+  args: {
+    ...salidaFields,
+    bodegaId: v.id("bodegas"),
+  },
   handler: async (ctx, args) => {
     await requireIdentity(ctx);
     await requirePermission(
@@ -50,10 +53,17 @@ export const create = mutation({
         throw new Error("Acceso denegado: no puedes asignar responsable/ruta en salidas.");
       }
     }
+    await requireWarehouseAccess(ctx, args.bodegaId);
     const generatedNumeroSalida = await getNextSalidaNumber(ctx);
+    const nextNumeroSalida = (args.numeroSalida || "").startsWith("SAL-") ? args.numeroSalida : generatedNumeroSalida;
+    const existingNumber = await ctx.db
+      .query("salidas")
+      .withIndex("by_numeroSalida", (q) => q.eq("numeroSalida", nextNumeroSalida))
+      .unique();
+    if (existingNumber) throw new Error("El folio de salida ya existe.");
     const id = await ctx.db.insert("salidas", {
       ...args,
-      numeroSalida: generatedNumeroSalida,
+      numeroSalida: nextNumeroSalida,
     });
     
     // Opcional: Descontar del inventario si es una carga/salida real
@@ -77,6 +87,14 @@ export const update = mutation({
     await requireIdentity(ctx);
     const current = await ctx.db.get(id);
     if (!current) throw new Error("Salida no encontrada");
+    if (current.bodegaId) {
+      await requireWarehouseAccess(ctx, current.bodegaId);
+    } else if (!(await isAdmin(ctx))) {
+      throw new Error("Acceso denegado: la salida legacy no está ligada a una bodega.");
+    }
+    if (args.bodegaId) {
+      await requireWarehouseAccess(ctx, args.bodegaId);
+    }
 
     if (current.status !== args.status) {
       await requirePermission(
@@ -123,6 +141,23 @@ export const remove = mutation({
         throw new Error("Acceso denegado: tu rol no permite eliminar registros.");
       }
     }
+    const current = await ctx.db.get(id);
+    if (current) {
+      if (current.bodegaId) {
+        await requireWarehouseAccess(ctx, current.bodegaId);
+      } else if (!isAdministrator) {
+        throw new Error("Acceso denegado: la salida legacy no está ligada a una bodega.");
+      }
+    }
     await ctx.db.delete(id);
+  },
+});
+
+export const reserveFolio = mutation({
+  args: {},
+  handler: async (ctx) => {
+    await requireIdentity(ctx);
+    const numeroSalida = await getNextSalidaNumber(ctx);
+    return { numeroSalida };
   },
 });

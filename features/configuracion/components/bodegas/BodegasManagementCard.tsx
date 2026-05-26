@@ -41,6 +41,7 @@ export function BodegasManagementCard() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const bodegas = useQuery(api.bodegas.queries.list);
+  const users = useQuery(api.users.queries.listAll);
   const createBodega = useMutation(api.bodegas.mutations.create);
   const updateBodega = useMutation(api.bodegas.mutations.update);
   const removeBodega = useMutation(api.bodegas.mutations.remove);
@@ -51,6 +52,14 @@ export function BodegasManagementCard() {
       item.name.toLowerCase().includes(filterValue.toLowerCase())
     );
   }, [bodegas, filterValue]);
+  const bodegueroUsers = useMemo(
+    () =>
+      (users || []).filter((u: any) => {
+        const role = String(u?.roleData?.name || u?.role || "").toLowerCase();
+        return role === "bodeguero" || role === "bodega";
+      }),
+    [users]
+  );
 
   const handleOpenModal = (bodega?: Almacen) => {
     setBodegaToEdit(bodega || null);
@@ -61,14 +70,14 @@ export function BodegasManagementCard() {
     setIsSubmitting(true);
     try {
       if (bodegaToEdit) {
-        await updateBodega({ id: bodegaToEdit._id as any, ...values });
+        await updateBodega({ id: bodegaToEdit._id as any, ...(values as any) } as any);
         addToast({
           title: "Bodega actualizada",
           description: `Se guardaron los cambios en ${values.name}.`,
           color: "success",
         });
       } else {
-        await createBodega(values);
+        await createBodega(values as any);
         addToast({
           title: "Bodega creada",
           description: `Se registró la nueva bodega ${values.name}.`,
@@ -226,6 +235,7 @@ export function BodegasManagementCard() {
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         bodega={bodegaToEdit}
+        bodegueroUsers={bodegueroUsers.map((u: any) => ({ _id: String(u._id), name: u.name, email: u.email }))}
         onSubmit={handleSubmit}
         isLoading={isSubmitting}
       />

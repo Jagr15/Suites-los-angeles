@@ -3,6 +3,11 @@ export function parseCoordinatesFromMapsUrl(mapsUrl?: string): { lat: number; ln
   const value = mapsUrl.trim();
   if (!value) return null;
 
+  const rawPairMatch = value.match(/^(-?\d+(\.\d+)?),\s*(-?\d+(\.\d+)?)$/);
+  if (rawPairMatch) {
+    return { lat: Number(rawPairMatch[1]), lng: Number(rawPairMatch[3]) };
+  }
+
   const atMatch = value.match(/@(-?\d+(\.\d+)?),(-?\d+(\.\d+)?)/);
   if (atMatch) {
     return { lat: Number(atMatch[1]), lng: Number(atMatch[3]) };
@@ -27,6 +32,19 @@ export function parseCoordinatesFromMapsUrl(mapsUrl?: string): { lat: number; ln
   }
 
   return null;
+}
+
+export function getAddressReferenceFromMapsUrl(mapsUrl?: string): string {
+  const raw = (mapsUrl || "").trim();
+  if (!raw) return "";
+  try {
+    const url = new URL(raw);
+    const query = url.searchParams.get("query") || url.searchParams.get("q");
+    if (!query) return "";
+    return decodeURIComponent(query).trim();
+  } catch {
+    return raw;
+  }
 }
 
 export function getGoogleMapsLink(lat?: number, lng?: number, mapsUrl?: string): string {
