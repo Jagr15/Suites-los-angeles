@@ -301,3 +301,126 @@ export const cleanupOrphanAuthAccounts = mutation({
     return { ok: true, deleted, deletedAccounts };
   },
 });
+
+export const normalizeDemoRoleCompatibility = mutation({
+  args: {
+    apply: v.optional(v.boolean()),
+  },
+  handler: async (ctx, args) => {
+    const apply = args.apply === true;
+    const roleNames = ["Admin", "Vendedor", "Bodeguero"] as const;
+
+    const roles = await ctx.db.query("roles").collect();
+    const users = await ctx.db.query("users").collect();
+
+    const canonicalPermissions: Record<(typeof roleNames)[number], string[]> = {
+      Admin: DEFAULT_PERMISSIONS_BY_ROLE.Admin,
+      Vendedor: DEFAULT_PERMISSIONS_BY_ROLE.Vendedor,
+      Bodeguero: DEFAULT_PERMISSIONS_BY_ROLE.Bodeguero,
+    };
+
+    const byName = (name: string) => roles.find((r) => r.name === name) || null;
+    const adminLegacy = byName("Administrador");
+    let adminRole = byName("Admin");
+
+    const roleActions: Array<{ action: string; role?: string; id?: string }> = [];
+
+    if (!adminRole && adminLegacy) {
+      roleActions.push({ action: "rename_role", role: "Administrador->Admin", id: String(adminLegacy._id) });
+      if (apply) {
+        await ctx.db.patch(adminLegacy._id, {
+          name: "Admin",
+          description: "Gestión operativa completa del negocio.",
+          permissions: DEFAULT_PERMISSIONS_BY_ROLE.Admin,
+        });
+      }
+      adminRole = adminLegacy as typeof adminLegacy;
+      if (adminRole) adminRole = { ...adminRole, name: "Admin", permissions: DEFAULT_PERMISSIONS_BY_ROLE.Admin };
+    }
+
+    if (!adminRole) {
+      roleActions.push({ action: "create_role", role: "Admin" });
+      if (apply) {
+        const id = await ctx.db.insert("roles", {
+          name: "Admin",
+          description: "Gestión operativa completa del negocio.",
+          permissions: DEFAULT_PERMISSIONS_BY_ROLE.Admin,
+        });
+        adminRole = await ctx.db.get(id);
+      }
+    }
+
+    if (apply) {
+      const freshRoles = await ctx.db.query("roles").collect();
+      adminRole = freshRoles.find((r) => r.name === "Admin") || adminRole;
+      for (const roleName of ["Vendedor", "Bodeguero"] as const) {
+        const role = freshRoles.find((r) => r.name === roleName);
+        if (role) {
+          await ctx.db.patch(role._id, {
+            description:
+              roleName === "Vendedor"
+                ? "Operación comercial y ventas."
+                : "Operación de inventario y bodega.",
+            permissions: canonicalPermissions[roleName],
+          });
+        }
+      }
+    }
+
+    const roleMap = new Map<string, string>();
+    const currentRoles = await ctx.db.query("roles").collect();
+    for (const r of currentRoles) roleMap.set(r.name, String(r._id));
+
+    const normalize = (value?: string | null) =>
+      (value || "")
+        .trim()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .toLowerCase();
+
+    const userActions: Array<{ email?: string; action: string; fromRole?: string; toRole?: string }> = [];
+
+    for (const user of users) {
+      const roleText = normalize(user.role);
+      const roleDoc = user.roleId ? currentRoles.find((r) => String(r._id) === String(user.roleId)) : null;
+      const roleDocName = roleDoc?.name || "";
+
+      let targetRoleName: "Admin" | "Vendedor" | "Bodeguero" | null = null;
+      if (roleText === "administrador" || roleText === "admin" || normalize(roleDocName) === "administrador" || normalize(roleDocName) === "admin") {
+        targetRoleName = "Admin";
+      } else if (roleText === "vendedor" || normalize(roleDocName) === "vendedor") {
+        targetRoleName = "Vendedor";
+      } else if (roleText === "bodeguero" || roleText === "bodega" || normalize(roleDocName) === "bodeguero") {
+        targetRoleName = "Bodeguero";
+      }
+      if (!targetRoleName) continue;
+
+      const targetRoleId = roleMap.get(targetRoleName);
+      if (!targetRoleId) continue;
+
+      const needsRolePatch =
+        user.role !== targetRoleName || String(user.roleId || "") !== targetRoleId || user.isActive !== true;
+      if (needsRolePatch) {
+        userActions.push({
+          email: user.email,
+          action: "patch_user_role",
+          fromRole: user.role,
+          toRole: targetRoleName,
+        });
+        if (apply) {
+          await ctx.db.patch(user._id, {
+            role: targetRoleName,
+            roleId: targetRoleId as any,
+            isActive: true,
+          });
+        }
+      }
+    }
+
+    return {
+      mode: apply ? "apply" : "dry_run",
+      roleActions,
+      userActions,
+    };
+  },
+});

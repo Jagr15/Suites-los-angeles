@@ -1,6 +1,8 @@
-import { mutation } from "./_generated/server";
+import { mutation, query } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
 import type { MutationCtx } from "./_generated/server";
+import { hashPassword } from "./common/hashing";
+import { DEFAULT_PERMISSIONS_BY_ROLE } from "../shared/security/permissions";
 
 type SummaryBucket = "created" | "existing" | "updated" | "omitted" | "errors";
 
@@ -72,6 +74,221 @@ function addDaysISO(date: string, days: number) {
   next.setUTCDate(next.getUTCDate() + days);
   return next.toISOString();
 }
+
+const DEMO_ROLES = [
+  {
+    name: "Administrador",
+    roleString: "admin",
+    description: "Acceso administrativo total al panel.",
+    permissions: DEFAULT_PERMISSIONS_BY_ROLE.Admin,
+    group: "Administración" as const,
+  },
+  {
+    name: "Vendedor",
+    roleString: "vendedor",
+    description: "Gestión comercial y operación de campo.",
+    permissions: DEFAULT_PERMISSIONS_BY_ROLE.Vendedor,
+    group: "Ventas" as const,
+  },
+  {
+    name: "Bodeguero",
+    roleString: "bodeguero",
+    description: "Gestión de inventario y operación de bodega.",
+    permissions: DEFAULT_PERMISSIONS_BY_ROLE.Bodeguero,
+    group: "Bodega" as const,
+  },
+] as const;
+
+const DEMO_USERS = [
+  { name: "Admin Demo 1", email: "admin1@gmail.com", password: "admin123", roleName: "Administrador" as const },
+  { name: "Admin Demo 2", email: "admin2@gmail.com", password: "admin123", roleName: "Administrador" as const },
+  { name: "Admin Demo 3", email: "admin3@gmail.com", password: "admin123", roleName: "Administrador" as const },
+  { name: "Vendedor Demo 1", email: "vendedor1@gmail.com", password: "vendedor123", roleName: "Vendedor" as const },
+  { name: "Vendedor Demo 2", email: "vendedor2@gmail.com", password: "vendedor123", roleName: "Vendedor" as const },
+  { name: "Vendedor Demo 3", email: "vendedor3@gmail.com", password: "vendedor123", roleName: "Vendedor" as const },
+  { name: "Bodeguero Demo 1", email: "bodeguero1@gmail.com", password: "bodeguero123", roleName: "Bodeguero" as const },
+  { name: "Bodeguero Demo 2", email: "bodeguero2@gmail.com", password: "bodeguero123", roleName: "Bodeguero" as const },
+  { name: "Bodeguero Demo 3", email: "bodeguero3@gmail.com", password: "bodeguero123", roleName: "Bodeguero" as const },
+];
+
+async function ensureRole(
+  ctx: MutationCtx,
+  summary: DemoSummary,
+  input: (typeof DEMO_ROLES)[number]
+) {
+  const existing = await ctx.db
+    .query("roles")
+    .withIndex("by_name", (q) => q.eq("name", input.name))
+    .first();
+
+  if (existing) {
+    const sameDescription = (existing.description || "") === input.description;
+    const samePermissions = JSON.stringify([...(existing.permissions || [])].sort()) === JSON.stringify([...input.permissions].sort());
+    if (!sameDescription || !samePermissions) {
+      await ctx.db.patch(existing._id, { description: input.description, permissions: input.permissions });
+      bump(summary, "updated", "roles");
+      return await ctx.db.get(existing._id);
+    }
+    bump(summary, "existing", "roles");
+    return existing;
+  }
+
+  const id = await ctx.db.insert("roles", {
+    name: input.name,
+    description: input.description,
+    permissions: input.permissions,
+  });
+  bump(summary, "created", "roles");
+  return await ctx.db.get(id);
+}
+
+async function ensureProfileForUser(
+  ctx: MutationCtx,
+  summary: DemoSummary,
+  userId: Id<"users">,
+  fullName: string,
+  group: "Administración" | "Ventas" | "Bodega"
+) {
+  const byUser = await ctx.db
+    .query("profiles")
+    .withIndex("by_userId", (q) => q.eq("userId", userId))
+    .first();
+
+  if (byUser) {
+    const patch: Partial<typeof byUser> = {};
+    if (!byUser.fullName) patch.fullName = fullName;
+    if (byUser.status !== "Activo") patch.status = "Activo";
+    if (byUser.isEmployee !== true) patch.isEmployee = true;
+    if (!byUser.group) patch.group = group;
+    if (Object.keys(patch).length > 0) {
+      await ctx.db.patch(byUser._id, patch);
+      bump(summary, "updated", "profiles");
+    } else {
+      bump(summary, "existing", "profiles");
+    }
+    return byUser._id;
+  }
+
+  const profileId = await ctx.db.insert("profiles", {
+    userId,
+    fullName,
+    status: "Activo",
+    isEmployee: true,
+    group,
+  });
+  bump(summary, "created", "profiles");
+  return profileId;
+}
+
+async function ensureDemoUser(
+  ctx: MutationCtx,
+  summary: DemoSummary,
+  roleId: Id<"roles">,
+  roleString: string,
+  group: "Administración" | "Ventas" | "Bodega",
+  input: (typeof DEMO_USERS)[number]
+) {
+  const email = input.email.trim().toLowerCase();
+  const existingUser = await ctx.db
+    .query("users")
+    .withIndex("by_email", (q) => q.eq("email", email))
+    .first();
+
+  let userId: Id<"users">;
+  if (existingUser) {
+    userId = existingUser._id;
+    const patch: Partial<typeof existingUser> = {};
+    if (!existingUser.name) patch.name = input.name;
+    if (existingUser.role !== roleString) patch.role = roleString;
+    if (String(existingUser.roleId || "") !== String(roleId)) patch.roleId = roleId;
+    if (existingUser.isActive !== true) patch.isActive = true;
+    if (Object.keys(patch).length > 0) {
+      await ctx.db.patch(existingUser._id, patch);
+      bump(summary, "updated", "users");
+    } else {
+      bump(summary, "existing", "users");
+    }
+  } else {
+    userId = await ctx.db.insert("users", {
+      name: input.name,
+      email,
+      role: roleString,
+      roleId,
+      isActive: true,
+    });
+    bump(summary, "created", "users");
+  }
+
+  const profileId = await ensureProfileForUser(ctx, summary, userId, input.name, group);
+  const currentUser = await ctx.db.get(userId);
+  if (currentUser && String(currentUser.profileId || "") !== String(profileId)) {
+    await ctx.db.patch(userId, { profileId });
+    bump(summary, "updated", "users");
+  }
+
+  const hashed = await hashPassword(input.password);
+  const account = await ctx.db
+    .query("authAccounts")
+    .withIndex("providerAndAccountId", (q) => q.eq("provider", "password").eq("providerAccountId", email))
+    .first();
+
+  if (account) {
+    const patch: Partial<typeof account> = {};
+    if (String(account.userId) !== String(userId)) patch.userId = userId;
+    if (account.secret !== hashed) patch.secret = hashed;
+    if (Object.keys(patch).length > 0) {
+      await ctx.db.patch(account._id, patch);
+      bump(summary, "updated", "authAccounts");
+    } else {
+      bump(summary, "existing", "authAccounts");
+    }
+  } else {
+    await ctx.db.insert("authAccounts", {
+      userId,
+      provider: "password",
+      providerAccountId: email,
+      secret: hashed,
+    });
+    bump(summary, "created", "authAccounts");
+  }
+}
+
+export const previewProductionDemoSeed = query({
+  args: {},
+  handler: async (ctx) => {
+    const roles = await ctx.db.query("roles").collect();
+    const users = await ctx.db.query("users").collect();
+    const authAccounts = await ctx.db.query("authAccounts").collect();
+    const profiles = await ctx.db.query("profiles").collect();
+
+    const roleNames = new Set(roles.map((r) => normalize(r.name)));
+    const emails = new Set(users.map((u) => normalize(u.email)));
+    const authEmails = new Set(
+      authAccounts
+        .filter((a) => a.provider === "password")
+        .map((a) => normalize(a.providerAccountId))
+    );
+    const profileUserIds = new Set(profiles.map((p) => String(p.userId || "")));
+
+    return {
+      plannedRoles: DEMO_ROLES.map((r) => ({
+        name: r.name,
+        exists: roleNames.has(normalize(r.name)),
+      })),
+      plannedUsers: DEMO_USERS.map((u) => {
+        const existingUser = users.find((x) => normalize(x.email) === normalize(u.email));
+        const hasProfile = existingUser ? !!existingUser.profileId || profileUserIds.has(String(existingUser._id)) : false;
+        return {
+          email: u.email,
+          roleName: u.roleName,
+          userExists: emails.has(normalize(u.email)),
+          authAccountExists: authEmails.has(normalize(u.email)),
+          profileLinked: hasProfile,
+        };
+      }),
+    };
+  },
+});
 
 function demoDate(daysAgo: number) {
   const next = new Date();
@@ -307,6 +524,28 @@ async function ensureCategory(ctx: MutationCtx, summary: DemoSummary, name: stri
   return created;
 }
 
+async function ensureSubcategory(
+  ctx: MutationCtx,
+  summary: DemoSummary,
+  name: string,
+  categoryId: Id<"product_categories">
+) {
+  const subs = await ctx.db
+    .query("product_subcategories")
+    .withIndex("by_category", (q) => q.eq("categoryId", categoryId))
+    .collect();
+  const existing = subs.find((sub) => normalize(sub.name) === normalize(name));
+  if (existing) {
+    bump(summary, "existing", "product_subcategories");
+    return existing;
+  }
+  const id = await ctx.db.insert("product_subcategories", { name, categoryId });
+  bump(summary, "created", "product_subcategories");
+  const created = await ctx.db.get(id);
+  if (!created) throw new Error(`No se pudo crear subcategoria ${name}`);
+  return created;
+}
+
 async function ensureProduct(
   ctx: MutationCtx,
   summary: DemoSummary,
@@ -315,6 +554,7 @@ async function ensureProduct(
     codigo: string;
     producto: string;
     categoria: string;
+    subcategoria: string;
     costo: string;
     mayoreo: string;
     venta: string;
@@ -331,6 +571,7 @@ async function ensureProduct(
     const patch: Partial<typeof existing> = {};
     if (existing.status !== "Activo") patch.status = "Activo";
     if (!existing.categoria) patch.categoria = input.categoria;
+    if (!existing.subcategoria) patch.subcategoria = input.subcategoria;
     if (!existing.lista1) patch.lista1 = input.costo;
     if (!existing.lista6) patch.lista6 = input.mayoreo;
     if (!existing.lista11) patch.lista11 = input.venta;
@@ -350,7 +591,7 @@ async function ensureProduct(
     producto: input.producto,
     cantidadEmpaque: "Pieza",
     categoria: input.categoria,
-    subcategoria: "",
+    subcategoria: input.subcategoria,
     status: "Activo",
     lista1: input.costo,
     lista2: input.costo,
@@ -980,6 +1221,20 @@ export const createMinimumDemoData = mutation({
     const summary = emptySummary();
 
     try {
+      const roleByName = new Map<string, Id<"roles">>();
+      for (const roleDef of DEMO_ROLES) {
+        const role = await ensureRole(ctx, summary, roleDef);
+        if (!role) throw new Error(`No se pudo asegurar rol ${roleDef.name}`);
+        roleByName.set(roleDef.name, role._id);
+      }
+
+      for (const userDef of DEMO_USERS) {
+        const roleDef = DEMO_ROLES.find((r) => r.name === userDef.roleName);
+        const roleId = roleByName.get(userDef.roleName);
+        if (!roleDef || !roleId) throw new Error(`No se pudo resolver rol para ${userDef.email}`);
+        await ensureDemoUser(ctx, summary, roleId, roleDef.roleString, roleDef.group, userDef);
+      }
+
       const { vendedor, bodeguero } = await pickOperationalUsers(ctx);
       if (!vendedor) throw new Error("No hay usuario operativo para asignar rutas demo.");
 
@@ -1015,7 +1270,7 @@ export const createMinimumDemoData = mutation({
 
       const bodegas = await Promise.all([
         ensureBodega(ctx, summary, {
-          name: "Centro de Distribucion",
+          name: "Bodega Central",
           description: "Bodega principal para compras y cargas demo.",
           address: "Av. Principal 100, Colima, Col.",
           manager: "Salvador Ortega",
@@ -1084,6 +1339,8 @@ export const createMinimumDemoData = mutation({
 
       const bebidas = await ensureCategory(ctx, summary, "Bebidas");
       const abarrotes = await ensureCategory(ctx, summary, "Abarrotes");
+      const subBebidas = await ensureSubcategory(ctx, summary, "Refrescos y Agua", bebidas._id);
+      const subAbarrotes = await ensureSubcategory(ctx, summary, "Botanas", abarrotes._id);
 
       const products = await Promise.all([
         ensureProduct(ctx, summary, {
@@ -1094,6 +1351,7 @@ export const createMinimumDemoData = mutation({
           costo: "$5.20",
           mayoreo: "$7.00",
           venta: "$10.00",
+          subcategoria: String(subBebidas._id),
         }),
         ensureProduct(ctx, summary, {
           sku: "DEMO-COLA-355",
@@ -1103,6 +1361,7 @@ export const createMinimumDemoData = mutation({
           costo: "$8.50",
           mayoreo: "$11.00",
           venta: "$15.00",
+          subcategoria: String(subBebidas._id),
         }),
         ensureProduct(ctx, summary, {
           sku: "DEMO-BOTANA-045",
@@ -1112,6 +1371,7 @@ export const createMinimumDemoData = mutation({
           costo: "$6.80",
           mayoreo: "$9.50",
           venta: "$13.00",
+          subcategoria: String(subAbarrotes._id),
         }),
       ]);
 
