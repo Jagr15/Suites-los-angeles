@@ -19,7 +19,6 @@ import {
 } from "@heroui/react";
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
-import { parseAbsoluteToLocal } from "@internationalized/date";
 import { clientSchema, type ClientFormValues } from "@/shared/schemas";
 import {
   DocumentCheckIcon,
@@ -30,6 +29,7 @@ import {
 import { Client, ROUTES } from "./types";
 import { StateSelector, MunicipalitySelector, LocalitySelector } from "@/shared/components/locations";
 import { getAddressReferenceFromMapsUrl, getGoogleMapsEmbedSrc, parseCoordinatesFromMapsUrl } from "./location-utils";
+import { parseTimeToCalendarDate, toHHmm } from "../../utils/time";
 
 interface ClientModalProps {
   isOpen: boolean;
@@ -58,33 +58,8 @@ function buildAddressReference(args: {
   return chunks.join(", ");
 }
 
-function isTimeOnly(value?: string) {
-  return !!value && /^\d{2}:\d{2}$/.test(value);
-}
-
-function toAbsoluteIsoForTime(value: string) {
-  return `1970-01-01T${value}:00.000Z`;
-}
-
 function toDateRangeBoundary(value?: string) {
-  if (!value) return null;
-  if (isTimeOnly(value)) {
-    return parseAbsoluteToLocal(toAbsoluteIsoForTime(value));
-  }
-  try {
-    return parseAbsoluteToLocal(value);
-  } catch {
-    return null;
-  }
-}
-
-function toTimeString(dateLike: unknown) {
-  if (!dateLike || typeof (dateLike as any).toDate !== "function") return undefined;
-  const date = (dateLike as any).toDate();
-  if (!(date instanceof Date) || Number.isNaN(date.getTime())) return undefined;
-  const hh = String(date.getHours()).padStart(2, "0");
-  const mm = String(date.getMinutes()).padStart(2, "0");
-  return `${hh}:${mm}`;
+  return parseTimeToCalendarDate(value);
 }
 
 export function ClientModal({
@@ -547,8 +522,8 @@ export function ClientModal({
                             ) as any}
                             onChange={(value: any) => {
                               if (value) {
-                                field.onChange(toTimeString(value.start) || "");
-                                setValue("availableScheduleEnd", toTimeString(value.end) || "");
+                                field.onChange(toHHmm(value.start) || "");
+                                setValue("availableScheduleEnd", toHHmm(value.end) || "");
                               } else {
                                 field.onChange(undefined);
                                 setValue("availableScheduleEnd", undefined);
