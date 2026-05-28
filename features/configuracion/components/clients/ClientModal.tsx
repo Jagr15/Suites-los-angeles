@@ -58,6 +58,35 @@ function buildAddressReference(args: {
   return chunks.join(", ");
 }
 
+function isTimeOnly(value?: string) {
+  return !!value && /^\d{2}:\d{2}$/.test(value);
+}
+
+function toAbsoluteIsoForTime(value: string) {
+  return `1970-01-01T${value}:00.000Z`;
+}
+
+function toDateRangeBoundary(value?: string) {
+  if (!value) return null;
+  if (isTimeOnly(value)) {
+    return parseAbsoluteToLocal(toAbsoluteIsoForTime(value));
+  }
+  try {
+    return parseAbsoluteToLocal(value);
+  } catch {
+    return null;
+  }
+}
+
+function toTimeString(dateLike: unknown) {
+  if (!dateLike || typeof (dateLike as any).toDate !== "function") return undefined;
+  const date = (dateLike as any).toDate();
+  if (!(date instanceof Date) || Number.isNaN(date.getTime())) return undefined;
+  const hh = String(date.getHours()).padStart(2, "0");
+  const mm = String(date.getMinutes()).padStart(2, "0");
+  return `${hh}:${mm}`;
+}
+
 export function ClientModal({
   isOpen,
   onOpenChange,
@@ -498,6 +527,8 @@ export function ClientModal({
                       control={control}
                       render={({ field }) => {
                         const end = watch("availableScheduleEnd");
+                        const startBoundary = toDateRangeBoundary(field.value);
+                        const endBoundary = toDateRangeBoundary(end);
                         return (
                           <DateRangePicker
                             label="Horario disponible"
@@ -507,17 +538,17 @@ export function ClientModal({
                             granularity="minute"
                             visibleMonths={1}
                             value={(
-                              field.value && end
+                              startBoundary && endBoundary
                                 ? {
-                                    start: parseAbsoluteToLocal(field.value),
-                                    end: parseAbsoluteToLocal(end),
+                                    start: startBoundary,
+                                    end: endBoundary,
                                   }
                                 : null
                             ) as any}
                             onChange={(value: any) => {
                               if (value) {
-                                field.onChange(value.start?.toDate?.().toISOString?.() || "");
-                                setValue("availableScheduleEnd", value.end?.toDate?.().toISOString?.() || "");
+                                field.onChange(toTimeString(value.start) || "");
+                                setValue("availableScheduleEnd", toTimeString(value.end) || "");
                               } else {
                                 field.onChange(undefined);
                                 setValue("availableScheduleEnd", undefined);
