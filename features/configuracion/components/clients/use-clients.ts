@@ -94,6 +94,8 @@ export function useClients() {
       // Garantizar que los strings requeridos existan siempre
       commercialName: data.commercialName || "",
       buyerName: data.buyerName || "",
+      stateId: data.stateId || "",
+      stateName: data.stateName || "",
       municipalityId: data.municipalityId || "",
       municipalityName: data.municipalityName || "",
       townId: data.townId || "",
