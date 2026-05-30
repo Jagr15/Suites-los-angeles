@@ -54,7 +54,7 @@ export function BodegaModal({
       allowedUserIds: [],
     },
   });
-  const profiles = useQuery(api.profiles.queries.listAll) || [];
+  const profiles = useQuery(api.profiles.queries.listForSelection) || [];
 
   useEffect(() => {
     if (isOpen) {
