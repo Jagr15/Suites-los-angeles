@@ -100,6 +100,7 @@ export function BodegaPage() {
   const availableBodegas = useMemo(() => accessibleBodegas || [], [accessibleBodegas]);
   const isWarehousesLoading = accessibleBodegas === undefined;
   const hasWarehouses = availableBodegas.length > 0;
+  const shouldShowWarehouseSelector = availableBodegas.length >= 2;
   const selectedBodegaDoc = useMemo(
     () => availableBodegas.find((b) => String(b._id) === String(selectedWarehouseId)) || null,
     [availableBodegas, selectedWarehouseId]
@@ -363,11 +364,11 @@ export function BodegaPage() {
               onSelectionChange={(key) => setActiveTab(key as TabKey)}
               visibleTabs={visibleTabs}
             />
-            <div className="flex items-center gap-3 rounded-lg border border-default-200 bg-default-50 px-3 py-2">
-              <span className="text-xs font-semibold text-default-600">
-                Bodega actual: {selectedBodegaDoc?.name || "Sin bodega seleccionada"}
-              </span>
-              {availableBodegas.length > 1 ? (
+            {shouldShowWarehouseSelector ? (
+              <div className="flex items-center gap-3 rounded-lg border border-default-200 bg-default-50 px-3 py-2">
+                <span className="text-xs font-semibold text-default-600">
+                  Bodega actual: {selectedBodegaDoc?.name || "Sin bodega seleccionada"}
+                </span>
                 <Select
                   size="sm"
                   selectedKeys={safeSelectedWarehouseKeys}
@@ -382,8 +383,8 @@ export function BodegaPage() {
                     <SelectItem key={String(b._id)}>{b.name}</SelectItem>
                   ))}
                 </Select>
-              ) : null}
-            </div>
+              </div>
+            ) : null}
             {(activeTab === "entradas" || (activeTab === "nominas" && canViewPayroll)) && (
               <BodegaToolbar
                 onAgregar={handleAgregar}
