@@ -2,33 +2,7 @@ import { mutation } from "../_generated/server";
 import { v } from "convex/values";
 import { salidaFields } from "./schema";
 import { hasPermission, isAdmin, isSuperAdmin, requireIdentity, requirePermission, requireWarehouseAccess } from "../common/utils";
-import type { MutationCtx } from "../_generated/server";
-
-async function getNextSalidaNumber(ctx: MutationCtx) {
-  const existing = await ctx.db
-    .query("sequences")
-    .withIndex("by_key", (q) => q.eq("key", "salida_folio"))
-    .unique();
-
-  if (existing) {
-    const next = existing.value + 1;
-    await ctx.db.patch(existing._id, { value: next });
-    return `SAL-${String(next).padStart(5, "0")}`;
-  }
-
-  const salidas = await ctx.db.query("salidas").collect();
-  let maxLegacy = 0;
-  for (const salida of salidas) {
-    const parsed = Number((salida.numeroSalida || "").match(/SAL-(\d+)/i)?.[1] || 0);
-    if (Number.isFinite(parsed) && parsed > maxLegacy) {
-      maxLegacy = parsed;
-    }
-  }
-
-  const next = maxLegacy + 1;
-  await ctx.db.insert("sequences", { key: "salida_folio", value: next });
-  return `SAL-${String(next).padStart(5, "0")}`;
-}
+import { getNextWarehouseMovementFolio } from "../common/warehouseFolios";
 
 export const create = mutation({
   args: {
@@ -54,8 +28,8 @@ export const create = mutation({
       }
     }
     await requireWarehouseAccess(ctx, args.bodegaId);
-    const generatedNumeroSalida = await getNextSalidaNumber(ctx);
-    const nextNumeroSalida = (args.numeroSalida || "").startsWith("SAL-") ? args.numeroSalida : generatedNumeroSalida;
+    const generatedFolio = await getNextWarehouseMovementFolio(ctx, args.bodegaId, "salida");
+    const nextNumeroSalida = (args.numeroSalida || "").includes("-") ? args.numeroSalida : generatedFolio.folio;
     const existingNumber = await ctx.db
       .query("salidas")
       .withIndex("by_numeroSalida", (q) => q.eq("numeroSalida", nextNumeroSalida))
@@ -64,6 +38,7 @@ export const create = mutation({
     const id = await ctx.db.insert("salidas", {
       ...args,
       numeroSalida: nextNumeroSalida,
+      folioNumber: generatedFolio.folioNumber,
     });
     
     // Opcional: Descontar del inventario si es una carga/salida real
@@ -154,10 +129,11 @@ export const remove = mutation({
 });
 
 export const reserveFolio = mutation({
-  args: {},
-  handler: async (ctx) => {
+  args: { bodegaId: v.id("bodegas") },
+  handler: async (ctx, args) => {
     await requireIdentity(ctx);
-    const numeroSalida = await getNextSalidaNumber(ctx);
-    return { numeroSalida };
+    await requireWarehouseAccess(ctx, args.bodegaId);
+    const nextFolio = await getNextWarehouseMovementFolio(ctx, args.bodegaId, "salida");
+    return { numeroSalida: nextFolio.folio, folioNumber: nextFolio.folioNumber };
   },
 });

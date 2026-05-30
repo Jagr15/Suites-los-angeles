@@ -83,6 +83,7 @@ export function BodegaGastos({ canShowDailyTotals = true, canDelete = true, canC
             <BodegaGastoForm
                 onSuccess={() => setView("list")}
                 onCancel={() => setView("list")}
+                selectedWarehouseId={selectedWarehouseId}
             />
         );
     }

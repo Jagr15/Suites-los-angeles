@@ -1,7 +1,8 @@
 import { mutation } from "../_generated/server";
 import { v } from "convex/values";
 import { bodegaIngresosFields, bodegaEgresosFields } from "./schema";
-import { hasPermission, isAdmin, requireIdentity, requirePermission } from "../common/utils";
+import { hasPermission, isAdmin, requireIdentity, requirePermission, requireWarehouseAccess } from "../common/utils";
+import { ensureWarehouseMovementSequence, getNextWarehouseMovementFolio } from "../common/warehouseFolios";
 
 function getTodayISO() {
   return new Date().toISOString().split("T")[0];
@@ -71,6 +72,11 @@ export const createIngreso = mutation({
       "warehouse_money:allow_income",
       "Acceso denegado: no puedes registrar ingresos de bodega."
     );
+    if (!args.bodegaId) {
+      throw new Error("Debes seleccionar una bodega para registrar el ingreso.");
+    }
+    await requireWarehouseAccess(ctx, args.bodegaId);
+    const generatedFolio = await getNextWarehouseMovementFolio(ctx, args.bodegaId, "ingreso");
     const isAdministrator = await isAdmin(ctx);
     if (!isAdministrator) {
       const restrictDateEdit = await hasPermission(ctx, "warehouse_money:restrict_date_edit");
@@ -78,7 +84,11 @@ export const createIngreso = mutation({
         throw new Error("Acceso denegado: no puedes modificar la fecha en ingresos de bodega.");
       }
     }
-    const id = await ctx.db.insert("bodega_ingresos", args);
+    const id = await ctx.db.insert("bodega_ingresos", {
+      ...args,
+      folio: args.folio || generatedFolio.folio,
+      folioNumber: args.folioNumber || generatedFolio.folioNumber,
+    });
     await applyLinkedBodegaBalance(ctx, args.bodegaId, args.amount);
     return id;
   },
@@ -93,6 +103,11 @@ export const createEgreso = mutation({
       "warehouse_money:allow_expense",
       "Acceso denegado: no puedes registrar egresos de bodega."
     );
+    if (!args.bodegaId) {
+      throw new Error("Debes seleccionar una bodega para registrar el egreso.");
+    }
+    await requireWarehouseAccess(ctx, args.bodegaId);
+    const generatedFolio = await getNextWarehouseMovementFolio(ctx, args.bodegaId, "egreso");
     const isAdministrator = await isAdmin(ctx);
     if (!isAdministrator) {
       const restrictDateEdit = await hasPermission(ctx, "warehouse_money:restrict_date_edit");
@@ -104,9 +119,31 @@ export const createEgreso = mutation({
         throw new Error("Acceso denegado: se requiere evidencia fotográfica para registrar egresos.");
       }
     }
-    const id = await ctx.db.insert("bodega_egresos", args);
+    const id = await ctx.db.insert("bodega_egresos", {
+      ...args,
+      folio: args.folio || generatedFolio.folio,
+      folioNumber: args.folioNumber || generatedFolio.folioNumber,
+    });
     await applyLinkedBodegaBalance(ctx, args.bodegaId, -args.amount);
     return id;
+  },
+});
+
+export const ensureWarehouseMovementSequences = mutation({
+  args: {},
+  handler: async (ctx) => {
+    await requireIdentity(ctx);
+    if (!(await isAdmin(ctx))) {
+      throw new Error("Acceso denegado: Se requieren permisos de administrador");
+    }
+    const bodegas = await ctx.db.query("bodegas").collect();
+    for (const bodega of bodegas) {
+      await ensureWarehouseMovementSequence(ctx, bodega._id, "entrada");
+      await ensureWarehouseMovementSequence(ctx, bodega._id, "salida");
+      await ensureWarehouseMovementSequence(ctx, bodega._id, "ingreso");
+      await ensureWarehouseMovementSequence(ctx, bodega._id, "egreso");
+    }
+    return { ok: true, bodegas: bodegas.length };
   },
 });
 

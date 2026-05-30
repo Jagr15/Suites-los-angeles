@@ -3,6 +3,7 @@ import { v } from "convex/values";
 
 export const salidaFields = {
   numeroSalida: v.string(),
+  folioNumber: v.optional(v.number()),
   bodegaId: v.optional(v.id("bodegas")),
   fecha: v.string(),
   status: v.string(),

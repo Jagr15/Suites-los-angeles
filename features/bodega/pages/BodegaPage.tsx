@@ -135,16 +135,16 @@ export function BodegaPage() {
     }
     setBodegaToEdit(null);
     if (activeTab === "entradas") {
-      reservePurchaseFolio().then((folio) => {
+      reservePurchaseFolio({ bodegaId: selectedWarehouseId as any }).then((folio) => {
         setReservedEntradaFolio(folio.folio);
         setReservedEntradaFolioNumber(folio.folioNumber);
       });
     }
     if (activeTab === "salidas") {
-      reserveSalidaFolio().then((folio) => setReservedSalidaFolio(folio.numeroSalida));
+      reserveSalidaFolio({ bodegaId: selectedWarehouseId as any }).then((folio) => setReservedSalidaFolio(folio.numeroSalida));
     }
     setView("form");
-  }, [activeTab, hasValidSelectedWarehouse, reservePurchaseFolio, reserveSalidaFolio]);
+  }, [activeTab, hasValidSelectedWarehouse, reservePurchaseFolio, reserveSalidaFolio, selectedWarehouseId]);
 
   const handleVer = useCallback((item: any) => {
     setSelectedCarga(item);
@@ -300,7 +300,7 @@ export function BodegaPage() {
       return;
     }
     const payload = {
-      numeroSalida: `SAL-${item.folio || Math.floor(Math.random() * 1000)}`,
+      numeroSalida: "Se genera al guardar",
       bodegaId: selectedWarehouseId,
       responsable: "Bodega",
       fecha: new Date().toISOString().split("T")[0],
@@ -502,11 +502,13 @@ export function BodegaPage() {
             />
           ) : activeTab === "ingresos" ? (
             <BodegaIngresoForm
+              selectedWarehouseId={selectedWarehouseId || undefined}
               onSuccess={() => setView("list")}
               onCancel={() => setView("list")}
             />
           ) : activeTab === "egresos" ? (
             <BodegaGastoForm
+              selectedWarehouseId={selectedWarehouseId || undefined}
               onSuccess={() => setView("list")}
               onCancel={() => setView("list")}
             />

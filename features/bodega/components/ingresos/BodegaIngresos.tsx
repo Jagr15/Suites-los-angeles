@@ -83,6 +83,7 @@ export function BodegaIngresos({ canShowDailyTotals = true, canDelete = true, ca
             <BodegaIngresoForm
                 onSuccess={() => setView("list")}
                 onCancel={() => setView("list")}
+                selectedWarehouseId={selectedWarehouseId}
             />
         );
     }

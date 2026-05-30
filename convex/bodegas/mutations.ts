@@ -2,6 +2,7 @@ import { mutation } from "../_generated/server";
 import { v } from "convex/values";
 import { bodegaFields } from "./schema";
 import { requireAdmin } from "../common/utils";
+import { numberToWarehouseCode } from "../common/warehouseFolios";
 
 async function resolveResponsible(ctx: any, profileId?: any, userId?: any) {
   const profile = profileId ? await ctx.db.get(profileId) : null;
@@ -50,9 +51,29 @@ export const create = mutation({
   args: bodegaFields,
   handler: async (ctx, args) => {
     await requireAdmin(ctx);
-    const id = await ctx.db.insert("bodegas", args);
+    const allBodegas = await ctx.db.query("bodegas").collect();
+    const code = args.code || numberToWarehouseCode(allBodegas.length + 1);
+    const id = await ctx.db.insert("bodegas", { ...args, code });
     await syncBodegaLinkedAccount(ctx, id, args);
     return id;
+  },
+});
+
+export const assignWarehouseCodes = mutation({
+  args: {},
+  handler: async (ctx) => {
+    await requireAdmin(ctx);
+    const bodegas = await ctx.db.query("bodegas").collect();
+    const ordered = [...bodegas].sort((a, b) => a._creationTime - b._creationTime);
+    let patched = 0;
+    for (let i = 0; i < ordered.length; i++) {
+      const bodega = ordered[i];
+      if ((bodega as any).code) continue;
+      const code = numberToWarehouseCode(i + 1);
+      await ctx.db.patch(bodega._id, { code });
+      patched++;
+    }
+    return { patched };
   },
 });
 

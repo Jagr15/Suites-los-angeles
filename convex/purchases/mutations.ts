@@ -4,6 +4,7 @@ import { purchaseFields } from "./schema";
 import { hasPermission, isAdmin, requireIdentity, requirePermission, requireWarehouseAccess } from "../common/utils";
 import type { Id } from "../_generated/dataModel";
 import type { MutationCtx } from "../_generated/server";
+import { getNextWarehouseMovementFolio } from "../common/warehouseFolios";
 
 type PurchaseItemInput = {
   productId: Id<"products">;
@@ -17,43 +18,6 @@ type ReceptionStatus = "Completa" | "Faltante" | "Pendiente";
 
 function shouldApplyStock(status: PurchaseStatus, receptionStatus: ReceptionStatus) {
   return status !== "Cancelado" && receptionStatus === "Completa";
-}
-
-async function getNextPurchaseFolio(ctx: MutationCtx) {
-  const existing = await ctx.db
-    .query("sequences")
-    .withIndex("by_key", (q) => q.eq("key", "purchase_folio"))
-    .unique();
-
-  if (existing) {
-    const next = existing.value + 1;
-    await ctx.db.patch(existing._id, { value: next });
-    return {
-      folioNumber: next,
-      folio: `C-${String(next).padStart(5, "0")}`,
-    };
-  }
-
-  const purchases = await ctx.db.query("purchases").collect();
-  let maxLegacy = 0;
-  for (const purchase of purchases) {
-    const candidates = [
-      purchase.folioNumber,
-      Number((purchase.folio || "").match(/^C-(\d+)$/i)?.[1] || 0),
-      Number((purchase.folio || "").match(/(\d+)$/)?.[1] || 0),
-    ];
-    for (const n of candidates) {
-      if (Number.isFinite(n) && (n || 0) > maxLegacy) {
-        maxLegacy = n || 0;
-      }
-    }
-  }
-  const next = maxLegacy + 1;
-  await ctx.db.insert("sequences", { key: "purchase_folio", value: next });
-  return {
-    folioNumber: next,
-    folio: `C-${String(next).padStart(5, "0")}`,
-  };
 }
 
 function toDueDate(date: string, creditDays: number) {
@@ -267,7 +231,7 @@ export const create = mutation({
 
     const generatedFolio = folio && folioNumber
       ? { folio, folioNumber }
-      : await getNextPurchaseFolio(ctx);
+      : await getNextWarehouseMovementFolio(ctx, args.bodegaId, "entrada");
     const existingFolio = await ctx.db
       .query("purchases")
       .withIndex("by_folio", (q) => q.eq("folio", generatedFolio.folio))
@@ -487,10 +451,11 @@ export const update = mutation({
 });
 
 export const reserveFolio = mutation({
-  args: {},
-  handler: async (ctx) => {
+  args: { bodegaId: v.id("bodegas") },
+  handler: async (ctx, args) => {
     await requireIdentity(ctx);
-    const generatedFolio = await getNextPurchaseFolio(ctx);
+    await requireWarehouseAccess(ctx, args.bodegaId);
+    const generatedFolio = await getNextWarehouseMovementFolio(ctx, args.bodegaId, "entrada");
     return generatedFolio;
   },
 });

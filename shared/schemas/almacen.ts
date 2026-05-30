@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 export const almacenSchema = z.object({
+  code: z.string().optional(),
   name: z.string().min(1, "El nombre es obligatorio"),
   description: z.string().optional(),
   address: z.string().optional(),

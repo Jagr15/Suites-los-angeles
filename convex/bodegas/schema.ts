@@ -2,6 +2,7 @@ import { defineTable } from "convex/server";
 import { v } from "convex/values";
 
 export const bodegaFields = {
+  code: v.optional(v.string()),
   name: v.string(),
   description: v.optional(v.string()),
   address: v.optional(v.string()),
@@ -13,4 +14,6 @@ export const bodegaFields = {
   allowedUserIds: v.optional(v.array(v.id("users"))),
 };
 
-export const bodegasTable = defineTable(bodegaFields).index("by_name", ["name"]);
+export const bodegasTable = defineTable(bodegaFields)
+  .index("by_name", ["name"])
+  .index("by_code", ["code"]);

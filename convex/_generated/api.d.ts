@@ -21,6 +21,7 @@ import type * as clients_queries from "../clients/queries.js";
 import type * as common_hashing from "../common/hashing.js";
 import type * as common_mutations from "../common/mutations.js";
 import type * as common_utils from "../common/utils.js";
+import type * as common_warehouseFolios from "../common/warehouseFolios.js";
 import type * as credits_functions from "../credits/functions.js";
 import type * as debug from "../debug.js";
 import type * as demoSeed from "../demoSeed.js";
@@ -78,6 +79,7 @@ declare const fullApi: ApiFromModules<{
   "common/hashing": typeof common_hashing;
   "common/mutations": typeof common_mutations;
   "common/utils": typeof common_utils;
+  "common/warehouseFolios": typeof common_warehouseFolios;
   "credits/functions": typeof credits_functions;
   debug: typeof debug;
   demoSeed: typeof demoSeed;

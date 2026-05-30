@@ -32,9 +32,10 @@ import { useRoles } from "@/shared/hooks";
 type BodegaIngresoFormProps = {
     onSuccess?: () => void;
     onCancel: () => void;
+    selectedWarehouseId?: string;
 };
 
-export function BodegaIngresoForm({ onSuccess, onCancel }: BodegaIngresoFormProps) {
+export function BodegaIngresoForm({ onSuccess, onCancel, selectedWarehouseId }: BodegaIngresoFormProps) {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const { hasPermission, isAdmin } = useRoles();
     const restrictDateEdit = !isAdmin && hasPermission("warehouse_money:restrict_date_edit");
@@ -70,13 +71,13 @@ export function BodegaIngresoForm({ onSuccess, onCancel }: BodegaIngresoFormProp
     const allCategories = useQuery(api.bodega_transactions.queries.listCategories, { type: "ingreso" }) || [];
     const mainCategories = allCategories.filter(c => !c.parentCategoryId);
     const subCategories = allCategories.filter(c => c.parentCategoryId === formData.categoryId);
-    const bodegas = useQuery(api.bodegas.queries.list) || [];
+    const bodegas = useQuery(api.bodegas.queries.listAccessible) || [];
     
     const generateUploadUrl = useMutation(api.common.mutations.generateUploadUrl);
     const createIngresoMutation = useMutation(api.bodega_transactions.mutations.createIngreso);
     
     const routes = useQuery(api.routes.queries.list) || [];
-    const profiles = useQuery(api.profiles.queries.listAll) || [];
+    const profiles = useQuery(api.profiles.queries.listForSelection) || [];
     const assignedProfileIds = new Set(routes.map(r => r.assignedProfileId));
     const routeStaff = profiles.filter(p => assignedProfileIds.has(p._id));
     const hasRequiredCatalogs = mainCategories.length > 0 && routeStaff.length > 0 && bodegas.length > 0;
@@ -84,6 +85,9 @@ export function BodegaIngresoForm({ onSuccess, onCancel }: BodegaIngresoFormProp
     const handleOnSubmit = async (data: BodegaIngresoFormValues) => {
         setIsSubmitting(true);
         try {
+            if (!selectedWarehouseId) {
+                throw new Error("No hay bodega seleccionada.");
+            }
             let evidenceStorageId = undefined;
 
             // 1. Subir imagen si existe
@@ -100,6 +104,7 @@ export function BodegaIngresoForm({ onSuccess, onCancel }: BodegaIngresoFormProp
 
             // 2. Crear el ingreso
             await createIngresoMutation({
+                bodegaId: selectedWarehouseId as Id<"bodegas">,
                 amount: data.amount,
                 categoryId: data.categoryId as Id<"bodega_categorias">,
                 subcategoryId: data.subcategoryId as Id<"bodega_categorias">,
