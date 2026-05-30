@@ -2,6 +2,9 @@ import { mutation } from "./_generated/server";
 import { v } from "convex/values";
 import { DEFAULT_PERMISSIONS_BY_ROLE } from "../shared/security/permissions";
 import { hashPassword } from "./common/hashing";
+import { isAdmin } from "./common/utils";
+import { ensureWarehouseMovementSequence, numberToWarehouseCode } from "./common/warehouseFolios";
+import type { Id } from "./_generated/dataModel";
 
 function assertDevMaintenanceEnabled() {
   const allow = (process.env.ALLOW_DEV_MIGRATIONS || "").trim().toLowerCase() === "true";
@@ -10,6 +13,15 @@ function assertDevMaintenanceEnabled() {
   if (!allow || !isDev) {
     throw new Error("Maintenance mutation is only allowed in dev with ALLOW_DEV_MIGRATIONS=true.");
   }
+}
+
+async function assertProdMaintenanceAccess(ctx: any) {
+  if (await isAdmin(ctx)) return;
+  const allowProd = (process.env.ALLOW_PROD_MAINTENANCE || "").trim().toLowerCase() === "true";
+  if (allowProd) return;
+  throw new Error(
+    "Acceso denegado: requiere admin o mantenimiento productivo habilitado por entorno."
+  );
 }
 
 export const syncCanonicalRolesAndDemoUsers = mutation({
@@ -422,5 +434,137 @@ export const normalizeDemoRoleCompatibility = mutation({
       roleActions,
       userActions,
     };
+  },
+});
+
+export const assignWarehouseCodes = mutation({
+  args: {},
+  handler: async (ctx) => {
+    await assertProdMaintenanceAccess(ctx);
+    const bodegas = await ctx.db.query("bodegas").collect();
+    const ordered = [...bodegas].sort((a, b) => a._creationTime - b._creationTime);
+    let patched = 0;
+    for (let i = 0; i < ordered.length; i++) {
+      const bodega = ordered[i];
+      if ((bodega as any).code) continue;
+      const code = numberToWarehouseCode(i + 1);
+      await ctx.db.patch(bodega._id, { code });
+      patched++;
+    }
+    return { ok: true, patched, total: ordered.length };
+  },
+});
+
+export const ensureWarehouseMovementSequences = mutation({
+  args: {},
+  handler: async (ctx) => {
+    await assertProdMaintenanceAccess(ctx);
+    const bodegas = await ctx.db.query("bodegas").collect();
+    for (const bodega of bodegas) {
+      await ensureWarehouseMovementSequence(ctx, bodega._id, "entrada");
+      await ensureWarehouseMovementSequence(ctx, bodega._id, "salida");
+      await ensureWarehouseMovementSequence(ctx, bodega._id, "ingreso");
+      await ensureWarehouseMovementSequence(ctx, bodega._id, "egreso");
+    }
+    return { ok: true, bodegas: bodegas.length };
+  },
+});
+
+async function resolveResponsible(ctx: any, profileId?: any, userId?: any) {
+  const profile = profileId ? await ctx.db.get(profileId) : null;
+  const user = userId ? await ctx.db.get(userId) : null;
+  const userProfile = user?.profileId ? await ctx.db.get(user.profileId) : null;
+  return {
+    responsibleProfileId: profile?._id || userProfile?._id,
+    responsibleUserId: user?._id,
+    responsibleName: profile?.fullName || userProfile?.fullName || user?.name || user?.email || undefined,
+  };
+}
+
+async function upsertSystemLinkedAccount(
+  ctx: any,
+  args: {
+    linkedEntityType: "bodega" | "route";
+    linkedEntityId: string;
+    alias: string;
+    responsibleProfileId?: Id<"profiles">;
+    responsibleUserId?: Id<"users">;
+    isActive?: boolean;
+  }
+) {
+  const existing = await ctx.db
+    .query("finance_accounts")
+    .withIndex("by_linked_entity", (q: any) =>
+      q.eq("linkedEntityType", args.linkedEntityType).eq("linkedEntityId", args.linkedEntityId)
+    )
+    .first();
+
+  const responsible = await resolveResponsible(ctx, args.responsibleProfileId, args.responsibleUserId);
+  const payload = {
+    alias: args.alias,
+    type: "Caja Chica" as const,
+    currency: "MXN",
+    isActive: args.isActive ?? true,
+    linkedEntityType: args.linkedEntityType,
+    linkedEntityId: args.linkedEntityId,
+    isSystemLinked: true,
+    ...responsible,
+  };
+
+  if (existing) {
+    await ctx.db.patch(existing._id, payload);
+    return existing._id;
+  }
+
+  return await ctx.db.insert("finance_accounts", {
+    ...payload,
+    initialBalance: 0,
+    currentBalance: 0,
+  });
+}
+
+export const ensureLinkedAccounts = mutation({
+  args: {},
+  handler: async (ctx) => {
+    await assertProdMaintenanceAccess(ctx);
+    const bodegas = await ctx.db.query("bodegas").collect();
+    const routes = await ctx.db.query("routes").collect();
+
+    let createdOrUpdated = 0;
+    for (const bodega of bodegas) {
+      await upsertSystemLinkedAccount(ctx, {
+        linkedEntityType: "bodega",
+        linkedEntityId: String(bodega._id),
+        alias: `Caja de ${bodega.name}`,
+        responsibleProfileId: (bodega as any).managerProfileId,
+        responsibleUserId: (bodega as any).managerUserId,
+        isActive: bodega.isActive,
+      });
+      createdOrUpdated++;
+    }
+
+    for (const route of routes) {
+      await upsertSystemLinkedAccount(ctx, {
+        linkedEntityType: "route",
+        linkedEntityId: String(route._id),
+        alias: `Caja de ${route.name}`,
+        responsibleProfileId: route.assignedProfileId,
+        responsibleUserId: route.assignedUserId,
+        isActive: route.isActive,
+      });
+      createdOrUpdated++;
+    }
+
+    const allAccounts = await ctx.db.query("finance_accounts").collect();
+    for (const account of allAccounts) {
+      if (!account.linkedEntityType) {
+        await ctx.db.patch(account._id, {
+          linkedEntityType: "manual",
+          isSystemLinked: false,
+        });
+      }
+    }
+
+    return { ok: true, createdOrUpdated };
   },
 });
