@@ -14,8 +14,12 @@ import {
   Textarea,
   Switch,
   Checkbox,
+  Select,
+  SelectItem,
 } from "@heroui/react";
 import { almacenSchema, type AlmacenFormValues, type Almacen } from "@/shared/schemas";
+import { useQuery } from "convex/react";
+import { api } from "@/convex/_generated/api";
 
 interface BodegaModalProps {
   isOpen: boolean;
@@ -38,6 +42,7 @@ export function BodegaModal({
     control,
     handleSubmit,
     reset,
+    setValue,
     formState: { errors },
   } = useForm<AlmacenFormValues>({
     resolver: zodResolver(almacenSchema) as any,
@@ -49,6 +54,7 @@ export function BodegaModal({
       allowedUserIds: [],
     },
   });
+  const profiles = useQuery(api.profiles.queries.listAll) || [];
 
   useEffect(() => {
     if (isOpen) {
@@ -58,6 +64,8 @@ export function BodegaModal({
           description: bodega.description || "",
           address: bodega.address || "",
           manager: bodega.manager || "",
+          managerProfileId: (bodega as any).managerProfileId || "",
+          managerUserId: (bodega as any).managerUserId || "",
           phone: bodega.phone || "",
           isActive: bodega.isActive,
           allowedUserIds: (bodega as any).allowedUserIds || [],
@@ -68,6 +76,8 @@ export function BodegaModal({
           description: "",
           address: "",
           manager: "",
+          managerProfileId: "",
+          managerUserId: "",
           phone: "",
           isActive: true,
           allowedUserIds: [],
@@ -106,16 +116,30 @@ export function BodegaModal({
             />
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <Controller
-                name="manager"
+                name="managerProfileId"
                 control={control}
                 render={({ field }) => (
-                  <Input
+                  <Select
                     label="Encargado"
-                    placeholder="Nombre del responsable"
+                    placeholder="Selecciona un perfil responsable"
                     labelPlacement="outside"
-                    value={field.value}
-                    onValueChange={field.onChange}
-                  />
+                    selectedKeys={field.value ? [field.value] : []}
+                    onSelectionChange={(keys) => {
+                      const selectedId = String(Array.from(keys)[0] || "");
+                      const selectedProfile = profiles.find((p: any) => String(p._id) === selectedId);
+                      field.onChange(selectedId);
+                      if (selectedProfile) {
+                        setValue("manager", selectedProfile.fullName);
+                        setValue("managerUserId", selectedProfile.userId ? String(selectedProfile.userId) : "");
+                      }
+                    }}
+                    isInvalid={!!errors.managerProfileId}
+                    errorMessage={errors.managerProfileId?.message}
+                  >
+                    {profiles.map((profile: any) => (
+                      <SelectItem key={String(profile._id)}>{profile.fullName}</SelectItem>
+                    ))}
+                  </Select>
                 )}
               />
               <Controller

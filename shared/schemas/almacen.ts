@@ -5,6 +5,8 @@ export const almacenSchema = z.object({
   description: z.string().optional(),
   address: z.string().optional(),
   manager: z.string().optional(),
+  managerProfileId: z.string().optional(),
+  managerUserId: z.string().optional(),
   phone: z.string().optional(),
   isActive: z.boolean().default(true),
   allowedUserIds: z.array(z.string()).optional(),

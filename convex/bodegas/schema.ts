@@ -6,6 +6,8 @@ export const bodegaFields = {
   description: v.optional(v.string()),
   address: v.optional(v.string()),
   manager: v.optional(v.string()),
+  managerProfileId: v.optional(v.id("profiles")),
+  managerUserId: v.optional(v.id("users")),
   phone: v.optional(v.string()),
   isActive: v.boolean(),
   allowedUserIds: v.optional(v.array(v.id("users"))),

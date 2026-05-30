@@ -7,6 +7,20 @@ function getTodayISO() {
   return new Date().toISOString().split("T")[0];
 }
 
+async function applyLinkedBodegaBalance(ctx: any, bodegaId: any, delta: number) {
+  if (!bodegaId) return;
+  const account = await ctx.db
+    .query("finance_accounts")
+    .withIndex("by_linked_entity", (q: any) =>
+      q.eq("linkedEntityType", "bodega").eq("linkedEntityId", String(bodegaId))
+    )
+    .first();
+  if (!account) return;
+  await ctx.db.patch(account._id, {
+    currentBalance: (account.currentBalance || 0) + delta,
+  });
+}
+
 export const createCategory = mutation({
   args: {
     name: v.string(),
@@ -64,7 +78,9 @@ export const createIngreso = mutation({
         throw new Error("Acceso denegado: no puedes modificar la fecha en ingresos de bodega.");
       }
     }
-    return await ctx.db.insert("bodega_ingresos", args);
+    const id = await ctx.db.insert("bodega_ingresos", args);
+    await applyLinkedBodegaBalance(ctx, args.bodegaId, args.amount);
+    return id;
   },
 });
 
@@ -88,7 +104,9 @@ export const createEgreso = mutation({
         throw new Error("Acceso denegado: se requiere evidencia fotográfica para registrar egresos.");
       }
     }
-    return await ctx.db.insert("bodega_egresos", args);
+    const id = await ctx.db.insert("bodega_egresos", args);
+    await applyLinkedBodegaBalance(ctx, args.bodegaId, -args.amount);
+    return id;
   },
 });
 
@@ -103,6 +121,9 @@ export const removeIngreso = mutation({
         throw new Error("Acceso denegado: tu rol no permite eliminar registros.");
       }
     }
+    const ingreso = await ctx.db.get(args.id);
+    if (!ingreso) return;
+    await applyLinkedBodegaBalance(ctx, ingreso.bodegaId, -ingreso.amount);
     await ctx.db.delete(args.id);
   },
 });
@@ -118,6 +139,9 @@ export const removeEgreso = mutation({
         throw new Error("Acceso denegado: tu rol no permite eliminar registros.");
       }
     }
+    const egreso = await ctx.db.get(args.id);
+    if (!egreso) return;
+    await applyLinkedBodegaBalance(ctx, egreso.bodegaId, egreso.amount);
     await ctx.db.delete(args.id);
   },
 });

@@ -53,6 +53,14 @@ export function AccountsTab() {
   };
 
   const handleDeleteClick = (account: Doc<"finance_accounts">) => {
+    if ((account as any).isSystemLinked || ((account as any).linkedEntityType && (account as any).linkedEntityType !== "manual")) {
+      addToast({
+        title: "Cuenta vinculada",
+        description: "No se puede eliminar una caja vinculada a una bodega o ruta.",
+        color: "warning",
+      });
+      return;
+    }
     setAccountToDelete(account);
     onConfirmOpen();
   };
@@ -93,6 +101,7 @@ export function AccountsTab() {
       <Table aria-label="Tabla de cuentas" removeWrapper>
         <TableHeader>
           <TableColumn>ALIAS</TableColumn>
+          <TableColumn>RESPONSABLE</TableColumn>
           <TableColumn>TIPO</TableColumn>
           <TableColumn>SALDO ACTUAL</TableColumn>
           <TableColumn>ESTADO</TableColumn>
@@ -102,6 +111,7 @@ export function AccountsTab() {
           {(item) => (
             <TableRow key={item._id}>
               <TableCell className="font-semibold">{item.alias}</TableCell>
+              <TableCell>{(item as any).responsibleName || "Sin responsable"}</TableCell>
               <TableCell>
                 <Chip size="sm" variant="bordered">
                   {item.type}
@@ -127,7 +137,7 @@ export function AccountsTab() {
                   </Tooltip>
                   <Tooltip content="Eliminar" color="danger">
                     <TrashIcon 
-                      className="size-5 text-default-400 cursor-pointer hover:text-danger transition-colors" 
+                      className={`size-5 transition-colors ${(item as any).isSystemLinked ? "text-default-300 cursor-not-allowed" : "text-default-400 cursor-pointer hover:text-danger"}`}
                       onClick={() => handleDeleteClick(item)}
                     />
                   </Tooltip>

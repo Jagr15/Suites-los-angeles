@@ -16,8 +16,9 @@ import {
 } from "@heroui/react";
 import { useForm, Controller } from "react-hook-form";
 import { useMutation } from "convex/react";
+import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
-import { Doc } from "@/convex/_generated/dataModel";
+import { Doc, Id } from "@/convex/_generated/dataModel";
 
 interface AccountModalProps {
   isOpen: boolean;
@@ -32,11 +33,14 @@ type AccountFormData = {
   currentBalance: number;
   currency: string;
   isActive: boolean;
+  responsibleProfileId?: string;
+  responsibleName?: string;
 };
 
 export function AccountModal({ isOpen, onOpenChange, account }: AccountModalProps) {
   const createAccount = useMutation(api.finance_accounts.functions.create);
   const updateAccount = useMutation(api.finance_accounts.functions.update);
+  const profiles = useQuery(api.profiles.queries.listAll) || [];
 
   const { register, handleSubmit, reset, setValue, watch, control } = useForm<AccountFormData>({
     defaultValues: {
@@ -57,6 +61,8 @@ export function AccountModal({ isOpen, onOpenChange, account }: AccountModalProp
         currentBalance: account.currentBalance,
         currency: account.currency,
         isActive: account.isActive,
+        responsibleProfileId: (account as any).responsibleProfileId ? String((account as any).responsibleProfileId) : "",
+        responsibleName: (account as any).responsibleName || "",
       });
     } else {
       reset({
@@ -65,6 +71,8 @@ export function AccountModal({ isOpen, onOpenChange, account }: AccountModalProp
         isActive: true,
         initialBalance: 0,
         currentBalance: 0,
+        responsibleProfileId: "",
+        responsibleName: "",
       });
     }
   }, [account, reset]);
@@ -75,6 +83,12 @@ export function AccountModal({ isOpen, onOpenChange, account }: AccountModalProp
         ...data,
         initialBalance: Number(data.initialBalance),
         currentBalance: account ? Number(data.currentBalance) : Number(data.initialBalance),
+        responsibleProfileId: data.responsibleProfileId
+          ? (data.responsibleProfileId as Id<"profiles">)
+          : undefined,
+        linkedEntityType: (account as any)?.linkedEntityType || "manual",
+        linkedEntityId: (account as any)?.linkedEntityId,
+        isSystemLinked: (account as any)?.isSystemLinked || false,
       };
 
       if (account) {
@@ -135,6 +149,22 @@ export function AccountModal({ isOpen, onOpenChange, account }: AccountModalProp
                   <SelectItem key="Crédito">Crédito</SelectItem>
                   <SelectItem key="Caja Chica">Caja Chica</SelectItem>
                   <SelectItem key="Caja Fuerte">Caja Fuerte</SelectItem>
+                </Select>
+                <Select
+                  label="Responsable"
+                  variant="bordered"
+                  labelPlacement="outside"
+                  selectedKeys={watch("responsibleProfileId") ? [watch("responsibleProfileId") as string] : []}
+                  onSelectionChange={(keys) => {
+                    const nextId = String(Array.from(keys)[0] || "");
+                    const profile = profiles.find((p: any) => String(p._id) === nextId);
+                    setValue("responsibleProfileId", nextId);
+                    setValue("responsibleName", profile?.fullName || "");
+                  }}
+                >
+                  {profiles.map((profile: any) => (
+                    <SelectItem key={String(profile._id)}>{profile.fullName}</SelectItem>
+                  ))}
                 </Select>
                 <Input
                   {...register("currency", { required: true })}
