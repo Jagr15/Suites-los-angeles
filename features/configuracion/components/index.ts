@@ -8,3 +8,4 @@ export { RoutesManagementCard } from "./routes/RoutesManagementCard";
 export { AssetsManagementCard } from "./assets/AssetsManagementCard";
 export { FinanceManagementCard } from "./FinanceManagementCard";
 export { BodegasManagementCard } from "./bodegas/BodegasManagementCard";
+export { PricingManagementCard } from "./pricing/PricingManagementCard";

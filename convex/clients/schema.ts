@@ -15,6 +15,7 @@ export const clientsTable = defineTable({
   municipalityName: v.string(),
   stateId: v.optional(v.string()),
   stateName: v.optional(v.string()),
+  pricingCustomerLevelId: v.optional(v.id("pricingCustomerLevels")),
   visitFrequency: v.union(v.literal("Semanal"), v.literal("Quincenal"), v.literal("Mensual")),
   assignedRouteId: v.optional(v.id("routes")),
   assignedRouteName: v.optional(v.string()),
@@ -26,4 +27,5 @@ export const clientsTable = defineTable({
   lng: v.optional(v.number()),
   image: v.optional(v.string()),
   visitOrder: v.optional(v.number()), // Orden de visita en la ruta
-}).index("by_commercialName", ["commercialName"]);
+}).index("by_commercialName", ["commercialName"])
+  .index("by_pricingCustomerLevelId", ["pricingCustomerLevelId"]);

@@ -31,6 +31,7 @@ export function BodegaPage() {
   // Convex Data
   const { selectedWarehouseId, setSelectedWarehouseId } = useWarehouse();
   const accessibleBodegas = useQuery(api.bodegas.queries.listAccessible);
+  const clients = useQuery(api.clients.queries.list);
   const purchases = useQuery(api.purchases.queries.list, selectedWarehouseId ? { bodegaId: selectedWarehouseId as any } : "skip");
   const suppliers = useQuery(api.suppliers.queries.list);
   const products = useQuery(api.products.queries.list);
@@ -217,10 +218,14 @@ export function BodegaPage() {
         const currentSalida = editId
           ? (salidas || []).find((s: any) => String(s._id || s.id) === String(editId))
           : null;
+        const nextClientId = values.clientId || currentSalida?.clientId || "";
         const payload = {
           numeroSalida: isSuperAdmin && editId
             ? values.numeroCarga
             : (currentSalida?.numeroSalida || values.numeroCarga || "Se genera al guardar"),
+          clientId: nextClientId,
+          clienteCodigo: values.clienteCodigo || currentSalida?.clienteCodigo || (nextClientId || ""),
+          clienteNombre: values.clienteNombre || currentSalida?.clienteNombre || "",
           fecha: values.fecha,
           status: values.status,
           responsable: values.responsable,
@@ -299,9 +304,17 @@ export function BodegaPage() {
       addToast({ title: "Selecciona una bodega", color: "warning" });
       return;
     }
+    const fallbackClient = (clients || []).find((client: any) => String(client.commercialName || client.buyerName || "").trim().toLowerCase() === "cliente general") || clients?.[0];
+    if (!fallbackClient) {
+      addToast({ title: "Selecciona un cliente", description: "No hay clientes disponibles para crear la salida.", color: "warning" });
+      return;
+    }
     const payload = {
       numeroSalida: "Se genera al guardar",
       bodegaId: selectedWarehouseId,
+      clientId: fallbackClient._id,
+      clienteCodigo: String(fallbackClient._id),
+      clienteNombre: fallbackClient.commercialName || fallbackClient.buyerName || "",
       responsable: "Bodega",
       fecha: new Date().toISOString().split("T")[0],
       status: "Creado",
@@ -322,7 +335,7 @@ export function BodegaPage() {
       description: `La carga ${item.numeroCarga || "seleccionada"} pasó a salidas exitosamente.`,
       color: "success"
     });
-  }, [createSalida, selectedWarehouseId, setActiveTab]);
+  }, [clients, createSalida, selectedWarehouseId, setActiveTab]);
 
   const handleAvanzarEntrada = useCallback(async (item: any) => {
     try {

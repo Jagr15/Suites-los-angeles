@@ -13,6 +13,7 @@ import {
   BuildingOfficeIcon,
   UsersIcon,
   MapIcon,
+  CurrencyDollarIcon,
 } from "@heroicons/react/24/outline";
 import {
   PermissionsMatrixCard,
@@ -23,6 +24,7 @@ import {
   RoutesManagementCard,
   FinanceManagementCard,
   BodegasManagementCard,
+  PricingManagementCard,
 } from "../components";
 
 export function ConfiguracionPage() {
@@ -126,6 +128,20 @@ export function ConfiguracionPage() {
           >
             <div className="mt-4">
               <ClientsManagementCard />
+            </div>
+          </Tab>
+
+          <Tab
+            key="precios-dinamicos"
+            title={
+              <div className="flex items-center space-x-2 text-sm">
+                <CurrencyDollarIcon className="size-4" />
+                <span>Precios Dinámicos</span>
+              </div>
+            }
+          >
+            <div className="mt-4">
+              <PricingManagementCard />
             </div>
           </Tab>
 

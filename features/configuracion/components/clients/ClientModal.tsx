@@ -26,7 +26,7 @@ import {
   CalendarDaysIcon,
   CurrencyDollarIcon,
 } from "@heroicons/react/24/outline";
-import { Client, ROUTES } from "./types";
+import { Client } from "./types";
 import { StateSelector, MunicipalitySelector, LocalitySelector } from "@/shared/components/locations";
 import { getAddressReferenceFromMapsUrl, getGoogleMapsEmbedSrc, parseCoordinatesFromMapsUrl } from "./location-utils";
 import { parseTimeToCalendarDate, toHHmm } from "../../utils/time";
@@ -39,6 +39,12 @@ interface ClientModalProps {
   onClose: () => void;
   isLoading?: boolean;
 }
+
+type PricingLevelItem = {
+  _id: string;
+  code: string;
+  name: string;
+};
 
 function buildMapsSearchUrl(reference: string): string {
   const trimmed = reference.trim();
@@ -71,6 +77,7 @@ export function ClientModal({
   isLoading,
 }: ClientModalProps) {
   const routes = useQuery(api.routes.queries.list) || [];
+  const pricingLevels = (useQuery(api.pricing.queries.listCustomerLevels) || []) as PricingLevelItem[];
 
   const {
     control,
@@ -97,6 +104,7 @@ export function ClientModal({
       municipalityName: "",
       stateId: "15",
       stateName: "México",
+      pricingCustomerLevelId: "",
     },
   });
 
@@ -106,9 +114,7 @@ export function ClientModal({
   const lat = watch("lat");
   const lng = watch("lng");
   const mapsUrl = watch("mapsUrl");
-  const townName = watch("townName");
-  const municipalityName = watch("municipalityName");
-  const stateName = watch("stateName");
+  const availableScheduleEnd = watch("availableScheduleEnd");
   const embedSrc = getGoogleMapsEmbedSrc(lat, lng, mapsUrl);
 
   useEffect(() => {
@@ -143,6 +149,7 @@ export function ClientModal({
           municipalityName: selectedClient.municipalityName,
           stateId: selectedClient.stateId || "15",
           stateName: selectedClient.stateName || "México",
+          pricingCustomerLevelId: selectedClient.pricingCustomerLevelId || "",
           visitFrequency: selectedClient.visitFrequency,
           assignedRouteId: selectedClient.assignedRouteId,
           assignedRouteName: selectedClient.assignedRouteName,
@@ -168,6 +175,7 @@ export function ClientModal({
           municipalityName: "",
           stateId: "15",
           stateName: "México",
+          pricingCustomerLevelId: "",
         });
       }
     }
@@ -198,7 +206,7 @@ export function ClientModal({
       scrollBehavior="inside"
     >
       <ModalContent>
-        {(internalOnClose) => (
+        {() => (
           <form 
             onSubmit={handleSubmit(onSubmit)} 
             className="flex flex-col max-h-full overflow-hidden"
@@ -238,6 +246,36 @@ export function ClientModal({
                         isInvalid={!!errors.buyerName}
                         errorMessage={errors.buyerName?.message}
                       />
+                    )}
+                  />
+                </div>
+
+                <Divider />
+
+                {/* Pricing Level */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <Controller
+                    name="pricingCustomerLevelId"
+                    control={control}
+                    render={({ field }) => (
+                      <Autocomplete
+                        label="Nivel de pricing"
+                        placeholder="Sin nivel"
+                        variant="bordered"
+                        labelPlacement="outside"
+                        items={pricingLevels}
+                        selectedKey={field.value || null}
+                        onSelectionChange={(key) => field.onChange(String(key || ""))}
+                      >
+                        {(level) => (
+                          <AutocompleteItem
+                            key={String(level._id)}
+                            textValue={`${level.code} - ${level.name}`}
+                          >
+                            {level.code} - {level.name}
+                          </AutocompleteItem>
+                        )}
+                      </Autocomplete>
                     )}
                   />
                 </div>
@@ -498,13 +536,12 @@ export function ClientModal({
                   </div>
                   <div className="grid grid-cols-1 gap-4">
                     <Controller
-                      name="availableScheduleStart"
-                      control={control}
-                      render={({ field }) => {
-                        const end = watch("availableScheduleEnd");
-                        const startBoundary = toDateRangeBoundary(field.value);
-                        const endBoundary = toDateRangeBoundary(end);
-                        return (
+                    name="availableScheduleStart"
+                    control={control}
+                    render={({ field }) => {
+                      const startBoundary = toDateRangeBoundary(field.value);
+                      const endBoundary = toDateRangeBoundary(availableScheduleEnd);
+                      return (
                           <DateRangePicker
                             label="Horario disponible"
                             variant="bordered"
@@ -519,11 +556,12 @@ export function ClientModal({
                                     end: endBoundary,
                                   }
                                 : null
-                            ) as any}
-                            onChange={(value: any) => {
+                            ) as never}
+                            onChange={(value) => {
                               if (value) {
-                                field.onChange(toHHmm(value.start) || "");
-                                setValue("availableScheduleEnd", toHHmm(value.end) || "");
+                                const rangeValue = value as { start: unknown; end: unknown };
+                                field.onChange(toHHmm(rangeValue.start) || "");
+                                setValue("availableScheduleEnd", toHHmm(rangeValue.end) || "");
                               } else {
                                 field.onChange(undefined);
                                 setValue("availableScheduleEnd", undefined);

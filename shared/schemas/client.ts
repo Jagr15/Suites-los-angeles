@@ -14,6 +14,7 @@ export const clientSchema = z.object({
   municipalityName: z.string().min(1, "El municipio es obligatorio"),
   stateId: z.string().min(1, "El estado es obligatorio"),
   stateName: z.string().min(1, "El estado es obligatorio"),
+  pricingCustomerLevelId: z.string().optional(),
   visitFrequency: z.enum(["Semanal", "Quincenal", "Mensual"]),
   assignedRouteId: z.string().optional(),
   assignedRouteName: z.string().optional(),

@@ -39,6 +39,7 @@ export function useClients() {
     municipalityName: c.municipalityName,
     stateId: c.stateId,
     stateName: c.stateName,
+    pricingCustomerLevelId: c.pricingCustomerLevelId,
     visitFrequency: c.visitFrequency,
     assignedRouteId: c.assignedRouteId ? String(c.assignedRouteId) : "",
     assignedRouteName: c.assignedRouteName || "",
@@ -51,8 +52,7 @@ export function useClients() {
   }));
 
   const addClient = async (client: Omit<Client, "id">) => {
-    // Extraer campos que no existen en el validador del servidor
-    const { _id, _creationTime, ...fields } = client as any;
+    const fields = client as Omit<Client, "id">;
     
     const lat = toOptionalNumber(fields.lat);
     const lng = toOptionalNumber(fields.lng);
@@ -81,11 +81,11 @@ export function useClients() {
       assignedRouteId: (fields.assignedRouteId === "" || !fields.assignedRouteId) ? undefined : fields.assignedRouteId,
     };
 
-    return await createClientMutation(cleanData as any);
+    return await createClientMutation(cleanData as Parameters<typeof createClientMutation>[0]);
   };
 
   const updateClient = async (id: string, client: Partial<Client>) => {
-    const { id: _, _id, _creationTime, ...data } = client as any;
+    const data = client as Partial<Client>;
     
     const lat = toOptionalNumber(data.lat);
     const lng = toOptionalNumber(data.lng);
@@ -117,7 +117,7 @@ export function useClients() {
     return await updateClientMutation({
       id: id as Id<"clients">,
       ...cleanData,
-    } as any);
+    } as Parameters<typeof updateClientMutation>[0]);
   };
 
   const deleteClient = async (id: string) => {

@@ -13,6 +13,8 @@ export interface Client {
   municipalityName: string;
   stateId?: string;
   stateName?: string;
+  pricingCustomerLevelId?: string;
+  pricingCustomerLevelName?: string;
   visitFrequency: "Semanal" | "Quincenal" | "Mensual";
   assignedRouteId: string;
   assignedRouteName: string;

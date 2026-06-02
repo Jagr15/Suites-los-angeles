@@ -19,6 +19,12 @@ import { creditsTable } from "./credits/schema";
 import { financeAccountsTable } from "./finance_accounts/schema";
 import { productCategoriesTable, productSubcategoriesTable } from "./product_categories/schema";
 import { salidasTable } from "./salidas/schema";
+import {
+  pricingCustomerLevelsTable,
+  pricingProductTiersTable,
+  pricingSettingsTable,
+  pricingZoneMarginsTable,
+} from "./pricing/schema";
 
 
 export default defineSchema({
@@ -86,6 +92,10 @@ export default defineSchema({
   }).index("by_userId", ["userId"]),
   // Tabla de Clientes
   clients: clientsTable,
+  pricingCustomerLevels: pricingCustomerLevelsTable,
+  pricingProductTiers: pricingProductTiersTable,
+  pricingZoneMargins: pricingZoneMarginsTable,
+  pricingSettings: pricingSettingsTable,
 
   // Tabla de Rutas
   routes: routesTable,

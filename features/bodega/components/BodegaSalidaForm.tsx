@@ -45,6 +45,7 @@ const defaultValues: CargaBodegaFormValues = {
   responsable: "",
   tipoEntrega: "sucursal",
   productos: [],
+  clientId: "",
   clienteDireccion: "",
   agente: "",
   almacen: "",
@@ -63,6 +64,7 @@ function mapSalidaToFormValues(salida: any): CargaBodegaFormValues {
     status: salida?.status || "Listo para surtir",
     responsable: salida?.responsable || "",
     tipoEntrega: salida?.tipoEntrega || "sucursal",
+    clientId: salida?.clientId || "",
     productos: (salida?.productos || salida?.items || []).map((prod: any) => ({
       id: prod.id || prod.productId,
       productId: prod.productId || prod.id,
@@ -109,6 +111,8 @@ export function BodegaSalidaForm({
 
   const rawProducts = useQuery(api.products.queries.list) || [];
   const routes = useQuery(api.routes.queries.list) || [];
+  const rawClients = useQuery(api.clients.queries.list);
+  const clients = rawClients || [];
 
   const products = useMemo(() => {
     return rawProducts.map((raw) => {
@@ -140,12 +144,17 @@ export function BodegaSalidaForm({
   const selectedRouteName = useWatch({ control, name: "ruta", defaultValue: "" });
   const statusOptions = useMemo(() => getBodegaStatusOptionsByTipo(tipoEntrega), [tipoEntrega]);
   const formItems = watch("productos") || [];
+  const selectedClientId = useWatch({ control, name: "clientId", defaultValue: "" });
   const selectedRoute = useMemo(
     () => routes.find((route: any) => route.name === selectedRouteName) || null,
     [routes, selectedRouteName]
   );
   const selectedRouteType = selectedRoute?.routeType || "Interna";
   const isExternalRoute = selectedRouteType === "Externa";
+  const selectedClient = useMemo(
+    () => clients.find((client: any) => String(client._id) === String(selectedClientId)) || null,
+    [clients, selectedClientId]
+  );
 
   const [selectedProduct, setSelectedProduct] = useState<(typeof products)[number] | null>(null);
   const [productInput, setProductInput] = useState("");
@@ -210,6 +219,13 @@ export function BodegaSalidaForm({
   const montoTotalFormatted = useMemo(() => {
     return montoTotalValue.toLocaleString("en-US", { minimumFractionDigits: 2 });
   }, [montoTotalValue]);
+
+  const applySelectedClient = (clientId: string) => {
+    const client = clients.find((item: any) => String(item._id) === String(clientId));
+    setValue("clientId", clientId);
+    setValue("clienteNombre", client?.commercialName || client?.buyerName || "");
+    setValue("clienteCodigo", String(client?._id || ""));
+  };
 
   const handleAddProduct = () => {
     if (!selectedProduct) return;
@@ -484,6 +500,53 @@ export function BodegaSalidaForm({
               </Select>
             )}
           />
+        </div>
+      </div>
+
+      <div className="bg-white p-3 rounded-xl border border-default-200 shadow-sm">
+        <div className="flex items-center gap-2 mb-3 ml-1">
+          <TruckIcon className="size-4 text-primary" />
+          <h3 className="text-xs font-bold uppercase text-primary/80">Cliente</h3>
+        </div>
+        <Controller
+          name="clientId"
+          control={control}
+          rules={{ required: "Selecciona un cliente" }}
+          render={({ field }) => (
+            <Select
+              label="Cliente"
+              placeholder={rawClients === undefined ? "Cargando clientes..." : "Selecciona un cliente"}
+              variant="flat"
+              selectedKeys={field.value ? [field.value] : []}
+              onSelectionChange={(keys) => {
+                const clientId = String(Array.from(keys)[0] || "");
+                field.onChange(clientId);
+                applySelectedClient(clientId);
+              }}
+              isLoading={rawClients === undefined}
+              isInvalid={!!errors.clientId}
+              errorMessage={errors.clientId?.message?.toString()}
+            >
+              {clients.map((client: any) => (
+                <SelectItem key={String(client._id)} textValue={client.commercialName || client.buyerName || "Cliente"}>
+                  <div className="flex flex-col">
+                    <span className="font-semibold">{client.commercialName || client.buyerName || "Cliente"}</span>
+                    <span className="text-tiny text-default-400">{String(client._id)}</span>
+                  </div>
+                </SelectItem>
+              ))}
+            </Select>
+          )}
+        />
+        <div className="mt-2 grid gap-2 sm:grid-cols-2 text-tiny text-default-500">
+          <div>
+            <span className="font-semibold text-default-700">Nombre snapshot:</span>{" "}
+            {selectedClient?.commercialName || selectedClient?.buyerName || watch("clienteNombre") || "Pendiente"}
+          </div>
+          <div>
+            <span className="font-semibold text-default-700">Código snapshot:</span>{" "}
+            {watch("clienteCodigo") || (selectedClient ? String(selectedClient._id) : "Pendiente")}
+          </div>
         </div>
       </div>
 

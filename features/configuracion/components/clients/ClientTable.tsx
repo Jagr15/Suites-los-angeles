@@ -14,8 +14,16 @@ import {
   PencilSquareIcon,
   TrashIcon,
 } from "@heroicons/react/24/outline";
+import { useQuery } from "convex/react";
+import { api } from "@/convex/_generated/api";
 import { Client } from "./types";
 import { getAddressReferenceFromMapsUrl } from "./location-utils";
+
+type PricingLevelItem = {
+  _id: string;
+  code: string;
+  name: string;
+};
 
 interface ClientTableProps {
   items: Client[];
@@ -24,6 +32,9 @@ interface ClientTableProps {
 }
 
 export function ClientTable({ items, onEdit, onDelete }: ClientTableProps) {
+  const pricingLevels = (useQuery(api.pricing.queries.listCustomerLevels) || []) as PricingLevelItem[];
+  const levelById = new Map(pricingLevels.map((level) => [String(level._id), level]));
+
   const renderCell = (client: Client, columnKey: React.Key) => {
     const cellValue = client[columnKey as keyof Client];
 
@@ -46,6 +57,16 @@ export function ClientTable({ items, onEdit, onDelete }: ClientTableProps) {
         return (
           <p className="text-small font-medium">{client.visitFrequency}</p>
         );
+      case "pricingCustomerLevelId": {
+        const level = client.pricingCustomerLevelId ? levelById.get(String(client.pricingCustomerLevelId)) : null;
+        return (
+          <div className="flex flex-col gap-1">
+            <Chip size="sm" variant="flat" color={level ? "secondary" : "default"}>
+              {level ? `${level.code} · ${level.name}` : "Sin nivel"}
+            </Chip>
+          </div>
+        );
+      }
       case "assignedRoute":
         return (
           <Chip size="sm" variant="flat" color="primary">
@@ -125,6 +146,7 @@ export function ClientTable({ items, onEdit, onDelete }: ClientTableProps) {
         <TableColumn key="commercialName">CLIENTE / ZONA</TableColumn>
         <TableColumn key="contact">ENCARGADO</TableColumn>
         <TableColumn key="visitFrequency">FRECUENCIA</TableColumn>
+        <TableColumn key="pricingCustomerLevelId">NIVEL</TableColumn>
         <TableColumn key="assignedRoute">RUTA</TableColumn>
         <TableColumn key="credit">CRÉDITO / DÍAS</TableColumn>
         <TableColumn key="requiresInvoice">FACTURA</TableColumn>

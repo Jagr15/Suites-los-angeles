@@ -2,12 +2,16 @@ export type SalidaRow = {
     _id?: string;
     id: string;
     numeroSalida: string;
+    clientId?: string;
+    clienteCodigo?: string;
+    clienteNombre?: string;
     responsable: string;
     lugarRuta: string;
     fecha: string;
     status: "Creado" | "Surtido" | "Revisado" | "Empacado" | "En Tarima" | "Completado" | "Enviado" | "Entregado";
     valor: string | number;
     tipo: "carga" | "venta";
+    totalAmount?: number;
 };
 
 export const mockSalidas: SalidaRow[] = [

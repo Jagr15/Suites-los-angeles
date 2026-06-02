@@ -53,6 +53,7 @@ export const cargaBodegaSchema = z.object({
   agente: z.string().optional(),
   almacen: z.string().optional(),
   bodegaId: z.string().optional(),
+  clientId: z.string().optional(),
 
   // Compatibilidad / productos
   tipoEntrega: z.enum(BODEGA_TIPO_ENTREGA_OPTIONS).default("sucursal"),

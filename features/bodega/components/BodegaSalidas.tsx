@@ -101,6 +101,9 @@ export function BodegaSalidas({ items: initialItems, onAgregar, onEditar, onBorr
             await updateSalida({
                 id: id as any,
                 numeroSalida: cleanItem.numeroSalida,
+                clientId: (cleanItem as any).clientId,
+                clienteCodigo: (cleanItem as any).clienteCodigo,
+                clienteNombre: (cleanItem as any).clienteNombre,
                 bodegaId: (cleanItem as any).bodegaId,
                 responsable: cleanItem.responsable,
                 fecha: cleanItem.fecha,
@@ -114,8 +117,6 @@ export function BodegaSalidas({ items: initialItems, onAgregar, onEditar, onBorr
                 agente: (cleanItem as any).agente,
                 clienteDireccion: (cleanItem as any).clienteDireccion,
                 serie: (cleanItem as any).serie,
-                clienteCodigo: (cleanItem as any).clienteCodigo,
-                clienteNombre: (cleanItem as any).clienteNombre,
                 numeroDocumento: (cleanItem as any).numeroDocumento,
                 ruta: (cleanItem as any).ruta,
                 destino: (cleanItem as any).destino,
@@ -160,6 +161,9 @@ export function BodegaSalidas({ items: initialItems, onAgregar, onEditar, onBorr
                 await updateSalida({
                     id: id as any,
                     numeroSalida: item.numeroSalida,
+                    clientId: (item as any).clientId,
+                    clienteCodigo: (item as any).clienteCodigo,
+                    clienteNombre: (item as any).clienteNombre,
                     bodegaId: (item as any).bodegaId,
                     responsable: item.responsable,
                     fecha: item.fecha,
@@ -172,6 +176,10 @@ export function BodegaSalidas({ items: initialItems, onAgregar, onEditar, onBorr
                     almacen: (item as any).almacen,
                     agente: (item as any).agente,
                     clienteDireccion: (item as any).clienteDireccion,
+                    serie: (item as any).serie,
+                    numeroDocumento: (item as any).numeroDocumento,
+                    ruta: (item as any).ruta,
+                    destino: (item as any).destino,
                 });
 
                 addToast({

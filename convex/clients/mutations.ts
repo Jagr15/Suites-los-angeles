@@ -16,6 +16,7 @@ const clientFields = {
   townName: v.string(),
   municipalityId: v.string(),
   municipalityName: v.string(),
+  pricingCustomerLevelId: v.optional(v.id("pricingCustomerLevels")),
   visitFrequency: v.union(v.literal("Semanal"), v.literal("Quincenal"), v.literal("Mensual")),
   assignedRouteId: v.optional(v.id("routes")),
   assignedRouteName: v.optional(v.string()),
