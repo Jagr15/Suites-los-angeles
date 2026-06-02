@@ -89,6 +89,7 @@ async function buildPricedItems(
 
   for (const item of items) {
     const normalized = normalizeSaleItem(item);
+    const product = await ctx.db.get(normalized.productId);
     const pricing = await calculateDynamicPrice(ctx, {
       productId: normalized.productId,
       quantity: normalized.quantity,
@@ -108,8 +109,8 @@ async function buildPricedItems(
       finalPrice: pricing.finalPrice,
       pricingSource: pricing.pricingSource,
       pricingRuleVersion: pricing.pricingRuleVersion,
-      sku: normalized.sku,
-      descripcion: normalized.descripcion,
+      sku: normalized.sku || product?.sku,
+      descripcion: normalized.descripcion || product?.producto,
     });
   }
 

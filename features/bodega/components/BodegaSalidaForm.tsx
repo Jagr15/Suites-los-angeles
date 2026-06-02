@@ -57,7 +57,7 @@ const defaultValues: CargaBodegaFormValues = {
   numeroDocumento: "",
 };
 
-function mapSalidaToFormValues(salida: any): CargaBodegaFormValues {
+function mapSalidaToFormValues(salida: any, productsById: Map<string, any>): CargaBodegaFormValues {
   return {
     numeroCarga: salida?.numeroSalida || salida?.numeroCarga || "Se genera al guardar",
     fecha: salida?.fecha || new Date().toISOString().split("T")[0],
@@ -65,23 +65,38 @@ function mapSalidaToFormValues(salida: any): CargaBodegaFormValues {
     responsable: salida?.responsable || "",
     tipoEntrega: salida?.tipoEntrega || "sucursal",
     clientId: salida?.clientId || "",
-    productos: (salida?.productos || salida?.items || []).map((prod: any) => ({
-      id: prod.id || prod.productId,
-      productId: prod.productId || prod.id,
-      sku: prod.sku || "",
-      descripcion: prod.descripcion || prod.name || "Producto",
-      stock: Number(prod.stock || 0),
-      sinStock: Boolean(prod.sinStock ?? Number(prod.stock || 0) <= 0),
-      cantidad: Number(prod.cantidad || prod.quantity || 1),
-      precio: Number(prod.precio || prod.price || 0),
-      nombre: prod.nombre,
-      categoria: prod.categoria || "General",
-      subcategoria: prod.subcategoria || "Sin Categoría",
-      critico: Number(prod.critico || 10),
-      bajo: Number(prod.bajo || 30),
-      optimo: Number(prod.optimo || 50),
-      etiqueta: prod.etiqueta || "Transparente",
-    })),
+    productos: (salida?.productos || salida?.items || []).map((prod: any) => {
+      const productId = String(prod.productId || prod.id || "");
+      const product = productsById.get(productId);
+      const cantidad = Number(prod.cantidad || prod.quantity || 1);
+      const unitPrice = Number(prod.precio ?? prod.price ?? prod.finalPrice ?? 0);
+      const subtotal = Number(prod.subtotal ?? unitPrice * cantidad);
+      const basePrice = Number(prod.basePrice ?? unitPrice);
+      return {
+        id: prod.id || prod.productId,
+        productId: prod.productId || prod.id,
+        sku: prod.sku || product?.sku || "",
+        descripcion: prod.descripcion || prod.name || product?.producto || "Producto",
+        stock: Number(prod.stock || product?.stock || 0),
+        sinStock: Boolean(prod.sinStock ?? Number(prod.stock || product?.stock || 0) <= 0),
+        cantidad,
+        precio: unitPrice,
+        subtotal,
+        basePrice,
+        zoneMargin: Number(prod.zoneMargin ?? 0),
+        discountPct: Number(prod.discountPct ?? 0),
+        finalPrice: Number(prod.finalPrice ?? unitPrice),
+        pricingSource: prod.pricingSource || "",
+        pricingRuleVersion: Number(prod.pricingRuleVersion ?? 0),
+        nombre: prod.nombre,
+        categoria: prod.categoria || product?.categoria || "General",
+        subcategoria: prod.subcategoria || "Sin Categoría",
+        critico: Number(prod.critico || 10),
+        bajo: Number(prod.bajo || 30),
+        optimo: Number(prod.optimo || 50),
+        etiqueta: prod.etiqueta || "Transparente",
+      };
+    }),
     clienteDireccion: salida?.clienteDireccion || "",
     agente: salida?.agente || "",
     almacen: salida?.almacen || "",
@@ -127,6 +142,9 @@ export function BodegaSalidaForm({
       };
     });
   }, [rawProducts]);
+  const productsById = useMemo(() => {
+    return new Map(products.map((product) => [String(product._id), product]));
+  }, [products]);
 
   const {
     control,
@@ -179,16 +197,19 @@ export function BodegaSalidaForm({
 
   useEffect(() => {
     if (isEdit && salida) {
-      reset(mapSalidaToFormValues(salida));
-    } else {
-      reset({
-        ...defaultValues,
-        numeroCarga: reservedFolio || "Se genera al guardar",
-        almacen: selectedWarehouseName,
-      });
-      setValue("bodegaId", selectedWarehouseId);
+      reset(mapSalidaToFormValues(salida, productsById));
     }
-  }, [isEdit, salida, reset, reservedFolio, selectedWarehouseId, selectedWarehouseName, setValue]);
+  }, [isEdit, salida, reset, productsById]);
+
+  useEffect(() => {
+    if (isEdit) return;
+    reset({
+      ...defaultValues,
+      numeroCarga: reservedFolio || "Se genera al guardar",
+      almacen: selectedWarehouseName,
+    });
+    setValue("bodegaId", selectedWarehouseId);
+  }, [isEdit, reset, reservedFolio, selectedWarehouseId, selectedWarehouseName, setValue]);
 
   useEffect(() => {
     if (!canAssignResponsible) {
@@ -253,6 +274,13 @@ export function BodegaSalidaForm({
           sinStock: selectedProduct.stock <= 0,
           cantidad: qty,
           precio: price,
+          subtotal: qty * price,
+          basePrice: price,
+          zoneMargin: 0,
+          discountPct: 0,
+          finalPrice: price,
+          pricingSource: isExternalRoute ? "legacy_lista1" : "",
+          pricingRuleVersion: 0,
         },
       ]);
     }
@@ -636,16 +664,17 @@ export function BodegaSalidaForm({
                 <th className="px-4 py-3 font-semibold">SKU</th>
                 <th className="px-4 py-3 font-semibold">Descripción</th>
                 <th className="px-4 py-3 text-right font-semibold">Cant.</th>
-                {isExternalRoute ? <th className="px-4 py-3 text-right font-semibold">Precio</th> : null}
-                {isExternalRoute ? <th className="px-4 py-3 text-right font-semibold">Subtotal</th> : null}
+                <th className="px-4 py-3 text-right font-semibold">Precio unitario</th>
+                <th className="px-4 py-3 text-right font-semibold">Subtotal</th>
+                <th className="px-4 py-3 text-right font-semibold">Fuente</th>
                 <th className="px-4 py-3 text-right font-semibold"></th>
               </tr>
             </thead>
             <tbody className="divide-y divide-default-100">
               {formItems.map((prod: any, idx: number) => (
                 <tr key={`${prod.productId || prod.id}-${idx}`} className="hover:bg-default-50 transition-colors">
-                  <td className="px-4 py-3 font-mono text-xs font-bold">{prod.sku}</td>
-                  <td className="px-4 py-3 font-medium">{prod.descripcion}</td>
+                  <td className="px-4 py-3 font-mono text-xs font-bold">{prod.sku || "-"}</td>
+                  <td className="px-4 py-3 font-medium">{prod.descripcion || "Producto"}</td>
                   <td className="px-4 py-3 text-right">
                     <Input
                       type="number"
@@ -660,14 +689,13 @@ export function BodegaSalidaForm({
                       }}
                     />
                   </td>
-                  {isExternalRoute ? (
-                    <td className="px-4 py-3 text-right font-mono">${Number(prod.precio || 0).toFixed(2)}</td>
-                  ) : null}
-                  {isExternalRoute ? (
-                    <td className="px-4 py-3 text-right font-mono font-bold text-primary">
-                      ${(Number(prod.precio || 0) * Number(prod.cantidad || 0)).toFixed(2)}
-                    </td>
-                  ) : null}
+                  <td className="px-4 py-3 text-right font-mono">${Number(prod.precio ?? prod.finalPrice ?? 0).toFixed(2)}</td>
+                  <td className="px-4 py-3 text-right font-mono font-bold text-primary">
+                    ${Number(prod.subtotal ?? Number(prod.precio ?? prod.finalPrice ?? 0) * Number(prod.cantidad || 0)).toFixed(2)}
+                  </td>
+                  <td className="px-4 py-3 text-right text-xs text-default-500">
+                    {prod.pricingSource || (Number(prod.pricingRuleVersion || 0) > 0 ? "dynamic" : "legacy")}
+                  </td>
                   <td className="px-4 py-3 text-right">
                     <Button
                       isIconOnly
@@ -683,7 +711,7 @@ export function BodegaSalidaForm({
               ))}
               {formItems.length === 0 && (
                 <tr>
-                  <td colSpan={isExternalRoute ? 6 : 4} className="px-4 py-10 text-center text-default-400 italic">
+                  <td colSpan={7} className="px-4 py-10 text-center text-default-400 italic">
                     No hay productos agregados a la salida.
                   </td>
                 </tr>

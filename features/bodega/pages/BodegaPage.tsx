@@ -210,7 +210,15 @@ export function BodegaPage() {
           productId: it.productId || it.id,
           quantity: Number(it.cantidad),
           price: Number(it.precio),
-          subtotal: Number(it.cantidad) * Number(it.precio),
+          subtotal: Number(it.subtotal ?? Number(it.cantidad) * Number(it.precio)),
+          sku: it.sku || undefined,
+          descripcion: it.descripcion || undefined,
+          basePrice: Number(it.basePrice ?? it.precio ?? 0),
+          zoneMargin: Number(it.zoneMargin ?? 0),
+          discountPct: Number(it.discountPct ?? 0),
+          finalPrice: Number(it.finalPrice ?? it.precio ?? 0),
+          pricingSource: it.pricingSource || undefined,
+          pricingRuleVersion: Number(it.pricingRuleVersion ?? 0),
         }));
 
         const totalAmount = cleanItems.reduce((acc: number, it: any) => acc + it.subtotal, 0);
