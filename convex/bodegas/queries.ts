@@ -8,7 +8,18 @@ import { getAccessibleWarehouseIds, requireIdentity } from "../common/utils";
 export const list = query({
   args: {},
   handler: async (ctx) => {
-    return await ctx.db.query("bodegas").collect();
+    const bodegas = await ctx.db.query("bodegas").collect();
+    return await Promise.all(
+      bodegas.map(async (bodega) => {
+        const managerProfile = bodega.managerProfileId
+          ? await ctx.db.get(bodega.managerProfileId)
+          : null;
+        return {
+          ...bodega,
+          managerProfileName: managerProfile?.fullName || bodega.manager || "Sin encargado",
+        };
+      })
+    );
   },
 });
 

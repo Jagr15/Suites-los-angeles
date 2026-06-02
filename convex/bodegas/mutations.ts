@@ -4,6 +4,20 @@ import { bodegaFields } from "./schema";
 import { requireAdmin } from "../common/utils";
 import { numberToWarehouseCode } from "../common/warehouseFolios";
 
+async function validateManagerProfile(ctx: any, managerProfileId?: any) {
+  if (!managerProfileId) {
+    throw new Error("Debes seleccionar un perfil encargado para la bodega.");
+  }
+  const profile = await ctx.db.get(managerProfileId);
+  if (!profile) {
+    throw new Error("El perfil encargado seleccionado no existe.");
+  }
+  if (profile.status !== "Activo") {
+    throw new Error("El perfil encargado debe estar activo.");
+  }
+  return profile;
+}
+
 async function resolveResponsible(ctx: any, profileId?: any, userId?: any) {
   const profile = profileId ? await ctx.db.get(profileId) : null;
   const user = userId ? await ctx.db.get(userId) : null;
@@ -51,9 +65,10 @@ export const create = mutation({
   args: bodegaFields,
   handler: async (ctx, args) => {
     await requireAdmin(ctx);
+    const managerProfile = await validateManagerProfile(ctx, args.managerProfileId);
     const allBodegas = await ctx.db.query("bodegas").collect();
     const code = args.code || numberToWarehouseCode(allBodegas.length + 1);
-    const id = await ctx.db.insert("bodegas", { ...args, code });
+    const id = await ctx.db.insert("bodegas", { ...args, code, manager: managerProfile.fullName });
     await syncBodegaLinkedAccount(ctx, id, args);
     return id;
   },
@@ -88,7 +103,8 @@ export const update = mutation({
   handler: async (ctx, args) => {
     await requireAdmin(ctx);
     const { id, ...data } = args;
-    await ctx.db.patch(id, data);
+    const managerProfile = await validateManagerProfile(ctx, data.managerProfileId);
+    await ctx.db.patch(id, { ...data, manager: managerProfile.fullName });
     await syncBodegaLinkedAccount(ctx, id, data);
     return id;
   },
@@ -101,17 +117,42 @@ export const remove = mutation({
   args: { id: v.id("bodegas") },
   handler: async (ctx, args) => {
     await requireAdmin(ctx);
-    const account = await ctx.db
+    const linkedAccount = await ctx.db
       .query("finance_accounts")
       .withIndex("by_linked_entity", (q: any) =>
         q.eq("linkedEntityType", "bodega").eq("linkedEntityId", String(args.id))
       )
       .first();
-    if (account) {
-      await ctx.db.patch(account._id, {
-        isActive: false,
-        alias: `${account.alias} (Bodega eliminada)`,
-      });
+    if (linkedAccount) {
+      throw new Error("No se puede eliminar la bodega porque tiene una caja vinculada.");
+    }
+    const ingreso = await ctx.db
+      .query("bodega_ingresos")
+      .withIndex("by_bodegaId", (q: any) => q.eq("bodegaId", args.id))
+      .first();
+    if (ingreso) {
+      throw new Error("No se puede eliminar la bodega porque tiene ingresos vinculados.");
+    }
+    const egreso = await ctx.db
+      .query("bodega_egresos")
+      .withIndex("by_bodegaId", (q: any) => q.eq("bodegaId", args.id))
+      .first();
+    if (egreso) {
+      throw new Error("No se puede eliminar la bodega porque tiene egresos vinculados.");
+    }
+    const purchase = await ctx.db
+      .query("purchases")
+      .withIndex("by_bodegaId", (q: any) => q.eq("bodegaId", args.id))
+      .first();
+    if (purchase) {
+      throw new Error("No se puede eliminar la bodega porque tiene compras o movimientos vinculados.");
+    }
+    const salida = await ctx.db
+      .query("salidas")
+      .withIndex("by_bodegaId", (q: any) => q.eq("bodegaId", args.id))
+      .first();
+    if (salida) {
+      throw new Error("No se puede eliminar la bodega porque tiene salidas o movimientos vinculados.");
     }
     await ctx.db.delete(args.id);
   },

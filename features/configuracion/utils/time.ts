@@ -26,11 +26,12 @@ export function parseTimeToCalendarDate(value?: string | null) {
 }
 
 export function toHHmm(value: unknown) {
-  if (!value || typeof (value as any).toDate !== "function") return undefined;
-  const date = (value as any).toDate();
+  if (!value || typeof value !== "object" || !("toDate" in value) || typeof (value as { toDate?: unknown }).toDate !== "function") {
+    return undefined;
+  }
+  const date = (value as { toDate: () => Date }).toDate();
   if (!(date instanceof Date) || Number.isNaN(date.getTime())) return undefined;
   const hh = String(date.getHours()).padStart(2, "0");
   const mm = String(date.getMinutes()).padStart(2, "0");
   return `${hh}:${mm}`;
 }
-

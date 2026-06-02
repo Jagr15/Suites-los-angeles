@@ -9,8 +9,6 @@ import {
   CardBody,
   Button,
   Input,
-  Switch,
-  Divider,
   Chip,
   Table,
   TableHeader,
@@ -110,9 +108,13 @@ export function BodegasManagementCard() {
       setBodegaToDelete(null);
     } catch (error) {
       console.error(error);
+      const message =
+        error instanceof Error && error.message
+          ? error.message
+          : "No se pudo eliminar la bodega.";
       addToast({
         title: "Error",
-        description: "No se pudo eliminar la bodega.",
+        description: message,
         color: "danger",
       });
     } finally {
@@ -170,6 +172,7 @@ export function BodegasManagementCard() {
           >
             <TableHeader>
               <TableColumn>NOMBRE</TableColumn>
+              <TableColumn>ENCARGADO</TableColumn>
               <TableColumn>UBICACIÓN / DESCRIPCIÓN</TableColumn>
               <TableColumn>ESTADO</TableColumn>
               <TableColumn align="center">ACCIONES</TableColumn>
@@ -188,6 +191,11 @@ export function BodegasManagementCard() {
                         ID: {item._id.slice(-6)}
                       </span>
                     </div>
+                  </TableCell>
+                  <TableCell>
+                    <span className="text-sm text-default-700">
+                      {(item as any).managerProfileName || item.manager || "Sin encargado"}
+                    </span>
                   </TableCell>
                   <TableCell>
                     <div className="flex flex-col">

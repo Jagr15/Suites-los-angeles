@@ -43,6 +43,7 @@ export function BodegaModal({
     handleSubmit,
     reset,
     setValue,
+    setError,
     formState: { errors },
   } = useForm<AlmacenFormValues>({
     resolver: zodResolver(almacenSchema) as any,
@@ -87,6 +88,10 @@ export function BodegaModal({
   }, [isOpen, bodega, reset]);
 
   const onFormSubmit = async (values: AlmacenFormValues) => {
+    if (!values.managerProfileId) {
+      setError("managerProfileId", { type: "manual", message: "Selecciona un perfil encargado" });
+      return;
+    }
     await onSubmit(values);
     onClose();
   };
@@ -121,7 +126,7 @@ export function BodegaModal({
                 render={({ field }) => (
                   <Select
                     label="Encargado"
-                    placeholder="Selecciona un perfil responsable"
+                    placeholder="Selecciona un perfil..."
                     labelPlacement="outside"
                     selectedKeys={field.value ? [field.value] : []}
                     onSelectionChange={(keys) => {
@@ -135,6 +140,7 @@ export function BodegaModal({
                     }}
                     isInvalid={!!errors.managerProfileId}
                     errorMessage={errors.managerProfileId?.message}
+                    disallowEmptySelection
                   >
                     {profiles.map((profile: any) => (
                       <SelectItem key={String(profile._id)}>{profile.fullName}</SelectItem>

@@ -83,10 +83,14 @@ export function RutasPage() {
         color: "success",
       });
       setRutaToDelete(null);
-    } catch (_error) {
+    } catch (error) {
+      const message =
+        error instanceof Error && error.message
+          ? error.message
+          : "No se pudo eliminar la ruta.";
       addToast({
         title: "Error",
-        description: "No se pudo eliminar la ruta.",
+        description: message,
         color: "danger",
       });
     }

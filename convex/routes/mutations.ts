@@ -95,10 +95,17 @@ export const remove = mutation({
       )
       .first();
     if (account) {
-      await ctx.db.patch(account._id, {
-        isActive: false,
-        alias: `${account.alias} (Ruta eliminada)`,
-      });
+      throw new Error("No se puede eliminar la ruta porque tiene una caja vinculada.");
+    }
+    const route = await ctx.db.get(args.id);
+    const routeName = route?.name?.trim();
+    if (routeName) {
+      const salidaByRoute = (await ctx.db.query("salidas").collect()).find(
+        (s) => (s.ruta || "").trim() === routeName
+      );
+      if (salidaByRoute) {
+        throw new Error("No se puede eliminar la ruta porque tiene salidas o movimientos vinculados.");
+      }
     }
     await ctx.db.delete(args.id);
   },
