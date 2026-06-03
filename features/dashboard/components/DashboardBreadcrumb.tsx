@@ -9,7 +9,7 @@ type DashboardBreadcrumbProps = {
 };
 
 const MODULE_BY_PATH: Array<{ prefix: string; module: string; submodule: string }> = [
-  { prefix: "/dashboard/productos", module: "Productos", submodule: "Catálogo" },
+  { prefix: "/dashboard/productos", module: "Catálogo", submodule: "Productos" },
   { prefix: "/dashboard/proveedores", module: "Proveedores", submodule: "Compras" },
   { prefix: "/dashboard/bodega", module: "Bodega", submodule: "Entradas" },
   { prefix: "/dashboard/rutas", module: "Rutas", submodule: "Mapa" },

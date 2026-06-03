@@ -96,6 +96,7 @@ export const PERMISSION_CATALOG: PermissionDefinition[] = [
   { key: "purchases:edit_date", label: "Editar fecha de compra", section: "Compatibilidad actual", implemented: true },
   { key: "settings:manage", label: "Gestionar configuración", section: "Compatibilidad actual", implemented: true },
   { key: "users:manage", label: "Gestionar usuarios", section: "Compatibilidad actual", implemented: true },
+  { key: "catalogo:view", label: "Ver catálogo", section: "Compatibilidad actual", implemented: true },
 ];
 
 const ALL_KEYS = PERMISSION_CATALOG.map((p) => p.key);

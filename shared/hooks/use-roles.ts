@@ -48,9 +48,6 @@ export function useRoles() {
     if (pathname.startsWith("/dashboard/finanzas")) {
       return hasPermission("finance:view") || hasPermission("finance:manage");
     }
-    if (pathname.startsWith("/dashboard/productos")) {
-      return hasPermission("products:view") || hasPermission("products:manage");
-    }
     if (pathname.startsWith("/dashboard/proveedores")) {
       return hasPermission("suppliers:view") || hasPermission("suppliers:manage");
     }
@@ -62,6 +59,9 @@ export function useRoles() {
     }
     if (pathname.startsWith("/dashboard/bodega")) {
       return hasPermission("warehouse:view") || hasPermission("warehouse:manage");
+    }
+    if (pathname.startsWith("/dashboard/productos")) {
+      return hasPermission("catalogo:view") || hasPermission("products:view") || hasPermission("products:manage");
     }
     if (pathname.startsWith("/dashboard/cuenta")) return true;
 
