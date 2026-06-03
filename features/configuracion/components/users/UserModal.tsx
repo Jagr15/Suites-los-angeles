@@ -21,7 +21,15 @@ import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { RoleSelect } from "./RoleSelect";
 import { User } from "./types";
-import { getEffectivePermissions, sellerPermissions, warehousePermissions, type PermissionDefinition } from "@/shared/security/permissions";
+import {
+  getEffectivePermissions,
+  getPermissionDescendants,
+  isPermissionLockedByDependencies,
+  PERMISSION_GROUPS,
+  sellerPermissions,
+  warehousePermissions,
+  type PermissionDefinition,
+} from "@/shared/security/permissions";
 
 const normalizeRoleKey = (roleName?: string) =>
   (roleName || "")
@@ -29,6 +37,20 @@ const normalizeRoleKey = (roleName?: string) =>
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
     .toLowerCase();
+
+const SECTION_ORDER = [
+  "Ruta/GPS",
+  "Dinero/Cobranza",
+  "Ventas/Inventario",
+  "Clientes/Crédito",
+  "Sistema/App",
+  "Inventario/Bodega",
+  "Entradas",
+  "Salidas",
+  "Nóminas",
+  "Control general",
+  "Compatibilidad actual",
+] as const;
 
 interface UserModalProps {
   isOpen: boolean;
@@ -76,6 +98,37 @@ export function UserModal({
     extraPermissions: formState.extraPermissions || [],
     disabledPermissions: formState.disabledPermissions || [],
   });
+  const effectivePermissionSet = new Set(effectivePermissions);
+
+  const groupedPermissions = React.useMemo(() => {
+    const assigned = new Set<string>();
+    const groups: Array<{ title: string; permissions: PermissionDefinition[] }> = [];
+
+    for (const group of PERMISSION_GROUPS) {
+      const permissions = scopedPermissions.filter((permission) => group.keys.includes(permission.key));
+      permissions.forEach((permission) => assigned.add(permission.key));
+      if (permissions.length > 0) {
+        groups.push({ title: group.title, permissions });
+      }
+    }
+
+    const remainingPermissions = scopedPermissions.filter((permission) => !assigned.has(permission.key));
+    const bySection = new Map<string, PermissionDefinition[]>();
+    for (const section of SECTION_ORDER) bySection.set(section, []);
+    for (const permission of remainingPermissions) {
+      const current = bySection.get(permission.section) || [];
+      current.push(permission);
+      bySection.set(permission.section, current);
+    }
+    for (const section of SECTION_ORDER) {
+      const permissions = bySection.get(section) || [];
+      if (permissions.length > 0) {
+        groups.push({ title: section, permissions });
+      }
+    }
+
+    return groups;
+  }, [scopedPermissions]);
 
   const isPermissionEnabled = (permission: PermissionDefinition) => {
     const rawEnabled = effectivePermissions.includes("all") || effectivePermissions.includes(permission.key);
@@ -99,6 +152,9 @@ export function UserModal({
       } else {
         extra.delete(permission.key);
         disabled.add(permission.key);
+        for (const descendant of getPermissionDescendants(permission.key)) {
+          extra.delete(descendant);
+        }
       }
 
       return {
@@ -117,7 +173,7 @@ export function UserModal({
       scrollBehavior="inside"
     >
       <ModalContent>
-        {(internalOnClose) => (
+        {() => (
           <>
             <ModalHeader className="flex flex-col gap-1">
               {selectedUser ? "Editar Usuario" : "Crear Nuevo Usuario"}
@@ -207,9 +263,9 @@ export function UserModal({
                       <p className="text-tiny text-warning font-medium px-1">
                         ⚠️ Los vendedores no tienen acceso a este panel web (solo app móvil).
                       </p>
-                    )}
+                      )}
+                    </div>
                   </div>
-                </div>
 
                 {!isAdminRole ? (
                   <>
@@ -224,15 +280,42 @@ export function UserModal({
                           Selecciona rol Vendedor o Bodeguero para configurar permisos personalizados.
                         </p>
                       ) : (
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-3">
-                          {scopedPermissions.map((permission) => (
-                            <div key={permission.key} className="flex items-center justify-between gap-3">
-                              <p className="text-small">{permission.label}</p>
-                              <Switch
-                                size="sm"
-                                isSelected={isPermissionEnabled(permission)}
-                                onValueChange={(value) => toggleCustomPermission(permission, value)}
-                              />
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                          {groupedPermissions.map((group) => (
+                            <div key={group.title} className="rounded-xl border border-default-200 bg-content2/70 p-3">
+                              <p className="text-xs font-semibold uppercase tracking-[0.14em] text-primary mb-3">
+                                {group.title}
+                              </p>
+                              <div className="space-y-2">
+                                {group.permissions.map((permission) => {
+                                  const lockedByDependencies = isPermissionLockedByDependencies(permission.key, effectivePermissionSet);
+                                  const isSelected = isPermissionEnabled(permission);
+                                  return (
+                                    <div
+                                      key={permission.key}
+                                      className={`flex items-center justify-between gap-3 rounded-lg border border-default-100 bg-content1 px-3 py-2 ${
+                                        lockedByDependencies ? "opacity-55" : ""
+                                      }`}
+                                    >
+                                      <div className="min-w-0">
+                                        <p className="text-small leading-snug">{permission.label}</p>
+                                        {lockedByDependencies && (
+                                          <p className="text-[11px] text-default-400">Depende de inventario activo</p>
+                                        )}
+                                      </div>
+                                      <Switch
+                                        size="sm"
+                                        isSelected={isSelected}
+                                        isDisabled={lockedByDependencies}
+                                        onValueChange={(value) => {
+                                          if (lockedByDependencies) return;
+                                          toggleCustomPermission(permission, value);
+                                        }}
+                                      />
+                                    </div>
+                                  );
+                                })}
+                              </div>
                             </div>
                           ))}
                         </div>

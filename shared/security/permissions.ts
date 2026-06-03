@@ -175,6 +175,48 @@ export const sellerPermissions = PERMISSION_CATALOG.filter((permission) => selle
 export const warehousePermissions = PERMISSION_CATALOG.filter((permission) => warehousePermissionKeys.has(permission.key));
 export const adminPermissions: PermissionDefinition[] = [];
 
+export type PermissionGroupDefinition = {
+  title: string;
+  keys: string[];
+};
+
+export const PERMISSION_GROUPS: PermissionGroupDefinition[] = [
+  {
+    title: "Inventario",
+    keys: [
+      "inventory:view",
+      "warehouse:view",
+      "warehouse:allow_inventory_tab",
+      "inventory:allow_manual_adjustments",
+      "inventory:edit",
+      "inventory:allow_view_central_stock",
+      "inventory:allow_transfer_between_salesmen",
+      "inventory:allow_report_damaged_products",
+    ],
+  },
+  {
+    title: "Entradas",
+    keys: ["purchases:allow_create_entries", "purchases:edit_reception_status", "purchases:restrict_edit_registered_entries"],
+  },
+  {
+    title: "Salidas",
+    keys: ["warehouse_outputs:allow_create", "warehouse_outputs:edit_status", "warehouse_outputs:assign_route_responsible"],
+  },
+  {
+    title: "Ingresos / Egresos",
+    keys: [
+      "warehouse_money:allow_income",
+      "warehouse_money:allow_expense",
+      "warehouse_money:restrict_date_edit",
+      "warehouse_money:show_daily_totals",
+    ],
+  },
+  {
+    title: "Nómina",
+    keys: ["payroll:allow_view", "payroll:allow_employee_debt_payment", "payroll:allow_mark_as_delivered"],
+  },
+];
+
 export const DEFAULT_PERMISSIONS_BY_ROLE: Record<PermissionRoleName, string[]> = {
   SuperAdmin: ["all", ...UNIQUE_ALL_KEYS],
   Admin: ["all", ...UNIQUE_ALL_KEYS],
@@ -183,6 +225,96 @@ export const DEFAULT_PERMISSIONS_BY_ROLE: Record<PermissionRoleName, string[]> =
 };
 
 export const PERMISSION_KEYS = new Set(UNIQUE_ALL_KEYS);
+
+export const PERMISSION_DEPENDENCIES: Record<string, string[]> = {
+  "inventory:allow_manual_adjustments": ["warehouse:allow_inventory_tab"],
+};
+
+const DEPENDENTS_BY_PARENT = new Map<string, string[]>();
+for (const [child, parents] of Object.entries(PERMISSION_DEPENDENCIES)) {
+  for (const parent of parents) {
+    const current = DEPENDENTS_BY_PARENT.get(parent) || [];
+    current.push(child);
+    DEPENDENTS_BY_PARENT.set(parent, current);
+  }
+}
+
+function normalizePermissionSet(permissionKeys: Iterable<string>) {
+  const next = new Set<string>();
+  for (const key of permissionKeys) {
+    if (key === "all" || PERMISSION_KEYS.has(key)) {
+      next.add(key);
+    }
+  }
+
+  let changed = true;
+  while (changed) {
+    changed = false;
+    for (const key of Array.from(next)) {
+      const parents = PERMISSION_DEPENDENCIES[key] || [];
+      if (parents.some((parent) => !next.has(parent))) {
+        next.delete(key);
+        changed = true;
+      }
+    }
+  }
+
+  return next;
+}
+
+function orderPermissionKeys(permissionKeys: Iterable<string>) {
+  const set = new Set(permissionKeys);
+  const ordered = UNIQUE_ALL_KEYS.filter((key) => set.has(key));
+  if (set.has("all")) {
+    return ["all", ...ordered];
+  }
+  return ordered;
+}
+
+export function getPermissionAncestors(permissionKey: string): string[] {
+  const visited = new Set<string>();
+  const result: string[] = [];
+
+  const visit = (key: string) => {
+    for (const parent of PERMISSION_DEPENDENCIES[key] || []) {
+      if (visited.has(parent)) continue;
+      visited.add(parent);
+      result.push(parent);
+      visit(parent);
+    }
+  };
+
+  visit(permissionKey);
+  return orderPermissionKeys(result);
+}
+
+export function getPermissionDescendants(permissionKey: string): string[] {
+  const visited = new Set<string>();
+  const result: string[] = [];
+
+  const visit = (key: string) => {
+    for (const child of DEPENDENTS_BY_PARENT.get(key) || []) {
+      if (visited.has(child)) continue;
+      visited.add(child);
+      result.push(child);
+      visit(child);
+    }
+  };
+
+  visit(permissionKey);
+  return orderPermissionKeys(result);
+}
+
+export function isPermissionLockedByDependencies(permissionKey: string, activePermissionKeys: Iterable<string>) {
+  if (permissionKey === "all") return false;
+  const active = new Set(activePermissionKeys);
+  const ancestors = getPermissionAncestors(permissionKey);
+  return ancestors.some((ancestor) => !active.has(ancestor));
+}
+
+export function normalizePermissions(permissionKeys: Iterable<string>) {
+  return orderPermissionKeys(normalizePermissionSet(permissionKeys));
+}
 
 export function getEffectivePermissions(params: {
   rolePermissions?: string[];
@@ -194,11 +326,11 @@ export function getEffectivePermissions(params: {
   const disabledPermissions = new Set(params.disabledPermissions || []);
 
   if (rolePermissions.includes("all")) {
-    return ["all", ...UNIQUE_ALL_KEYS.filter((key) => !disabledPermissions.has(key))];
+    return normalizePermissions(["all", ...UNIQUE_ALL_KEYS.filter((key) => !disabledPermissions.has(key))]);
   }
 
-  const effective = new Set<string>(rolePermissions);
+  const effective = new Set<string>(normalizePermissions(rolePermissions));
   for (const permission of extraPermissions) effective.add(permission);
   for (const permission of disabledPermissions) effective.delete(permission);
-  return Array.from(effective);
+  return normalizePermissions(effective);
 }

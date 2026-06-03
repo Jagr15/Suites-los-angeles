@@ -1,7 +1,7 @@
-import { mutation, query } from "../_generated/server";
+import { mutation } from "../_generated/server";
 import { v } from "convex/values";
 import { requireAdmin, requireAdminOrDevMigration } from "../common/utils";
-import { DEFAULT_PERMISSIONS_BY_ROLE } from "../../shared/security/permissions";
+import { DEFAULT_PERMISSIONS_BY_ROLE, normalizePermissions } from "../../shared/security/permissions";
 
 const OPERATIONAL_ROLES: Array<{
   name: "SuperAdmin" | "Admin" | "Bodeguero" | "Vendedor";
@@ -47,7 +47,10 @@ export const create = mutation({
   },
   handler: async (ctx, args) => {
     await requireAdmin(ctx);
-    return await ctx.db.insert("roles", args);
+    return await ctx.db.insert("roles", {
+      ...args,
+      permissions: normalizePermissions(args.permissions),
+    });
   },
 });
 
@@ -64,7 +67,10 @@ export const update = mutation({
   handler: async (ctx, args) => {
     await requireAdmin(ctx);
     const { id, ...updates } = args;
-    await ctx.db.patch(id, updates);
+    await ctx.db.patch(id, {
+      ...updates,
+      permissions: normalizePermissions(updates.permissions),
+    });
   },
 });
 

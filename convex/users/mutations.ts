@@ -4,6 +4,7 @@ import { requireAdmin, requireAdminOrDevMigration } from "../common/utils";
 import { hashPassword, verifyPassword } from "../common/hashing";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { Id } from "../_generated/dataModel";
+import { getEffectivePermissions, normalizePermissions, PERMISSION_KEYS } from "../../shared/security/permissions";
 
 const OPERATIONAL_ROLE_NAMES = new Set(["SuperAdmin", "Admin", "Bodeguero", "Vendedor"]);
 
@@ -40,7 +41,7 @@ export const upsertUser = mutation({
   },
   handler: async (ctx, args) => {
     await requireAdmin(ctx);
-    const { id, email, password, roleId, role: _clientRole, ...userData } = args;
+    const { id, email, password, roleId, ...userData } = args;
     const operation = id ? "update" : "create";
 
     if (!email) {
@@ -80,12 +81,36 @@ export const upsertUser = mutation({
       }
     }
     canonicalRole = roleDoc.name;
+    const rolePermissions = normalizePermissions(roleDoc.permissions || []);
+    const requestedExtraPermissions = Array.from(
+      new Set((args.extraPermissions || []).filter((permission) => PERMISSION_KEYS.has(permission) && permission !== "all"))
+    );
+    const requestedDisabledPermissions = Array.from(
+      new Set((args.disabledPermissions || []).filter((permission) => PERMISSION_KEYS.has(permission) && permission !== "all"))
+    );
+    const effectivePermissions = getEffectivePermissions({
+      rolePermissions,
+      extraPermissions: requestedExtraPermissions,
+      disabledPermissions: requestedDisabledPermissions,
+    });
+    const effectivePermissionSet = new Set(effectivePermissions);
+    const sanitizedExtraPermissions = rolePermissions.includes("all")
+      ? []
+      : requestedExtraPermissions.filter(
+          (permission) =>
+            effectivePermissionSet.has(permission) &&
+            permission !== "all" &&
+            !rolePermissions.includes(permission)
+        );
+    const sanitizedDisabledPermissions = requestedDisabledPermissions.filter((permission) => permission !== "all");
 
     const normalizedUserData = {
       ...userData,
       roleId,
       role: canonicalRole,
       profileId: args.profileId,
+      extraPermissions: sanitizedExtraPermissions,
+      disabledPermissions: sanitizedDisabledPermissions,
     };
     
     let userId: Id<"users"> | undefined = id;

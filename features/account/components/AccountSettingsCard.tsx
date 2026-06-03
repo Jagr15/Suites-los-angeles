@@ -16,16 +16,18 @@ import {
   EnvelopeIcon,
   LockClosedIcon,
   CheckCircleIcon,
-  PencilIcon,
+  ArrowLeftIcon,
   TrashIcon,
   CameraIcon,
 } from "@heroicons/react/24/outline";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
+import { useRouter } from "next/navigation";
 
 export function AccountSettingsCard() {
   const currentUser = useQuery(api.users.queries.current);
   const updateMe = useMutation(api.users.mutations.updateMe);
+  const router = useRouter();
   
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
@@ -67,10 +69,6 @@ export function AccountSettingsCard() {
       };
       reader.readAsDataURL(file);
     }
-  };
-
-  const validateEmail = (email: string) => {
-    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
   };
 
   const handleUpdateAccount = async () => {
@@ -134,8 +132,8 @@ export function AccountSettingsCard() {
         description: "Tus datos se han guardado correctamente.",
         color: "success",
       });
-    } catch (error: any) {
-      let errorMessage = error.message || "Ocurrió un problema.";
+    } catch (error: unknown) {
+      let errorMessage = error instanceof Error ? error.message : "Ocurrió un problema.";
       
       // Limpiar el mensaje de error de Convex si es necesario
       if (errorMessage.includes("Uncaught Error: ")) {
@@ -167,6 +165,16 @@ export function AccountSettingsCard() {
       <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-primary via-secondary to-primary animate-gradient-x" />
       
       <CardHeader className="flex flex-col items-start px-8 pt-8 pb-4">
+        <div className="flex items-center gap-3 mb-5">
+          <Button
+            variant="flat"
+            color="default"
+            startContent={<ArrowLeftIcon className="w-4 h-4" />}
+            onPress={() => router.back()}
+          >
+            Volver
+          </Button>
+        </div>
         <div className="flex items-center gap-4 w-full">
           <div className="relative group">
             <Avatar 

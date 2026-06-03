@@ -33,6 +33,12 @@ type ProductResult = {
   stock: number;
 };
 
+type SupplierDoc = {
+  _id: Id<"suppliers">;
+  businessName: string;
+  creditDays: number;
+};
+
 function normalize(value: string) {
   return value
     .trim()
@@ -148,6 +154,89 @@ async function recomputeProductStock(ctx: MutationCtx, productId: Id<"products">
   return rows.reduce((acc, row) => acc + (row.quantity || 0), 0);
 }
 
+async function ensureSupplier(ctx: MutationCtx) {
+  const existing = await ctx.db.query("suppliers").collect();
+  const first = existing[0] as SupplierDoc | undefined;
+  if (first) {
+    return first;
+  }
+
+  const id = await ctx.db.insert("suppliers", {
+    businessName: "Proveedor QA Inventario",
+    name: "QA Inventario",
+    rfc: "XAXX010101000",
+    creditDays: 30,
+    creditLimit: 50000,
+    currentBalance: 0,
+    contacts: [{ name: "QA", phone: "0000000000", email: "qa@inventario.local" }],
+    bankAccounts: [{ bankName: "N/A", accountNumber: "0000000000", clabe: "000000000000000000" }],
+  });
+  const supplier = await ctx.db.get(id);
+  if (!supplier) {
+    throw new Error("No se pudo crear el proveedor de QA.");
+  }
+  return supplier as SupplierDoc;
+}
+
+async function ensurePurchaseForBodega(
+  ctx: MutationCtx,
+  args: {
+    bodega: SeedBodega;
+    supplierId: Id<"suppliers">;
+    folio: string;
+    items: Array<{ productId: Id<"products">; quantity: number; unitCost: number }>;
+  }
+) {
+  const existing = await ctx.db
+    .query("purchases")
+    .withIndex("by_folio", (q) => q.eq("folio", args.folio))
+    .unique();
+
+  const totalAmount = args.items.reduce((acc, item) => acc + item.quantity * item.unitCost, 0);
+  const payload = {
+    supplierId: args.supplierId,
+    bodegaId: args.bodega._id,
+    folio: args.folio,
+    folioNumber: Number(args.folio.replace(/\D/g, "")) || undefined,
+    date: new Date().toISOString().slice(0, 10),
+    dueDate: undefined,
+    totalAmount,
+    remainingAmount: totalAmount,
+    stockApplied: false,
+    status: "Pendiente" as const,
+    receptionStatus: "Completa" as const,
+    notes: "Seed QA inventario",
+  };
+
+  let purchaseId: Id<"purchases">;
+  if (existing) {
+    await ctx.db.patch(existing._id, payload);
+    purchaseId = existing._id;
+  } else {
+    purchaseId = await ctx.db.insert("purchases", payload);
+  }
+
+  const existingItems = await ctx.db
+    .query("purchase_items")
+    .withIndex("by_purchaseId", (q) => q.eq("purchaseId", purchaseId))
+    .collect();
+  for (const item of existingItems) {
+    await ctx.db.delete(item._id);
+  }
+
+  for (const item of args.items) {
+    await ctx.db.insert("purchase_items", {
+      purchaseId,
+      productId: item.productId,
+      quantity: item.quantity,
+      unitCost: item.unitCost,
+      totalCost: item.quantity * item.unitCost,
+    });
+  }
+
+  return purchaseId;
+}
+
 function selectBodegas(bodegas: SeedBodega[]) {
   const exactNames = ["Bodega Central", "Bodega Norte", "Bodega Sur"];
   const byName = new Map(bodegas.map((bodega) => [normalize(bodega.name), bodega]));
@@ -174,6 +263,7 @@ export const seedInventoryForPricingQA = mutation({
     const targetBodegas = selectBodegas(
       bodegas.map((bodega) => ({ _id: bodega._id, name: bodega.name }))
     );
+    const supplier = await ensureSupplier(ctx);
 
     const beverageCategory = await ensureCategory(ctx, "Bebidas");
     const groceryCategory = await ensureCategory(ctx, "Abarrotes");
@@ -276,6 +366,27 @@ export const seedInventoryForPricingQA = mutation({
         sku: seed.sku,
         action: product.action,
         stock,
+      });
+    }
+
+    const productBySku = new Map(
+      (await ctx.db.query("products").collect()).map((product) => [product.sku, product])
+    );
+
+    for (const bodega of targetBodegas) {
+      const purchaseItems = [
+        { productId: productBySku.get("DEMO-AGUA-600")?._id, quantity: bodega.name === "Bodega Central" ? 100 : bodega.name === "Bodega Norte" ? 80 : 60, unitCost: 5.2 },
+        { productId: productBySku.get("DEMO-COLA-355")?._id, quantity: bodega.name === "Bodega Central" ? 100 : bodega.name === "Bodega Norte" ? 80 : 60, unitCost: 6.5 },
+        { productId: productBySku.get("DEMO-GALLETA-VANILLA")?._id, quantity: bodega.name === "Bodega Central" ? 100 : bodega.name === "Bodega Norte" ? 80 : 60, unitCost: 7.8 },
+        { productId: productBySku.get("DEMO-ARROZ-1KG")?._id, quantity: bodega.name === "Bodega Central" ? 100 : bodega.name === "Bodega Norte" ? 80 : 60, unitCost: 12.4 },
+        { productId: productBySku.get("DEMO-ACEITE-1L")?._id, quantity: bodega.name === "Bodega Central" ? 100 : bodega.name === "Bodega Norte" ? 80 : 60, unitCost: 18.9 },
+      ].filter((item): item is { productId: Id<"products">; quantity: number; unitCost: number } => Boolean(item.productId));
+
+      await ensurePurchaseForBodega(ctx, {
+        bodega,
+        supplierId: supplier._id,
+        folio: `QA-INV-${normalize(bodega.name).replace(/\s+/g, "-").toUpperCase()}`,
+        items: purchaseItems,
       });
     }
 

@@ -9,7 +9,6 @@ const tabs = [
   { key: "ingresos", label: "Ingresos" },
   { key: "egresos", label: "Egresos" },
   { key: "nominas", label: "Nóminas" },
-  { key: "catalogo", label: "Catálogo" },
 ];
 
 type BodegaHeaderProps = {

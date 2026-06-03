@@ -18,7 +18,11 @@ import {
   BODEGUERO_FIXED_PERMISSION_KEYS,
   DEFAULT_PERMISSIONS_BY_ROLE,
   PERMISSION_CATALOG,
+  PERMISSION_GROUPS,
   PERMISSION_KEYS,
+  getPermissionDescendants,
+  isPermissionLockedByDependencies,
+  normalizePermissions,
   sellerPermissions,
   warehousePermissions,
 } from "@/shared/security/permissions";
@@ -39,6 +43,12 @@ const SECTION_ORDER = [
   "Compatibilidad actual",
 ] as const;
 
+type PermissionGroupView = {
+  title: string;
+  permissions: typeof PERMISSION_CATALOG;
+  tone?: "primary" | "default";
+};
+
 export function PermissionsMatrixCard() {
   const rolesQuery = useQuery(api.roles.queries.listAll);
   const roles = useMemo(() => rolesQuery || [], [rolesQuery]);
@@ -53,7 +63,7 @@ export function PermissionsMatrixCard() {
   }, [roles, selectedRoleId]);
 
   const currentDraftPermissions = useMemo(
-    () => draftPermissions ?? new Set(selectedRole?.permissions || []),
+    () => draftPermissions ?? new Set(normalizePermissions(selectedRole?.permissions || [])),
     [draftPermissions, selectedRole]
   );
 
@@ -64,15 +74,35 @@ export function PermissionsMatrixCard() {
     return PERMISSION_CATALOG;
   }, [selectedRole]);
 
-  const groupedCatalog = useMemo(() => {
-    const map = new Map<string, typeof PERMISSION_CATALOG>();
-    for (const section of SECTION_ORDER) map.set(section, []);
-    for (const permission of roleScopedCatalog) {
-      const current = map.get(permission.section) || [];
-      current.push(permission);
-      map.set(permission.section, current);
+  const groupedCatalog = useMemo<PermissionGroupView[]>(() => {
+    const assigned = new Set<string>();
+    const groups: PermissionGroupView[] = [];
+
+    for (const group of PERMISSION_GROUPS) {
+      const permissions = roleScopedCatalog.filter((permission) => group.keys.includes(permission.key));
+      permissions.forEach((permission) => assigned.add(permission.key));
+      if (permissions.length > 0) {
+        groups.push({ title: group.title, permissions });
+      }
     }
-    return map;
+
+    const remainingPermissions = roleScopedCatalog.filter((permission) => !assigned.has(permission.key));
+    const bySection = new Map<string, typeof PERMISSION_CATALOG>();
+    for (const section of SECTION_ORDER) bySection.set(section, []);
+    for (const permission of remainingPermissions) {
+      const current = bySection.get(permission.section) || [];
+      current.push(permission);
+      bySection.set(permission.section, current);
+    }
+
+    for (const section of SECTION_ORDER) {
+      const permissions = bySection.get(section) || [];
+      if (permissions.length > 0) {
+        groups.push({ title: section, permissions });
+      }
+    }
+
+    return groups;
   }, [roleScopedCatalog]);
   const isFullAccessRole = useMemo(() => {
     const roleName = (selectedRole?.name || "").trim().toLowerCase();
@@ -88,7 +118,12 @@ export function PermissionsMatrixCard() {
     setDraftPermissions((prev) => {
       const next = new Set(prev ?? selectedRole?.permissions ?? []);
       if (enabled) next.add(key);
-      else next.delete(key);
+      else {
+        next.delete(key);
+        for (const descendant of getPermissionDescendants(key)) {
+          next.delete(descendant);
+        }
+      }
       return next;
     });
   };
@@ -100,7 +135,8 @@ export function PermissionsMatrixCard() {
       const currentPermissions = selectedRole.permissions || [];
       const nonCatalog = currentPermissions.filter((p) => !PERMISSION_KEYS.has(p));
       const forcedPermissions = isBodegueroRole ? Array.from(BODEGUERO_FIXED_PERMISSION_KEYS) : [];
-      const payload = Array.from(new Set([...nonCatalog, ...Array.from(currentDraftPermissions), ...forcedPermissions]));
+      const normalizedDraft = normalizePermissions(currentDraftPermissions);
+      const payload = normalizePermissions([...nonCatalog, ...normalizedDraft, ...forcedPermissions]);
       await updateRole({
         id: selectedRole._id,
         name: selectedRole.name,
@@ -204,67 +240,77 @@ export function PermissionsMatrixCard() {
           ) : (
             <div className="max-h-[calc(100vh-260px)] overflow-y-auto overflow-x-hidden pr-1">
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 md:gap-3.5 items-start min-w-0">
-                {SECTION_ORDER.map((section) => {
-                  const permissions = groupedCatalog.get(section) || [];
-                  if (permissions.length === 0) return null;
-                  return (
-                    <Card
-                      key={section}
-                      className="border border-default-200/80 bg-content2 shadow-none h-full min-w-0"
-                    >
-                      <CardHeader className="pb-1.5 pt-2.5 px-3 min-h-9 border-b border-default-200/70">
-                        <p className="text-xs font-semibold text-primary tracking-tight">{section}</p>
-                      </CardHeader>
-                      <CardBody className="px-2 py-2.5">
-                        <div className="space-y-1.5">
-                          {permissions.map((permission) => {
-                            const selectedRaw =
-                              currentDraftPermissions.has(permission.key) ||
-                              (isBodegueroRole && BODEGUERO_FIXED_PERMISSION_KEYS.has(permission.key));
-                            const selected = permission.inverse ? !selectedRaw : selectedRaw;
-                            return (
-                              <div
-                                key={permission.key}
-                                className="flex items-center justify-between gap-2 rounded-md border border-default-100 bg-content1 px-2 py-1.5"
-                              >
-                                <div className="min-w-0 flex-1">
-                                  <div className="flex items-center gap-1.5 min-w-0">
-                                    <p className="text-xs md:text-sm text-foreground leading-snug truncate">
-                                      {permission.label}
-                                    </p>
-                                    {!permission.implemented && (
-                                      <Chip
-                                        size="sm"
-                                        radius="sm"
-                                        variant="flat"
-                                        color="warning"
-                                        className="h-4.5 px-1 text-[10px] shrink-0"
-                                      >
-                                        Pendiente
-                                      </Chip>
-                                    )}
-                                  </div>
-                                </div>
-                                <div className="shrink-0 ml-1">
-                                  <Switch
-                                    size="sm"
-                                    color={permission.sensitive ? "danger" : "primary"}
-                                    isSelected={selected}
-                                    isDisabled={isBodegueroRole && BODEGUERO_FIXED_PERMISSION_KEYS.has(permission.key)}
-                                    onValueChange={(value) => {
-                                      const nextRaw = permission.inverse ? !value : value;
-                                      togglePermission(permission.key, nextRaw);
-                                    }}
-                                  />
+                {groupedCatalog.map((group) => (
+                  <Card key={group.title} className="border border-default-200/80 bg-content2 shadow-none h-full min-w-0">
+                    <CardHeader className="pb-1.5 pt-2.5 px-3 min-h-9 border-b border-default-200/70">
+                      <p className="text-xs font-semibold text-primary tracking-tight">{group.title}</p>
+                    </CardHeader>
+                    <CardBody className="px-2 py-2.5">
+                      <div className="space-y-1.5">
+                        {group.permissions.map((permission) => {
+                          const selectedRaw =
+                            currentDraftPermissions.has(permission.key) ||
+                            (isBodegueroRole && BODEGUERO_FIXED_PERMISSION_KEYS.has(permission.key));
+                          const selected = permission.inverse ? !selectedRaw : selectedRaw;
+                          const lockedByDependencies = isPermissionLockedByDependencies(permission.key, currentDraftPermissions);
+                          const isFixed = isBodegueroRole && BODEGUERO_FIXED_PERMISSION_KEYS.has(permission.key);
+                          const isDisabled = lockedByDependencies || isFixed;
+                          return (
+                            <div
+                              key={permission.key}
+                              className={`flex items-center justify-between gap-2 rounded-md border border-default-100 bg-content1 px-2 py-1.5 transition-opacity ${
+                                isDisabled ? "opacity-55" : ""
+                              }`}
+                            >
+                              <div className="min-w-0 flex-1">
+                                <div className="flex items-center gap-1.5 min-w-0">
+                                  <p className="text-xs md:text-sm text-foreground leading-snug truncate">
+                                    {permission.label}
+                                  </p>
+                                  {!permission.implemented && (
+                                    <Chip
+                                      size="sm"
+                                      radius="sm"
+                                      variant="flat"
+                                      color="warning"
+                                      className="h-4.5 px-1 text-[10px] shrink-0"
+                                    >
+                                      Pendiente
+                                    </Chip>
+                                  )}
+                                  {lockedByDependencies && (
+                                    <Chip
+                                      size="sm"
+                                      radius="sm"
+                                      variant="flat"
+                                      color="default"
+                                      className="h-4.5 px-1 text-[10px] shrink-0"
+                                    >
+                                      Depende de inventario
+                                    </Chip>
+                                  )}
                                 </div>
                               </div>
-                            );
-                          })}
-                        </div>
-                      </CardBody>
-                    </Card>
-                  );
-                })}
+                              <div className="shrink-0 ml-1">
+                                <Switch
+                                  size="sm"
+                                  color={permission.sensitive ? "danger" : "primary"}
+                                  isSelected={selected}
+                                  isDisabled={isDisabled}
+                                  onValueChange={(value) => {
+                                    if (isDisabled) return;
+                                    const nextRaw = permission.inverse ? !value : value;
+                                    togglePermission(permission.key, nextRaw);
+                                  }}
+                                />
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </CardBody>
+                  </Card>
+                ))}
               </div>
               {isBodegueroRole && (
                 <div className="mt-3 rounded-lg border border-primary-200 bg-primary-50/50 px-3 py-2">

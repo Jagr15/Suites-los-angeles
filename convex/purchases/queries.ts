@@ -1,5 +1,45 @@
 import { query } from "../_generated/server";
 import { v } from "convex/values";
+import type { QueryCtx } from "../_generated/server";
+import type { Doc } from "../_generated/dataModel";
+
+async function buildProductosForPurchase(ctx: QueryCtx, purchaseId: string, bodegaId: string) {
+  const items = await ctx.db
+    .query("purchase_items")
+    .withIndex("by_purchaseId", (q) => q.eq("purchaseId", purchaseId as Doc<"purchase_items">["purchaseId"]))
+    .collect();
+
+  const inventoryRows = await ctx.db
+    .query("inventory")
+    .withIndex("by_bodega", (q) => q.eq("bodegaId", bodegaId as Doc<"inventory">["bodegaId"]))
+    .collect();
+  const inventoryByProduct = new Map<string, number>(inventoryRows.map((row) => [String(row.productId), row.quantity]));
+
+  return Promise.all(
+    items.map(async (item) => {
+      const product = item.productId ? await ctx.db.get(item.productId) : null;
+      const stock = inventoryByProduct.get(String(item.productId)) ?? 0;
+      const quantity = item.quantity || 0;
+      const etiqueta = stock <= 0 ? "Rojo" : stock <= 30 ? "Amarillo" : "Verde";
+      return {
+        ...item,
+        rowId: String(item._id),
+        id: String(item.productId),
+        name: product?.producto || "Producto desconocido",
+        sku: product?.sku || "",
+        descripcion: product?.producto || "Producto desconocido",
+        category: product?.categoria || "",
+        subcategory: product?.subcategoria || "",
+        stock,
+        quantity,
+        critico: 10,
+        bajo: 30,
+        optimo: 50,
+        etiqueta,
+      };
+    })
+  );
+}
 
 /**
  * Lista todas las compras con información del proveedor.
@@ -39,12 +79,14 @@ export const list = query({
             };
           })
         );
+        const productos = await buildProductosForPurchase(ctx, String(purchase._id), String(purchase.bodegaId));
 
         return {
           ...purchase,
           supplierName: supplier?.businessName || "Proveedor desconocido",
           bodegaName: bodega?.name || "Bodega desconocida",
           items: itemsWithDetails || [],
+          productos,
         };
       })
     );
@@ -82,12 +124,14 @@ export const getById = query({
         };
       })
     );
+    const productos = await buildProductosForPurchase(ctx, String(purchase._id), String(purchase.bodegaId));
 
     return {
       ...purchase,
       supplierName: supplier?.businessName || "Proveedor desconocido",
       bodegaName: bodega?.name || "Bodega desconocida",
       items: itemsWithDetails,
+      productos,
     };
   },
 });

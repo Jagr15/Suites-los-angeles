@@ -3,16 +3,14 @@
 import { useState, useCallback, useMemo, useEffect } from "react";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
-import { addToast, Button, Select, SelectItem, useDisclosure } from "@heroui/react";
+import { addToast, Select, SelectItem } from "@heroui/react";
 import { ConfirmModal } from "@/shared/components";
 import { useRoles } from "@/shared/hooks";
-import { BodegaHeader, BodegaToolbar, BodegaTable, BodegaEntradasTable, BodegaSalidaForm, BodegaEntradaForm, BodegaInventory, BodegaNominas, BodegaSalidas, BodegaGastos, BodegaIngresos, BodegaDeudas, BodegaInventoryForm, BodegaIngresoForm, BodegaGastoForm } from "../components";
-import { BodegaModal as BodegaCatalogModal } from "@/features/configuracion/components/bodegas/BodegaModal";
-import { mockNominas, mockSalidas, mockGastos, mockIngresos, type NominaRow, type SalidaRow, type GastoRow, type IngresoRow } from "@/shared/mocks";
-import { PlusIcon } from "@heroicons/react/24/outline";
+import { BodegaHeader, BodegaToolbar, BodegaEntradasTable, BodegaSalidaForm, BodegaEntradaForm, BodegaInventory, BodegaNominas, BodegaSalidas, BodegaGastos, BodegaIngresos, BodegaDeudas, BodegaInventoryForm, BodegaIngresoForm, BodegaGastoForm } from "../components";
+import { mockNominas, type NominaRow, type SalidaRow } from "@/shared/mocks";
 import { useWarehouse } from "@/shared/context/warehouse-context";
 
-type TabKey = "entradas" | "salidas" | "inventario" | "ingresos" | "egresos" | "nominas" | "catalogo";
+type TabKey = "entradas" | "salidas" | "inventario" | "ingresos" | "egresos" | "nominas";
 
 const TIPO_LABELS: Record<TabKey, string> = {
   entradas: "Entradas",
@@ -21,7 +19,6 @@ const TIPO_LABELS: Record<TabKey, string> = {
   ingresos: "Ingresos",
   egresos: "Egresos",
   nominas: "Nóminas",
-  catalogo: "Catálogo",
 };
 
 export function BodegaPage() {
@@ -33,11 +30,7 @@ export function BodegaPage() {
   const accessibleBodegas = useQuery(api.bodegas.queries.listAccessible);
   const clients = useQuery(api.clients.queries.list);
   const purchases = useQuery(api.purchases.queries.list, selectedWarehouseId ? { bodegaId: selectedWarehouseId as any } : "skip");
-  const suppliers = useQuery(api.suppliers.queries.list);
-  const products = useQuery(api.products.queries.list);
   const salidas = useQuery(api.salidas.queries.list, selectedWarehouseId ? { bodegaId: selectedWarehouseId as any } : "skip");
-  const allBodegas = useQuery(api.bodegas.queries.list, isAdmin ? {} : "skip");
-  const users = useQuery(api.users.queries.listAll, isAdmin ? {} : "skip");
   const createSalida = useMutation(api.salidas.mutations.create);
   const updateSalida = useMutation(api.salidas.mutations.update);
   const removeSalida = useMutation(api.salidas.mutations.remove);
@@ -54,32 +47,15 @@ export function BodegaPage() {
   const canCreateIngresos = isAdmin || hasPermission("warehouse_money:allow_income");
   const canCreateEgresos = isAdmin || hasPermission("warehouse_money:allow_expense");
   const visibleTabs = useMemo(() => {
-    const base: TabKey[] = ["entradas", "salidas", "ingresos", "egresos", "catalogo"];
+    const base: TabKey[] = ["entradas", "salidas", "ingresos", "egresos"];
     if (canViewInventoryTab) base.splice(2, 0, "inventario");
     if (canViewPayroll) base.push("nominas");
     return base;
   }, [canViewInventoryTab, canViewPayroll]);
 
-  useEffect(() => {
-    if (!visibleTabs.includes(activeTab)) {
-      setActiveTab(visibleTabs[0] || "entradas");
-      setView("list");
-    }
-  }, [activeTab, visibleTabs]);
+  const currentTab = visibleTabs.includes(activeTab) ? activeTab : (visibleTabs[0] || "entradas");
 
   const [nominas] = useState<NominaRow[]>(() => mockNominas);
-  const [gastos] = useState<GastoRow[]>(() => mockGastos);
-  const [ingresos] = useState<IngresoRow[]>(() => mockIngresos);
-  
-  // Convex Bodegas
-  const [selectedBodega, setSelectedBodega] = useState<any>(null);
-  const { isOpen: isBodegaModalOpen, onOpen: onOpenBodegaModal, onClose: onCloseBodegaModal } = useDisclosure();
-  const [bodegaToDeleteRecord, setBodegaToDeleteRecord] = useState<any>(null);
-  
-  const createBodega = useMutation(api.bodegas.mutations.create);
-  const updateBodega = useMutation(api.bodegas.mutations.update);
-  const removeBodega = useMutation(api.bodegas.mutations.remove);
-
   const createPurchase = useMutation(api.purchases.mutations.create);
   const reservePurchaseFolio = useMutation(api.purchases.mutations.reserveFolio);
   const reserveSalidaFolio = useMutation(api.salidas.mutations.reserveFolio);
@@ -89,8 +65,8 @@ export function BodegaPage() {
   const adjustInventory = useMutation(api.inventory.mutations.adjust);
 
   const [bodegaToEdit, setBodegaToEdit] = useState<any>(null);
-  const [salidaToEdit, setSalidaToEdit] = useState<any | null>(null);
   const [bodegaToDelete, setBodegaToDelete] = useState<any>(null);
+  const [salidaToEdit, setSalidaToEdit] = useState<any | null>(null);
   const [salidaToDelete, setSalidaToDelete] = useState<SalidaRow | null>(null);
   const [selectedNomina, setSelectedNomina] = useState<NominaRow | null>(null);
   const [selectedCarga, setSelectedCarga] = useState<any>(null);
@@ -108,15 +84,6 @@ export function BodegaPage() {
   );
   const hasValidSelectedWarehouse = !!selectedWarehouseId && !!selectedBodegaDoc;
   const safeSelectedWarehouseKeys = hasValidSelectedWarehouse && selectedWarehouseId ? [selectedWarehouseId] : [];
-  const bodegueroUsers = useMemo(
-    () =>
-      (users || []).filter((u: any) => {
-        const role = String(u?.roleData?.name || u?.role || "").toLowerCase();
-        return role === "bodeguero" || role === "bodega";
-      }),
-    [users]
-  );
-
   useEffect(() => {
     if (!availableBodegas.length) return;
     if (!selectedWarehouseId) {
@@ -135,27 +102,17 @@ export function BodegaPage() {
       return;
     }
     setBodegaToEdit(null);
-    if (activeTab === "entradas") {
+    if (currentTab === "entradas") {
       reservePurchaseFolio({ bodegaId: selectedWarehouseId as any }).then((folio) => {
         setReservedEntradaFolio(folio.folio);
         setReservedEntradaFolioNumber(folio.folioNumber);
       });
     }
-    if (activeTab === "salidas") {
+    if (currentTab === "salidas") {
       reserveSalidaFolio({ bodegaId: selectedWarehouseId as any }).then((folio) => setReservedSalidaFolio(folio.numeroSalida));
     }
     setView("form");
-  }, [activeTab, hasValidSelectedWarehouse, reservePurchaseFolio, reserveSalidaFolio, selectedWarehouseId]);
-
-  const handleVer = useCallback((item: any) => {
-    setSelectedCarga(item);
-    setActiveTab("inventario");
-  }, []);
-
-  const handleEditar = useCallback((item: any) => {
-    setBodegaToEdit(item);
-    setView("form");
-  }, []);
+  }, [currentTab, hasValidSelectedWarehouse, reservePurchaseFolio, reserveSalidaFolio, selectedWarehouseId]);
 
   const handleSubmitEntrada = useCallback(
     async (values: any, editId?: string) => {
@@ -266,6 +223,19 @@ export function BodegaPage() {
     [createSalida, isSuperAdmin, salidas, updateSalida]
   );
 
+  const handleConfirmBorrarEntrada = useCallback(async () => {
+    if (!bodegaToDelete) return;
+    if (!canDeleteRecords) return;
+    try {
+      await removePurchase({ id: bodegaToDelete._id });
+      addToast({ title: "Entrada eliminada", color: "success" });
+    } catch (error) {
+      addToast({ title: "Error", description: "No se pudo eliminar", color: "danger" });
+    } finally {
+      setBodegaToDelete(null);
+    }
+  }, [bodegaToDelete, canDeleteRecords, removePurchase]);
+
   const handleSubmitInventoryAdjustment = useCallback(
     async (values: any) => {
       if (!canAdjustInventory) {
@@ -292,20 +262,6 @@ export function BodegaPage() {
     },
     [adjustInventory, canAdjustInventory]
   );
-
-  const handleConfirmBorrar = useCallback(async () => {
-    if (!bodegaToDelete) return;
-    try {
-      await removePurchase({ id: (bodegaToDelete as any)._id });
-      addToast({
-        title: "Entrada eliminada",
-        color: "success",
-      });
-    } catch (error) {
-      addToast({ title: "Error", description: "No se pudo eliminar", color: "danger" });
-    }
-    setBodegaToDelete(null);
-  }, [bodegaToDelete, removePurchase]);
 
   const handlePasarASalida = useCallback((item: any) => {
     if (!selectedWarehouseId) {
@@ -381,7 +337,7 @@ export function BodegaPage() {
             ) : (
               <>
             <BodegaHeader
-              selectedKey={activeTab}
+              selectedKey={currentTab}
               onSelectionChange={(key) => setActiveTab(key as TabKey)}
               visibleTabs={visibleTabs}
             />
@@ -406,13 +362,13 @@ export function BodegaPage() {
                 </Select>
               </div>
             ) : null}
-            {(activeTab === "entradas" || (activeTab === "nominas" && canViewPayroll)) && (
+            {(currentTab === "entradas" || (currentTab === "nominas" && canViewPayroll)) && (
               <BodegaToolbar
                 onAgregar={handleAgregar}
-                agregarLabel={activeTab === "entradas" ? "Nueva entrada" : "Nueva nómina"}
+                agregarLabel={currentTab === "entradas" ? "Nueva entrada" : "Nueva nómina"}
               />
             )}
-            {activeTab === "entradas" ? (
+            {currentTab === "entradas" ? (
               <BodegaEntradasTable 
                 items={(purchases || []) as any} 
                 onPasarASalida={handlePasarASalida}
@@ -424,28 +380,7 @@ export function BodegaPage() {
                 }}
                 onAvanzarEstado={handleAvanzarEntrada}
               />
-            ) : activeTab === "catalogo" ? (
-              <div className="space-y-4">
-                <div className="flex justify-between items-center">
-                  <p className="text-default-500 italic">Administración de bodegas y almacenes físicos</p>
-                  <Button 
-                    color="primary" 
-                    size="sm" 
-                    startContent={<PlusIcon className="size-4" />}
-                    onPress={() => { setSelectedBodega(null); onOpenBodegaModal(); }}
-                  >
-                    Nueva Bodega
-                  </Button>
-                </div>
-                <BodegaTable 
-                  items={allBodegas || []} 
-                  onEdit={(b) => { setSelectedBodega(b); onOpenBodegaModal(); }} 
-                  onDelete={setBodegaToDeleteRecord} 
-                  canDelete={canDeleteRecords}
-                  isLoading={allBodegas === undefined}
-                />
-              </div>
-            ) : activeTab === "salidas" ? (
+            ) : currentTab === "salidas" ? (
               <BodegaSalidas 
                 items={(salidas || []) as any} 
                 onAgregar={() => { setSalidaToEdit(null); setView("form"); }}
@@ -453,7 +388,7 @@ export function BodegaPage() {
                 onBorrar={setSalidaToDelete}
                 canDelete={canDeleteRecords}
               />
-            ) : activeTab === "inventario" ? (
+            ) : currentTab === "inventario" ? (
               <BodegaInventory
                 items={(purchases || []) as any}
                 selectedCarga={selectedCarga}
@@ -462,14 +397,14 @@ export function BodegaPage() {
                 onAjustar={() => setView("form")}
                 canAdjust={canAdjustInventory}
               />
-            ) : activeTab === "egresos" ? (
+            ) : currentTab === "egresos" ? (
               <BodegaGastos
                 selectedWarehouseId={selectedWarehouseId || undefined}
                 canShowDailyTotals={canShowDailyTotals}
                 canDelete={canDeleteRecords}
                 canCreate={canCreateEgresos}
               />
-            ) : activeTab === "nominas" && canViewPayroll ? (
+            ) : currentTab === "nominas" && canViewPayroll ? (
               selectedNomina ? (
                 <BodegaDeudas 
                   empleado={selectedNomina.empleado} 
@@ -478,7 +413,7 @@ export function BodegaPage() {
               ) : (
                 <BodegaNominas items={nominas} onSelect={(item) => setSelectedNomina(item)} />
               )
-            ) : activeTab === "ingresos" ? (
+            ) : currentTab === "ingresos" ? (
               <BodegaIngresos
                 selectedWarehouseId={selectedWarehouseId || undefined}
                 canShowDailyTotals={canShowDailyTotals}
@@ -488,7 +423,7 @@ export function BodegaPage() {
             ) : (
               <div className="flex h-64 items-center justify-center rounded-xl border-2 border-dashed border-divider">
                 <p className="text-default-500">
-                  Vista de {TIPO_LABELS[activeTab]} en desarrollo
+                  Vista de {TIPO_LABELS[currentTab]} en desarrollo
                 </p>
               </div>
             )}
@@ -501,7 +436,7 @@ export function BodegaPage() {
               <p className="text-default-500">Seleccionando bodega activa...</p>
             </div>
           ) : (
-          activeTab === "salidas" || salidaToEdit ? (
+          currentTab === "salidas" || salidaToEdit ? (
             <BodegaSalidaForm
               key={salidaToEdit?._id || "new-salida"}
               salida={salidaToEdit}
@@ -516,18 +451,18 @@ export function BodegaPage() {
                 setView("list");
               }}
             />
-          ) : activeTab === "inventario" ? (
+          ) : currentTab === "inventario" ? (
             <BodegaInventoryForm
               onSubmit={handleSubmitInventoryAdjustment}
               onCancel={() => setView("list")}
             />
-          ) : activeTab === "ingresos" ? (
+          ) : currentTab === "ingresos" ? (
             <BodegaIngresoForm
               selectedWarehouseId={selectedWarehouseId || undefined}
               onSuccess={() => setView("list")}
               onCancel={() => setView("list")}
             />
-          ) : activeTab === "egresos" ? (
+          ) : currentTab === "egresos" ? (
             <BodegaGastoForm
               selectedWarehouseId={selectedWarehouseId || undefined}
               onSuccess={() => setView("list")}
@@ -557,10 +492,19 @@ export function BodegaPage() {
       </div>
 
       <ConfirmModal
-        isOpen={!!bodegaToDelete || !!salidaToDelete}
-        onClose={() => { setBodegaToDelete(null); setSalidaToDelete(null); }}
+        isOpen={!!bodegaToDelete}
+        onClose={() => setBodegaToDelete(null)}
+        onConfirm={handleConfirmBorrarEntrada}
+        title="¿Borrar entrada?"
+        description={bodegaToDelete ? `Se eliminará la entrada "${bodegaToDelete.folio || bodegaToDelete.numeroCarga}". Esta acción no se puede deshacer.` : ""}
+        confirmLabel="Borrar"
+        cancelLabel="Cancelar"
+        variant="danger"
+      />
+      <ConfirmModal
+        isOpen={!!salidaToDelete}
+        onClose={() => setSalidaToDelete(null)}
         onConfirm={() => {
-          if (bodegaToDelete) handleConfirmBorrar();
           if (salidaToDelete) {
             if (!canDeleteRecords) return;
             removeSalida({ id: salidaToDelete._id as any });
@@ -568,52 +512,12 @@ export function BodegaPage() {
             setSalidaToDelete(null);
           }
         }}
-        title={bodegaToDelete ? "¿Borrar carga?" : "¿Borrar salida?"}
-        description={
-          bodegaToDelete
-            ? `Se eliminará la carga "${bodegaToDelete.numeroCarga}". Esta acción no se puede deshacer.`
-            : salidaToDelete
-            ? `Se eliminará la salida "${salidaToDelete.numeroSalida}". Esta acción no se puede deshacer.`
-            : ""
-        }
+        title="¿Borrar salida?"
+        description={salidaToDelete ? `Se eliminará la salida "${salidaToDelete.numeroSalida}". Esta acción no se puede deshacer.` : ""}
         confirmLabel="Borrar"
         cancelLabel="Cancelar"
         variant="danger"
       />
-
-      <BodegaCatalogModal
-        isOpen={isBodegaModalOpen}
-        onClose={onCloseBodegaModal}
-        bodega={selectedBodega}
-        bodegueroUsers={bodegueroUsers.map((u: any) => ({ _id: String(u._id), name: u.name, email: u.email }))}
-        onSubmit={async (values) => {
-          if (selectedBodega) {
-            await updateBodega({ id: selectedBodega._id, ...(values as any) } as any);
-            addToast({ title: "Bodega actualizada", color: "success" });
-          } else {
-            await createBodega(values as any);
-            addToast({ title: "Bodega creada", color: "success" });
-          }
-        }}
-      />
-
-      {canDeleteRecords ? (
-        <ConfirmModal
-          isOpen={!!bodegaToDeleteRecord}
-          onClose={() => setBodegaToDeleteRecord(null)}
-          onConfirm={async () => {
-            if (bodegaToDeleteRecord) {
-              await removeBodega({ id: bodegaToDeleteRecord._id });
-              addToast({ title: "Bodega eliminada", color: "danger" });
-              setBodegaToDeleteRecord(null);
-            }
-          }}
-          title="¿Eliminar bodega?"
-          description={`Se eliminará permanentemente la bodega "${bodegaToDeleteRecord?.name}".`}
-          confirmLabel="Eliminar"
-          variant="danger"
-        />
-      ) : null}
     </div>
   );
 }
