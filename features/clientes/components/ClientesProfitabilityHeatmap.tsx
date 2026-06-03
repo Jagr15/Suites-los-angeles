@@ -34,7 +34,11 @@ const heatmapOptions: ApexCharts.ApexOptions = {
                 fontSize: "10px",
                 fontWeight: "black",
                 cssClass: "uppercase tracking-widest font-black"
-            }
+            },
+            rotate: -35,
+            rotateAlways: false,
+            trim: true,
+            hideOverlappingLabels: true,
         }
     },
     yaxis: {
@@ -44,7 +48,8 @@ const heatmapOptions: ApexCharts.ApexOptions = {
                 fontSize: "10px",
                 fontWeight: "black",
                 cssClass: "uppercase tracking-widest font-black"
-            }
+            },
+            maxWidth: 110,
         }
     },
     grid: { show: false },
@@ -52,39 +57,58 @@ const heatmapOptions: ApexCharts.ApexOptions = {
 };
 
 export function ClientesProfitabilityHeatmap() {
+    const chartHeight = Math.max(320, Math.min(480, mockHeatmapData.length * 44 + 56));
+
     return (
-        <div className="flex flex-col h-full bg-content1 rounded-3xl p-6 border-none shadow-sm h-full">
-            <div className="flex justify-between items-start mb-4">
-                <div className="flex flex-col">
+        <div className="flex h-full min-w-0 flex-col overflow-hidden rounded-3xl border-none bg-content1 p-5 shadow-sm sm:p-6">
+            <div className="flex items-start justify-between gap-3">
+                <div className="flex min-w-0 flex-col gap-1">
                     <h3 className="text-[11px] font-black text-default-400 uppercase tracking-widest leading-none">
                         HEATMAP DE RENTABILIDAD POR RUTA
                     </h3>
-                    <span className="text-[9px] text-default-400 mt-1 uppercase font-bold italic">
+                    <span className="text-[9px] text-default-400 uppercase font-bold italic">
                         (Utilidad Neta vs % Costo Venta)
                     </span>
-                    <p className="text-[8px] text-default-400 mt-2 font-bold italic uppercase opacity-50">
+                    <p className="max-w-[42ch] text-[8px] text-default-400 font-bold italic uppercase opacity-50">
                         Improductivos; ilustrativ para, por todas mas mayores reals
                     </p>
                 </div>
                 <span className="text-[8px] font-bold text-default-400">cite: 27</span>
             </div>
 
-            <div className="flex-1 w-full flex items-center justify-center">
-                <Chart 
-                    options={{
-                        ...heatmapOptions,
-                    }}
-                    series={mockHeatmapData}
-                    type="heatmap"
-                    height="100%"
-                    width="100%"
-                />
+            <div className="mt-4 min-h-0 w-full overflow-y-auto overflow-x-hidden rounded-2xl">
+                <div className="w-full min-w-0">
+                    <Chart 
+                        options={{
+                            ...heatmapOptions,
+                            chart: {
+                                ...heatmapOptions.chart,
+                                parentHeightOffset: 0,
+                                redrawOnParentResize: true,
+                                redrawOnWindowResize: true,
+                            },
+                        }}
+                        series={mockHeatmapData}
+                        type="heatmap"
+                        height={chartHeight}
+                        width="100%"
+                    />
+                </div>
             </div>
 
-            <div className="mt-4 flex justify-center gap-6">
-                <div className="flex items-center gap-2">
-                    <div className="size-2 bg-neutral-200 rounded-full" />
-                    <span className="text-[9px] font-black text-default-400 uppercase tracking-widest leading-none">Ruta</span>
+            <div className="mt-4 flex flex-wrap items-center gap-2">
+                <span className="text-[9px] font-black uppercase tracking-widest text-default-400">Leyenda</span>
+                <div className="flex items-center gap-2 rounded-full bg-danger/10 px-2 py-1">
+                    <div className="size-2 rounded-full bg-danger" />
+                    <span className="text-[9px] font-black uppercase tracking-widest text-danger">Bajo</span>
+                </div>
+                <div className="flex items-center gap-2 rounded-full bg-warning/10 px-2 py-1">
+                    <div className="size-2 rounded-full bg-warning" />
+                    <span className="text-[9px] font-black uppercase tracking-widest text-warning">Medio</span>
+                </div>
+                <div className="flex items-center gap-2 rounded-full bg-success/10 px-2 py-1">
+                    <div className="size-2 rounded-full bg-success" />
+                    <span className="text-[9px] font-black uppercase tracking-widest text-success">Alto</span>
                 </div>
             </div>
         </div>

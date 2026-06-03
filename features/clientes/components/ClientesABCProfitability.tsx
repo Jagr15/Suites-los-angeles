@@ -1,6 +1,6 @@
 "use client";
 
-import { Table, TableHeader, TableColumn, TableBody, TableRow, TableCell, Chip, Progress } from "@heroui/react";
+import { Table, TableHeader, TableColumn, TableBody, TableRow, TableCell, Progress } from "@heroui/react";
 import { mockClientesABC } from "@/shared/mocks/clientesAnalysis";
 
 const riesgoColors = {
@@ -12,7 +12,7 @@ const riesgoColors = {
 
 export function ClientesABCProfitability() {
     return (
-        <div className="space-y-4">
+        <div className="min-w-0 space-y-4 overflow-hidden">
             <div className="flex justify-between items-center">
                 <div className="flex flex-col">
                     <h3 className="text-[11px] font-black text-default-400 uppercase tracking-widest leading-none">

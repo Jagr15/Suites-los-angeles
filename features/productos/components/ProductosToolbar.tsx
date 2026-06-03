@@ -21,14 +21,15 @@ export function ProductosToolbar({ onAgregar, onImportExcel, searchValue, onSear
   };
 
   return (
-    <div className="flex w-full flex-nowrap items-center gap-3">
-      <Button color="primary" startContent={<PlusIcon className="size-5" />} className="shrink-0" onPress={onAgregar}>
+    <div className="flex w-full flex-col gap-3 md:flex-row md:items-center">
+      <Button color="primary" startContent={<PlusIcon className="size-5" />} className="w-full shrink-0 md:w-auto" onPress={onAgregar}>
         Agregar
       </Button>
-      <div className="relative shrink-0">
+      <div className="relative w-full shrink-0 md:w-auto">
         <Button 
           variant="bordered" 
           startContent={<ArrowUpTrayIcon className="size-5" />} 
+          className="w-full md:w-auto"
           onPress={() => document.getElementById("excel-import")?.click()}
         >
           Importar Excel
@@ -44,6 +45,7 @@ export function ProductosToolbar({ onAgregar, onImportExcel, searchValue, onSear
       <Input
         aria-label="Buscar producto"
         classNames={{
+          base: "w-full min-w-0",
           inputWrapper: "min-w-0 flex-1 bg-gray-200 border border-gray-300 shadow-sm dark:bg-gray-800 dark:border-gray-600",
         }}
         placeholder="Buscar producto..."
@@ -51,7 +53,7 @@ export function ProductosToolbar({ onAgregar, onImportExcel, searchValue, onSear
         onValueChange={onSearchChange}
         endContent={<MagnifyingGlassIcon className="size-5 shrink-0 text-default-400" />}
       />
-      <Button variant="bordered" className="shrink-0">
+      <Button variant="bordered" className="w-full shrink-0 md:w-auto">
         Filtrar
       </Button>
     </div>

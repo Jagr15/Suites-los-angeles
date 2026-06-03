@@ -1,6 +1,6 @@
 "use client";
 
-import { Card, CardBody, CardHeader, Divider, Select, SelectItem } from "@heroui/react";
+import { Card, CardBody, CardHeader, Select, SelectItem } from "@heroui/react";
 import dynamic from "next/dynamic";
 
 // dynamic import for apexcharts to avoid SSR error
@@ -98,7 +98,7 @@ export function FinanzasPresupuestos() {
   const varianceSeries = [{ name: 'Varianza', data: [120000, 80000, 50000, -20000, -100000] }];
 
   return (
-    <div className="flex flex-col gap-4 animate-in fade-in duration-500 w-full mb-10 overflow-x-auto min-w-[1200px]">
+    <div className="flex w-full min-w-0 flex-col gap-4 animate-in fade-in duration-500 mb-10">
       
       {/* Top Filters Bar */}
       <Card className="shadow-sm border border-default-100 bg-content1">
@@ -107,7 +107,7 @@ export function FinanzasPresupuestos() {
           <h2 className="text-lg font-bold uppercase tracking-wider text-foreground">Presupuestos Estratégicos 2026</h2>
         </CardHeader>
         <CardBody className="p-3">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
             <Select label="Tiempo" size="sm" variant="faded" defaultSelectedKeys={["oct"]}>
                <SelectItem key="oct">Mes (Octubre 2026)</SelectItem>
                <SelectItem key="all">Año Completo (2026)</SelectItem>
@@ -128,10 +128,10 @@ export function FinanzasPresupuestos() {
       </Card>
 
       {/* Main 4-Column Layout */}
-      <div className="grid grid-cols-1 xl:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-4">
         
         {/* COL 1: P&L RESULTADOS */}
-        <div className="flex flex-col gap-4">
+        <div className="flex min-w-0 flex-col gap-4">
           <Card className="shadow-sm border border-default-100 bg-content1 h-full">
             <CardHeader className="bg-default-50/50 p-3 border-b border-divider">
               <h3 className="font-bold uppercase text-xs">P&L (Resultados) Proyectado</h3>
@@ -164,7 +164,7 @@ export function FinanzasPresupuestos() {
         </div>
 
         {/* COL 2: BALANCE GENERAL PROYECTADO */}
-        <div className="flex flex-col gap-4">
+        <div className="flex min-w-0 flex-col gap-4">
           <Card className="shadow-sm border border-default-100 bg-content1 h-full">
             <CardHeader className="bg-default-50/50 p-3 border-b border-divider">
               <h3 className="font-bold uppercase text-xs">Balance General Proyectado</h3>
@@ -193,7 +193,7 @@ export function FinanzasPresupuestos() {
         </div>
 
         {/* COL 3: FLUJO DE EFECTIVO PROYECTADO */}
-        <div className="flex flex-col gap-4 flex-1 xl:col-span-1">
+        <div className="flex min-w-0 flex-1 flex-col gap-4 xl:col-span-1">
           <Card className="shadow-sm border border-default-100 bg-content1 h-full">
             <CardHeader className="bg-default-50/50 p-3 border-b border-divider flex-col items-start">
               <h3 className="font-bold uppercase text-xs">Flujo de Efectivo Proyectado</h3>
@@ -229,7 +229,7 @@ export function FinanzasPresupuestos() {
         </div>
 
         {/* COL 4: VISUALIZACIÓN Y ALERTAS & VARIANZA */}
-        <div className="flex flex-col gap-4 flex-1">
+        <div className="flex min-w-0 flex-1 flex-col gap-4">
           <Card className="shadow-sm border border-warning/50 bg-content1 flex-1 min-h-[160px]">
             <CardHeader className="bg-default-50/50 p-2 border-b border-divider">
               <h3 className="font-bold uppercase text-[10px]">Indicadores Clave vs Meta</h3>

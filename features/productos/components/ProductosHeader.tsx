@@ -18,8 +18,18 @@ export function ProductosHeader({ activeTab, onTabChange, visibleTabs }: Product
   const allowedTabs = visibleTabs?.length ? tabs.filter((tab) => visibleTabs.includes(tab.key)) : tabs;
 
   return (
-    <div>
-      <Tabs aria-label="Tipo de lista" color="primary" selectedKey={activeTab} onSelectionChange={(k) => onTabChange(k.toString())} variant="underlined">
+    <div className="w-full overflow-x-auto pb-1">
+      <Tabs
+        aria-label="Tipo de lista"
+        color="primary"
+        selectedKey={activeTab}
+        onSelectionChange={(k) => onTabChange(k.toString())}
+        variant="underlined"
+        classNames={{
+          base: "w-full",
+          tabList: "w-max min-w-full gap-4",
+        }}
+      >
         {allowedTabs.map((tab) => (
           <Tab key={tab.key} title={tab.label} />
         ))}

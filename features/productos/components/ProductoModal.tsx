@@ -24,7 +24,7 @@ import { productoSchema, type ProductoFormValues } from "@/shared/schemas";
 import { PRODUCTO_STATUS } from "@/shared/types/producto";
 import type { ProductoCreate } from "@/shared/types/producto";
 import { Product } from "../hooks/use-products";
-import { useQuery, useMutation } from "convex/react";
+import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
 import { CategoryModal } from "./categories/CategoryModal";
@@ -356,7 +356,7 @@ export function ProductoModal({ isOpen, onClose, producto, onSubmit, isReadOnly 
                 }}
               >
                 <Tab key="costo" title="Costo">
-                  <div className="grid gap-4 pt-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5">
+                  <div className="grid gap-4 pt-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
                     {LISTA_KEYS.slice(0, 5).map((key, i) => (
                       <Controller
                         key={key}
@@ -373,6 +373,11 @@ export function ProductoModal({ isOpen, onClose, producto, onSubmit, isReadOnly 
                             onValueChange={field.onChange}
                             onBlur={field.onBlur}
                             variant="bordered"
+                            classNames={{
+                              base: "w-full min-w-0",
+                              inputWrapper: "min-h-10 h-10 min-w-[118px]",
+                              input: "text-end text-sm tabular-nums",
+                            }}
                             startContent={<span className="text-default-400 font-medium">$</span>}
                             isReadOnly={isReadOnly}
                           />
@@ -382,7 +387,7 @@ export function ProductoModal({ isOpen, onClose, producto, onSubmit, isReadOnly 
                   </div>
                 </Tab>
                 <Tab key="mayoreo" title="Mayoreo">
-                  <div className="grid gap-4 pt-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5">
+                  <div className="grid gap-4 pt-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
                     {LISTA_KEYS.slice(5, 10).map((key, i) => (
                       <Controller
                         key={key}
@@ -399,6 +404,11 @@ export function ProductoModal({ isOpen, onClose, producto, onSubmit, isReadOnly 
                             onValueChange={field.onChange}
                             onBlur={field.onBlur}
                             variant="bordered"
+                            classNames={{
+                              base: "w-full min-w-0",
+                              inputWrapper: "min-h-10 h-10 min-w-[118px]",
+                              input: "text-end text-sm tabular-nums",
+                            }}
                             startContent={<span className="text-default-400 font-medium">$</span>}
                             isReadOnly={isReadOnly}
                           />
@@ -408,7 +418,7 @@ export function ProductoModal({ isOpen, onClose, producto, onSubmit, isReadOnly 
                   </div>
                 </Tab>
                 <Tab key="venta" title="Venta">
-                  <div className="grid gap-4 pt-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5">
+                  <div className="grid gap-4 pt-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
                     {LISTA_KEYS.slice(10, 15).map((key, i) => (
                       <Controller
                         key={key}
@@ -425,6 +435,11 @@ export function ProductoModal({ isOpen, onClose, producto, onSubmit, isReadOnly 
                             onValueChange={field.onChange}
                             onBlur={field.onBlur}
                             variant="bordered"
+                            classNames={{
+                              base: "w-full min-w-0",
+                              inputWrapper: "min-h-10 h-10 min-w-[118px]",
+                              input: "text-end text-sm tabular-nums",
+                            }}
                             startContent={<span className="text-default-400 font-medium">$</span>}
                             isReadOnly={isReadOnly}
                           />

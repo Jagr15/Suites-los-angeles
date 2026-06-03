@@ -1,71 +1,13 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import dynamic from "next/dynamic";
-import { Card, CardBody } from "@heroui/react";
-import { mockScatterData } from "@/shared/mocks/clientesAnalysis";
-
-const Chart = dynamic(() => import("react-apexcharts"), { ssr: false });
-
-const scatterOptions: ApexCharts.ApexOptions = {
-    chart: { 
-        type: "scatter", 
-        toolbar: { show: false }, 
-        zoom: { enabled: false } 
-    },
-    colors: ["#ef4444", "#10b981"], // Mix of red/green for utility
-    xaxis: {
-        tickAmount: 5,
-        labels: {
-            style: {
-                colors: "#888",
-                fontSize: "10px",
-                fontWeight: "black",
-                cssClass: "uppercase tracking-widest font-black"
-            }
-        },
-        title: {
-            text: 'Costo',
-            style: {
-                color: '#888',
-                fontSize: '8px',
-                fontWeight: 'black',
-                cssClass: 'uppercase'
-            }
-        }
-    },
-    yaxis: {
-        labels: {
-            style: {
-                colors: "#888",
-                fontSize: "10px",
-                fontWeight: "black",
-                cssClass: "uppercase tracking-widest font-black"
-            }
-        },
-        title: {
-            text: 'Utilidad',
-            style: {
-                color: '#888',
-                fontSize: '8px',
-                fontWeight: 'black',
-                cssClass: 'uppercase'
-            }
-        }
-    },
-    markers: { 
-        size: 5,
-        strokeWidth: 0,
-        fillOpacity: 0.6
-    },
-    grid: { borderColor: '#333', strokeDashArray: 4 },
-    tooltip: { theme: 'dark' }
-};
 
 export function ClientesGeographicAnalysis() {
-    const mapRef = useRef<any>(null);
-    const miniMap1Ref = useRef<any>(null);
-    const miniMap2Ref = useRef<any>(null);
+    type LeafletMapLike = { remove: () => void };
+
+    const mapRef = useRef<LeafletMapLike | null>(null);
+    const miniMap1Ref = useRef<LeafletMapLike | null>(null);
+    const miniMap2Ref = useRef<LeafletMapLike | null>(null);
     
     const containerRef = useRef<HTMLDivElement>(null);
     const miniMap1ContainerRef = useRef<HTMLDivElement>(null);
@@ -142,21 +84,21 @@ export function ClientesGeographicAnalysis() {
             </div>
 
 
-            <div className="relative rounded-3xl overflow-hidden border border-default-100 shadow-xl bg-neutral-100 h-[500px]">
+            <div className="relative h-[420px] overflow-hidden rounded-3xl border border-default-100 bg-neutral-100 shadow-xl lg:h-[500px]">
                 <div ref={containerRef} className="w-full h-full z-0" />
 
                 {/* MINI MAPS SECTION at BOTTOM RIGHT */}
-                <div className="absolute bottom-4 right-4 flex gap-4 z-[1000]">
+                <div className="absolute bottom-4 right-4 z-[1000] hidden gap-4 xl:flex">
                     <div className="flex flex-col gap-2">
-                        <div ref={miniMap1ContainerRef} className="w-32 h-32 rounded-2xl border-2 border-rose-500 overflow-hidden shadow-xl bg-white" />
-                        <div className="bg-white/90 backdrop-blur-sm p-2 rounded-xl border border-rose-500 shadow-lg max-w-[128px]">
+                        <div ref={miniMap1ContainerRef} className="size-32 overflow-hidden rounded-2xl border-2 border-rose-500 bg-white shadow-xl" />
+                        <div className="max-w-[128px] rounded-xl border border-rose-500 bg-white/90 p-2 shadow-lg backdrop-blur-sm">
                             <p className="text-[7px] font-black uppercase text-rose-500 leading-tight">Ruta 4 - Depuración Sugerida</p>
                             <span className="text-[6px] text-default-400 font-bold uppercase">(2 Clientes Improductivos)</span>
                         </div>
                     </div>
                     <div className="flex flex-col gap-2">
-                        <div ref={miniMap2ContainerRef} className="w-32 h-32 rounded-2xl border-2 border-rose-500 overflow-hidden shadow-xl bg-white" />
-                        <div className="bg-white/90 backdrop-blur-sm p-2 rounded-xl border border-rose-500 shadow-lg max-w-[128px]">
+                        <div ref={miniMap2ContainerRef} className="size-32 overflow-hidden rounded-2xl border-2 border-rose-500 bg-white shadow-xl" />
+                        <div className="max-w-[128px] rounded-xl border border-rose-500 bg-white/90 p-2 shadow-lg backdrop-blur-sm">
                             <p className="text-[7px] font-black uppercase text-rose-500 leading-tight">Ruta 4 - Depuración Sugerida</p>
                             <span className="text-[6px] text-default-400 font-bold uppercase">(2 Clientes Improductivos)</span>
                         </div>

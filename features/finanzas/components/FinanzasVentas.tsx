@@ -1,6 +1,6 @@
 "use client";
 
-import { Card, CardBody, CardHeader, Select, SelectItem, Button } from "@heroui/react";
+import { Card, CardBody, CardHeader, Select, SelectItem } from "@heroui/react";
 import dynamic from "next/dynamic";
 import { 
     BanknotesIcon, 
@@ -96,19 +96,21 @@ export function FinanzasVentas() {
       {/* KPIs Principales */}
       <div>
         <h3 className="text-sm font-bold text-default-500 uppercase tracking-wider mb-3">KPIs Principales</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
             <Card className="shadow-sm border border-default-100 bg-content1">
-                <CardBody className="flex flex-row items-center gap-4 p-4">
-                    <div className="p-3 bg-primary/10 rounded-xl text-primary">
-                        <BanknotesIcon className="size-6" />
+                <CardBody className="flex min-w-0 flex-col gap-3 p-4 sm:flex-row sm:items-center sm:gap-4">
+                    <div className="flex min-w-0 flex-1 items-center gap-3">
+                        <div className="shrink-0 rounded-xl bg-primary/10 p-3 text-primary">
+                            <BanknotesIcon className="size-6" />
+                        </div>
+                        <div className="min-w-0">
+                            <p className="truncate text-xs font-semibold uppercase text-default-500">Ventas Totales</p>
+                            <p className="truncate text-sm font-medium text-default-400">Venta Diaria Promedio</p>
+                        </div>
                     </div>
-                    <div className="flex-1">
-                        <p className="text-xs text-default-500 font-semibold uppercase">Ventas Totales</p>
-                        <p className="text-sm font-medium text-default-400">Venta Diaria Promedio</p>
-                    </div>
-                    <div className="flex flex-col items-end">
-                        <p className="text-xl font-bold">$124K</p>
-                        <span className="text-xs text-success flex items-center font-bold">
+                    <div className="flex w-full min-w-0 flex-row items-center justify-between gap-2 sm:w-auto sm:flex-col sm:items-end sm:justify-start">
+                        <p className="whitespace-nowrap text-lg font-bold tabular-nums sm:text-xl">$124K</p>
+                        <span className="flex items-center text-xs font-bold text-success whitespace-nowrap">
                            <ArrowUpIcon className="size-3 mr-1"/> 12%
                         </span>
                     </div>
@@ -116,17 +118,19 @@ export function FinanzasVentas() {
             </Card>
 
             <Card className="shadow-sm border border-default-100 bg-content1">
-                <CardBody className="flex flex-row items-center gap-4 p-4">
-                    <div className="p-3 bg-success/10 rounded-xl text-success">
-                        <CurrencyDollarIcon className="size-6" />
+                <CardBody className="flex min-w-0 flex-col gap-3 p-4 sm:flex-row sm:items-center sm:gap-4">
+                    <div className="flex min-w-0 flex-1 items-center gap-3">
+                        <div className="shrink-0 rounded-xl bg-success/10 p-3 text-success">
+                            <CurrencyDollarIcon className="size-6" />
+                        </div>
+                        <div className="min-w-0">
+                            <p className="truncate text-xs font-semibold uppercase text-default-500">Margen Bruto</p>
+                            <p className="truncate text-sm font-medium text-default-400">Utilidad Bruta</p>
+                        </div>
                     </div>
-                    <div className="flex-1">
-                        <p className="text-xs text-default-500 font-semibold uppercase">Margen Bruto</p>
-                        <p className="text-sm font-medium text-default-400">Utilidad Bruta</p>
-                    </div>
-                    <div className="flex flex-col items-end">
-                        <p className="text-xl font-bold">34%</p>
-                        <span className="text-xs text-success flex items-center font-bold">
+                    <div className="flex w-full min-w-0 flex-row items-center justify-between gap-2 sm:w-auto sm:flex-col sm:items-end sm:justify-start">
+                        <p className="whitespace-nowrap text-lg font-bold tabular-nums sm:text-xl">34%</p>
+                        <span className="flex items-center text-xs font-bold text-success whitespace-nowrap">
                            <ArrowUpIcon className="size-3 mr-1"/> 4%
                         </span>
                     </div>
@@ -134,16 +138,19 @@ export function FinanzasVentas() {
             </Card>
 
             <Card className="shadow-sm border border-default-100 bg-content1">
-                <CardBody className="flex flex-row items-center gap-4 p-4">
-                    <div className="p-3 bg-warning/10 rounded-xl text-warning">
-                        <TicketIcon className="size-6" />
+                <CardBody className="flex min-w-0 flex-col gap-3 p-4 sm:flex-row sm:items-center sm:gap-4">
+                    <div className="flex min-w-0 flex-1 items-center gap-3">
+                        <div className="shrink-0 rounded-xl bg-warning/10 p-3 text-warning">
+                            <TicketIcon className="size-6" />
+                        </div>
+                        <div className="min-w-0">
+                            <p className="truncate text-xs font-semibold uppercase text-default-500">Ticket Promedio</p>
+                            <p className="truncate text-sm font-medium text-default-400">Venta por transacción</p>
+                        </div>
                     </div>
-                    <div className="flex-1">
-                        <p className="text-xs text-default-500 font-semibold uppercase">Ticket Promedio</p>
-                    </div>
-                    <div className="flex flex-col items-end">
-                        <p className="text-xl font-bold">$450</p>
-                        <span className="text-xs text-danger flex items-center font-bold">
+                    <div className="flex w-full min-w-0 flex-row items-center justify-between gap-2 sm:w-auto sm:flex-col sm:items-end sm:justify-start">
+                        <p className="whitespace-nowrap text-lg font-bold tabular-nums sm:text-xl">$450</p>
+                        <span className="flex items-center text-xs font-bold text-danger whitespace-nowrap">
                            <ArrowDownIcon className="size-3 mr-1"/> 2%
                         </span>
                     </div>
@@ -151,16 +158,19 @@ export function FinanzasVentas() {
             </Card>
 
             <Card className="shadow-sm border border-default-100 bg-content1">
-                <CardBody className="flex flex-row items-center gap-4 p-4">
-                    <div className="p-3 bg-secondary/10 rounded-xl text-secondary">
-                        <ArrowTrendingUpIcon className="size-6" />
+                <CardBody className="flex min-w-0 flex-col gap-3 p-4 sm:flex-row sm:items-center sm:gap-4">
+                    <div className="flex min-w-0 flex-1 items-center gap-3">
+                        <div className="shrink-0 rounded-xl bg-secondary/10 p-3 text-secondary">
+                            <ArrowTrendingUpIcon className="size-6" />
+                        </div>
+                        <div className="min-w-0">
+                            <p className="truncate text-xs font-semibold uppercase text-default-500">Crecimiento Vs. Mes</p>
+                            <p className="truncate text-sm font-medium text-default-400">Comparativa mensual</p>
+                        </div>
                     </div>
-                    <div className="flex-1">
-                        <p className="text-xs text-default-500 font-semibold uppercase">Crecimiento Vs. Mes</p>
-                    </div>
-                    <div className="flex flex-col items-end">
-                        <p className="text-xl font-bold">+18%</p>
-                        <span className="text-xs text-success flex items-center font-bold">
+                    <div className="flex w-full min-w-0 flex-row items-center justify-between gap-2 sm:w-auto sm:flex-col sm:items-end sm:justify-start">
+                        <p className="whitespace-nowrap text-lg font-bold tabular-nums sm:text-xl">+18%</p>
+                        <span className="flex items-center text-xs font-bold text-success whitespace-nowrap">
                            <ArrowUpIcon className="size-3 mr-1"/> 5%
                         </span>
                     </div>
