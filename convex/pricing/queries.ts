@@ -1,6 +1,7 @@
 import { query } from "../_generated/server";
 import type { QueryCtx } from "../_generated/server";
 import type { Doc } from "../_generated/dataModel";
+import { FIXED_CUSTOMER_LEVEL_ORDER, FIXED_CUSTOMER_LEVELS } from "../../shared/pricing/customer-levels";
 
 async function withProductName(ctx: QueryCtx, tier: Doc<"pricingProductTiers">) {
   const product = await ctx.db.get(tier.productId);
@@ -38,7 +39,21 @@ export const listCustomerLevels = query({
   args: {},
   handler: async (ctx) => {
     const levels = await ctx.db.query("pricingCustomerLevels").collect();
-    return [...levels].sort((a, b) => a.code.localeCompare(b.code));
+    const byCode = new Map(
+      levels.map((level) => [String(level.code).trim().toUpperCase(), level] as const)
+    );
+    const orderedLevels = FIXED_CUSTOMER_LEVEL_ORDER.map((code) => {
+      const fixed = FIXED_CUSTOMER_LEVELS.find((level) => level.code === code)!;
+      const level = byCode.get(code);
+      if (!level) return null;
+      return {
+        ...level,
+        code: fixed.code,
+        name: fixed.name,
+        monthlyLimit: level.monthlyLimit ?? level.minMonthlyAmount ?? fixed.monthlyLimit,
+      };
+    });
+    return orderedLevels.filter(Boolean) as Array<Doc<"pricingCustomerLevels"> & { monthlyLimit?: number }>;
   },
 });
 

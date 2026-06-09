@@ -16,7 +16,7 @@ import {
 } from "@heroicons/react/24/outline";
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
-import { Client } from "./types";
+import { CLIENT_TYPE_LABELS, Client } from "./types";
 import { getAddressReferenceFromMapsUrl } from "./location-utils";
 
 type PricingLevelItem = {
@@ -52,6 +52,16 @@ export function ClientTable({ items, onEdit, onDelete }: ClientTableProps) {
             <p className="text-bold text-small">{client.buyerName}</p>
             <p className="text-bold text-tiny text-default-500">Encargado</p>
           </div>
+        );
+      case "clientType":
+        return (
+          <Chip
+            size="sm"
+            variant="flat"
+            color={client.clientType === "wholesaler" ? "secondary" : client.clientType === "retail" ? "warning" : "primary"}
+          >
+            {CLIENT_TYPE_LABELS[client.clientType || "commercial"]}
+          </Chip>
         );
       case "visitFrequency":
         return (
@@ -144,6 +154,7 @@ export function ClientTable({ items, onEdit, onDelete }: ClientTableProps) {
     <Table aria-label="Tabla de clientes" removeWrapper>
       <TableHeader>
         <TableColumn key="commercialName">CLIENTE / ZONA</TableColumn>
+        <TableColumn key="clientType">TIPO</TableColumn>
         <TableColumn key="contact">ENCARGADO</TableColumn>
         <TableColumn key="visitFrequency">FRECUENCIA</TableColumn>
         <TableColumn key="pricingCustomerLevelId">NIVEL</TableColumn>

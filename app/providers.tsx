@@ -6,6 +6,7 @@ import { ConvexReactClient } from "convex/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useState } from "react";
 import { WarehouseProvider } from "@/shared/context/warehouse-context";
+import { PricingBootstrap } from "@/shared/components/PricingBootstrap";
 
 const convexUrl = process.env.NEXT_PUBLIC_CONVEX_URL;
 
@@ -26,6 +27,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
       <QueryClientProvider client={queryClient}>
         <HeroUIProvider>
           <WarehouseProvider>
+            <PricingBootstrap />
             {children}
             <ToastProvider placement="top-right" />
           </WarehouseProvider>

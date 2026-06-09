@@ -1,4 +1,4 @@
-import { parseAbsoluteToLocal } from "@internationalized/date";
+import { fromDateToLocal, parseAbsoluteToLocal, parseDateTime } from "@internationalized/date";
 
 function isBlank(value?: string | null) {
   return !value || !value.trim();
@@ -7,10 +7,10 @@ function isBlank(value?: string | null) {
 function normalizeToIso(value: string) {
   const trimmed = value.trim();
   if (/^\d{2}:\d{2}$/.test(trimmed)) {
-    return `1970-01-01T${trimmed}:00.000Z`;
+    return trimmed;
   }
   if (/^\d{2}:\d{2}:\d{2}$/.test(trimmed)) {
-    return `1970-01-01T${trimmed}.000Z`;
+    return trimmed;
   }
   return trimmed;
 }
@@ -18,10 +18,28 @@ function normalizeToIso(value: string) {
 export function parseTimeToCalendarDate(value?: string | null) {
   if (isBlank(value)) return null;
   const iso = normalizeToIso(value!);
+  if (/^\d{2}:\d{2}(:\d{2})?$/.test(iso)) {
+    const [hours, minutes, seconds = "0"] = iso.split(":");
+    const today = new Date();
+    return fromDateToLocal(
+      new Date(
+        today.getFullYear(),
+        today.getMonth(),
+        today.getDate(),
+        Number(hours),
+        Number(minutes),
+        Number(seconds)
+      )
+    );
+  }
   try {
     return parseAbsoluteToLocal(iso);
   } catch {
-    return null;
+    try {
+      return parseDateTime(iso);
+    } catch {
+      return null;
+    }
   }
 }
 

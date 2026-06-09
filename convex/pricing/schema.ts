@@ -44,6 +44,7 @@ export const pricingCustomerLevelsTable = defineTable({
   discountPct: v.number(),
   active: v.boolean(),
   ruleVersion: v.number(),
+  monthlyLimit: v.optional(v.number()),
   minMonthlyAmount: v.optional(v.number()),
   description: v.optional(v.string()),
 })

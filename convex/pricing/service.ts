@@ -1,5 +1,9 @@
 import type { Doc, Id } from "../_generated/dataModel";
 import type { MutationCtx } from "../_generated/server";
+import {
+  getCustomerLevelForMonthlyAmount as getFixedLevelCodeForMonthlyAmount,
+  type ClientType,
+} from "../../shared/pricing/customer-levels";
 
 type DbCtx = Pick<MutationCtx, "db">;
 
@@ -82,8 +86,15 @@ export async function getProductTierForQuantity(
     .withIndex("by_productId_minQty", (q) => q.eq("productId", productId))
     .collect();
 
+  const orderedTiers = [...tiers].sort((a, b) => {
+    if (a.minQty === b.minQty) {
+      return (a.maxQty ?? Number.POSITIVE_INFINITY) - (b.maxQty ?? Number.POSITIVE_INFINITY);
+    }
+    return a.minQty - b.minQty;
+  });
+
   let selected: Doc<"pricingProductTiers"> | null = null;
-  for (const tier of tiers) {
+  for (const tier of orderedTiers) {
     if (!tier.active) continue;
     if (quantity < tier.minQty) continue;
     if (typeof tier.maxQty === "number" && quantity > tier.maxQty) continue;
@@ -152,6 +163,22 @@ async function resolveCustomerLevelRule(ctx: DbCtx, clientId?: Id<"clients">) {
   if (!level || !level.active) return null;
 
   return level;
+}
+
+export async function resolveCustomerLevelByMonthlyAmount(
+  ctx: DbCtx,
+  args: {
+    clientType: ClientType;
+    monthlyAmount: number;
+  }
+) {
+  const levels = await ctx.db.query("pricingCustomerLevels").collect();
+  const code = getFixedLevelCodeForMonthlyAmount({
+    clientType: args.clientType,
+    monthlyAmount: args.monthlyAmount,
+    levels,
+  });
+  return levels.find((level) => level.code.trim().toUpperCase() === code) || null;
 }
 
 export async function calculateDynamicPrice(

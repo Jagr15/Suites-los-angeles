@@ -1,3 +1,4 @@
+import { useEffect, useRef } from "react";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Client } from "./types";
@@ -23,11 +24,21 @@ export function useClients() {
   const createClientMutation = useMutation(api.clients.mutations.create);
   const updateClientMutation = useMutation(api.clients.mutations.update);
   const deleteClientMutation = useMutation(api.clients.mutations.remove);
+  const syncFixedCustomerLevels = useMutation(api.pricing.mutations.syncFixedCustomerLevels);
+  const hasSyncedFixedLevels = useRef(false);
+
+  useEffect(() => {
+    if (hasSyncedFixedLevels.current) return;
+    hasSyncedFixedLevels.current = true;
+    void syncFixedCustomerLevels();
+  }, [syncFixedCustomerLevels]);
 
   const clients: Client[] = (rawClients || []).map((c) => ({
     id: c._id,
+    clientType: c.clientType || "commercial",
     commercialName: c.commercialName,
     buyerName: c.buyerName,
+    responsable: c.responsable || c.buyerName,
     requiresInvoice: c.requiresInvoice,
     businessName: c.businessName,
     rfc: c.rfc,
@@ -41,6 +52,8 @@ export function useClients() {
     stateName: c.stateName,
     pricingCustomerLevelId: c.pricingCustomerLevelId,
     visitFrequency: c.visitFrequency,
+    tipoEntrega: c.tipoEntrega,
+    diaEntrega: c.diaEntrega,
     assignedRouteId: c.assignedRouteId ? String(c.assignedRouteId) : "",
     assignedRouteName: c.assignedRouteName || "",
     creditLimit: c.creditLimit,
@@ -56,11 +69,18 @@ export function useClients() {
     
     const lat = toOptionalNumber(fields.lat);
     const lng = toOptionalNumber(fields.lng);
+    const clientType = fields.clientType || "commercial";
+    const isWholesaler = clientType === "wholesaler";
+    const diaEntrega = isWholesaler ? (fields.diaEntrega || "Lunes") : undefined;
+    const tipoEntrega = isWholesaler ? (fields.tipoEntrega || "pickup") : undefined;
+    const visitFrequency = fields.visitFrequency || "Semanal";
     const cleanData = {
       ...fields,
       // Garantizar que los strings requeridos existan siempre
+      clientType,
       commercialName: fields.commercialName || "",
       buyerName: fields.buyerName || "",
+      responsable: fields.responsable || fields.buyerName || "",
       municipalityId: fields.municipalityId || "",
       municipalityName: fields.municipalityName || "",
       stateId: fields.stateId || "",
@@ -68,12 +88,14 @@ export function useClients() {
       townId: fields.townId || "",
       townName: fields.townName || "",
       mapsUrl: normalizeMapsUrl(lat, lng, fields.mapsUrl),
+      diaEntrega,
+      tipoEntrega,
       
       // Garantizar booleanos y números
       requiresInvoice: !!fields.requiresInvoice,
       creditLimit: Number(fields.creditLimit) || 0,
       creditDays: Number(fields.creditDays) || 0,
-      visitFrequency: fields.visitFrequency || "Semanal",
+      visitFrequency,
       lat,
       lng,
 
@@ -89,11 +111,18 @@ export function useClients() {
     
     const lat = toOptionalNumber(data.lat);
     const lng = toOptionalNumber(data.lng);
+    const clientType = data.clientType || "commercial";
+    const isWholesaler = clientType === "wholesaler";
+    const diaEntrega = isWholesaler ? (data.diaEntrega || "Lunes") : undefined;
+    const tipoEntrega = isWholesaler ? (data.tipoEntrega || "pickup") : undefined;
+    const visitFrequency = data.visitFrequency || "Semanal";
     const cleanData = {
       ...data,
       // Garantizar que los strings requeridos existan siempre
+      clientType,
       commercialName: data.commercialName || "",
       buyerName: data.buyerName || "",
+      responsable: data.responsable || data.buyerName || "",
       stateId: data.stateId || "",
       stateName: data.stateName || "",
       municipalityId: data.municipalityId || "",
@@ -101,12 +130,14 @@ export function useClients() {
       townId: data.townId || "",
       townName: data.townName || "",
       mapsUrl: normalizeMapsUrl(lat, lng, data.mapsUrl),
+      diaEntrega,
+      tipoEntrega,
       
       // Garantizar booleanos y números
       requiresInvoice: !!data.requiresInvoice,
       creditLimit: Number(data.creditLimit) || 0,
       creditDays: Number(data.creditDays) || 0,
-      visitFrequency: data.visitFrequency || "Semanal",
+      visitFrequency,
       lat,
       lng,
 

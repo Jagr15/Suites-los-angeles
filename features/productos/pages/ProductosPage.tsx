@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useMemo, useEffect } from "react";
+import { useState, useCallback, useMemo } from "react";
 import { addToast, Button } from "@heroui/react";
 import { CheckIcon } from "@heroicons/react/24/outline";
 import { ConfirmModal } from "@/shared/components";
@@ -10,35 +10,12 @@ import { useRoles } from "@/shared/hooks";
 import type { ProductoCreate } from "@/shared/types/producto";
 import * as XLSX from "xlsx";
 
-type ProductoRow = Product;
-
-function toProductoRow(data: ProductoCreate | Record<string, any>, id: string): ProductoRow {
-  const base = {
-    id,
-    sku: data.sku || "",
-    codigo: data.codigo || "",
-    producto: data.producto || "",
-    cantidadEmpaque: data.cantidadEmpaque || "1",
-    categoria: data.categoria || "",
-    subcategoria: data.subcategoria || "",
-    status: data.status || "Activo",
-  };
-
-  const listas: Record<string, string> = {};
-  for (let i = 1; i <= 15; i++) {
-    const key = `lista${i}`;
-    listas[key] = (data as any)[key] || "$0.00";
-  }
-
-  return { ...base, ...listas } as ProductoRow;
-}
-
 export function ProductosPage() {
-  const { products, isLoading, addProduct, updateProduct, deleteProduct, bulkUpsert } = useProducts();
+  const { products, addProduct, updateProduct, deleteProduct, bulkUpsert } = useProducts();
   const { hasPermission, isAdmin } = useRoles();
   const hideCostAndMargin = !isAdmin && hasPermission("products:hide_cost_and_margin");
   const canEditPrices = isAdmin || hasPermission("sales:allow_price_edit");
-  const visibleTabs = hideCostAndMargin ? ["mayoreo", "venta"] : ["costo", "mayoreo", "venta"];
+  const visibleTabs = hideCostAndMargin ? ["venta"] : ["costo", "venta"];
   const [activeTab, setActiveTab] = useState("venta");
   const [isModalOpen, setModalOpen] = useState(false);
   const [isViewOnly, setIsViewOnly] = useState(false);
@@ -62,12 +39,6 @@ export function ProductosPage() {
     [filteredProductos, pendingEdits]
   );
 
-  useEffect(() => {
-    if (hideCostAndMargin && activeTab === "costo") {
-      setActiveTab("mayoreo");
-    }
-  }, [activeTab, hideCostAndMargin]);
-
   const hasPendingEdits = Object.keys(pendingEdits).length > 0;
 
   const handlePriceChange = useCallback((productId: string, field: string, value: string) => {
@@ -90,7 +61,7 @@ export function ProductosPage() {
             }
           }
         });
-        await updateProduct(id, formattedFields as any);
+        await updateProduct(id, formattedFields as Parameters<typeof updateProduct>[1]);
       }
       setPendingEdits({});
       addToast({
@@ -98,7 +69,7 @@ export function ProductosPage() {
         description: "Los precios se actualizaron correctamente.",
         color: "success",
       });
-    } catch (error) {
+    } catch {
       addToast({
         title: "Error",
         description: "No se pudieron actualizar los precios.",
@@ -129,14 +100,14 @@ export function ProductosPage() {
     async (data: ProductoCreate, editId?: string) => {
       try {
         if (editId) {
-          await updateProduct(editId, data as any);
+          await updateProduct(editId, data as Parameters<typeof updateProduct>[1]);
           addToast({
             title: "Producto actualizado",
             description: `Se actualizó "${data.producto}".`,
             color: "success",
           });
         } else {
-          await addProduct(data as any);
+          await addProduct(data as Parameters<typeof addProduct>[0]);
           addToast({
             title: "Producto creado",
             description: `Se creó "${data.producto}".`,
@@ -145,7 +116,7 @@ export function ProductosPage() {
         }
         setProductToEdit(null);
         setModalOpen(false);
-      } catch (error) {
+      } catch {
         addToast({
           title: "Error",
           description: "No se pudo guardar el producto.",
@@ -158,23 +129,23 @@ export function ProductosPage() {
 
   const handleConfirmBorrar = useCallback(async () => {
     if (!productToDelete) return;
-    try {
-      await deleteProduct(productToDelete.id);
-      setPendingEdits((prev) => {
-        const next = { ...prev };
-        delete next[productToDelete.id];
-        return next;
-      });
-      addToast({
-        title: "Producto eliminado",
-        description: `Se eliminó "${productToDelete.producto}".`,
-        color: "success",
-      });
-    } catch (error) {
-      addToast({
-        title: "Error",
-        description: "No se pudo eliminar el producto.",
-        color: "danger",
+      try {
+        await deleteProduct(productToDelete.id);
+        setPendingEdits((prev) => {
+          const next = { ...prev };
+          delete next[productToDelete.id];
+          return next;
+        });
+        addToast({
+          title: "Producto eliminado",
+          description: `Se eliminó "${productToDelete.producto}".`,
+          color: "success",
+        });
+      } catch {
+        addToast({
+          title: "Error",
+          description: "No se pudo eliminar el producto.",
+          color: "danger",
       });
     }
     setProductToDelete(null);
@@ -187,10 +158,10 @@ export function ProductosPage() {
       const workbook = XLSX.read(bstr, { type: "binary" });
       const sheetName = workbook.SheetNames[0];
       const worksheet = workbook.Sheets[sheetName];
-      const data = XLSX.utils.sheet_to_json(worksheet);
+      const data = XLSX.utils.sheet_to_json<Record<string, unknown>>(worksheet);
 
-      const itemsToUpsert = data.map((row: any) => {
-        const mappedData: any = {
+      const itemsToUpsert = data.map((row) => {
+        const mappedData: Record<string, string> = {
           sku: String(row["Sku"] ?? row["sku"] ?? ""),
           codigo: String(row["Código"] ?? row["codigo"] ?? ""),
           producto: String(row["Producto"] ?? row["producto"] ?? ""),
@@ -221,7 +192,7 @@ export function ProductosPage() {
           description: `Se crearon ${result.created} y se actualizaron ${result.updated} productos.`,
           color: "success",
         });
-      } catch (error) {
+      } catch {
         addToast({
           title: "Error de importación",
           description: "Hubo un problema al procesar el archivo.",

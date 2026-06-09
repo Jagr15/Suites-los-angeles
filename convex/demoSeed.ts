@@ -748,6 +748,7 @@ async function ensureClient(
   }
 
   const id = await ctx.db.insert("clients", {
+    clientType: "commercial",
     commercialName: input.commercialName,
     buyerName: input.buyerName,
     requiresInvoice: true,

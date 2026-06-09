@@ -4,7 +4,6 @@ import { Tabs, Tab } from "@heroui/react";
 
 const tabs = [
   { key: "costo", label: "Costo" },
-  { key: "mayoreo", label: "Mayoreo" },
   { key: "venta", label: "Venta" },
 ];
 

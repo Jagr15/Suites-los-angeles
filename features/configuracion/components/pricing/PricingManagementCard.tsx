@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   Card,
   CardHeader,
@@ -35,16 +35,17 @@ import { useMutation, useQuery } from "convex/react";
 import type { Id } from "@/convex/_generated/dataModel";
 import { api } from "@/convex/_generated/api";
 import { StateSelector, MunicipalitySelector } from "@/shared/components/locations";
+import {
+  FIXED_CUSTOMER_LEVEL_LABELS,
+  FIXED_CUSTOMER_LEVEL_ORDER,
+  FIXED_CUSTOMER_LEVELS,
+  type FixedCustomerLevelCode,
+} from "@/shared/pricing/customer-levels";
 
 type TierDraft = {
   id?: string;
-  productId: string;
-  minQty: string;
-  maxQty: string;
+  upperLimit: string;
   basePrice: string;
-  active: boolean;
-  ruleVersion: string;
-  notes: string;
 };
 
 type ZoneDraft = {
@@ -59,17 +60,6 @@ type ZoneDraft = {
   active: boolean;
   ruleVersion: string;
   notes: string;
-};
-
-type LevelDraft = {
-  id?: string;
-  code: string;
-  name: string;
-  minMonthlyAmount: string;
-  discountPct: string;
-  active: boolean;
-  ruleVersion: string;
-  description: string;
 };
 
 type PricingSetting = {
@@ -116,21 +106,12 @@ type PricingCustomerLevelItem = {
   _id: string;
   code: string;
   name: string;
+  monthlyLimit?: number;
   minMonthlyAmount?: number;
   discountPct: number;
   active: boolean;
   ruleVersion: number;
   description?: string;
-};
-
-const defaultTierDraft: TierDraft = {
-  productId: "",
-  minQty: "",
-  maxQty: "",
-  basePrice: "",
-  active: true,
-  ruleVersion: "",
-  notes: "",
 };
 
 const defaultZoneDraft: ZoneDraft = {
@@ -144,16 +125,6 @@ const defaultZoneDraft: ZoneDraft = {
   active: true,
   ruleVersion: "",
   notes: "",
-};
-
-const defaultLevelDraft: LevelDraft = {
-  code: "",
-  name: "",
-  minMonthlyAmount: "",
-  discountPct: "",
-  active: true,
-  ruleVersion: "",
-  description: "",
 };
 
 function parseOptionalNumber(value: string): number | undefined {
@@ -171,44 +142,59 @@ function formatCurrency(value: number) {
   return new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN" }).format(value || 0);
 }
 
-function formatPercent(value: number) {
-  return `${Number(value || 0).toFixed(2)}%`;
-}
-
 export function PricingManagementCard() {
-  const productsRaw = useQuery(api.products.queries.list) || [];
-  const productTiers = (useQuery(api.pricing.queries.listProductTiers) || []) as PricingProductTierItem[];
-  const zoneMargins = (useQuery(api.pricing.queries.listZoneMargins) || []) as PricingZoneMarginItem[];
-  const customerLevels = (useQuery(api.pricing.queries.listCustomerLevels) || []) as PricingCustomerLevelItem[];
-  const settings = (useQuery(api.pricing.queries.listSettings) || []) as PricingSetting[];
+  const productsRawQuery = useQuery(api.products.queries.list);
+  const productTiersQuery = useQuery(api.pricing.queries.listProductTiers);
+  const zoneMarginsQuery = useQuery(api.pricing.queries.listZoneMargins);
+  const customerLevelsQuery = useQuery(api.pricing.queries.listCustomerLevels);
+  const settingsQuery = useQuery(api.pricing.queries.listSettings);
 
-  const upsertTier = useMutation(api.pricing.mutations.upsertProductTier);
-  const removeTier = useMutation(api.pricing.mutations.removeProductTier);
+  const syncProductPriceRanges = useMutation(api.pricing.mutations.syncProductPriceRanges);
   const upsertZone = useMutation(api.pricing.mutations.upsertZoneMargin);
   const removeZone = useMutation(api.pricing.mutations.removeZoneMargin);
   const upsertLevel = useMutation(api.pricing.mutations.upsertCustomerLevel);
-  const removeLevel = useMutation(api.pricing.mutations.removeCustomerLevel);
+  const syncFixedCustomerLevels = useMutation(api.pricing.mutations.syncFixedCustomerLevels);
   const setSetting = useMutation(api.pricing.mutations.setPricingSetting);
 
   const products = useMemo<ProductOption[]>(() => {
-    return productsRaw.map((product) => ({
+    return (productsRawQuery || []).map((product) => ({
       _id: String(product._id),
       producto: String(product.producto || ""),
       sku: String(product.sku || ""),
     }));
-  }, [productsRaw]);
+  }, [productsRawQuery]);
+
+  const productTiers = useMemo(
+    () => (productTiersQuery || []) as PricingProductTierItem[],
+    [productTiersQuery]
+  );
+  const zoneMargins = useMemo(
+    () => (zoneMarginsQuery || []) as PricingZoneMarginItem[],
+    [zoneMarginsQuery]
+  );
+  const customerLevels = useMemo(
+    () => (customerLevelsQuery || []) as PricingCustomerLevelItem[],
+    [customerLevelsQuery]
+  );
+  const settings = useMemo(
+    () => (settingsQuery || []) as PricingSetting[],
+    [settingsQuery]
+  );
 
   const [activeTab, setActiveTab] = useState("tiers");
   const [tierDraft, setTierDraft] = useState<TierDraft | null>(null);
   const [zoneDraft, setZoneDraft] = useState<ZoneDraft | null>(null);
-  const [levelDraft, setLevelDraft] = useState<LevelDraft | null>(null);
+  const [levelDraftOverrides, setLevelDraftOverrides] = useState<Partial<Record<FixedCustomerLevelCode, { monthlyLimit: string; discountPct: string }>>>({});
   const [settingDrafts, setSettingDrafts] = useState<Record<string, string>>({});
   const [selectedProductId, setSelectedProductId] = useState<string>(products[0]?._id || "");
   const effectiveProductId = selectedProductId || products[0]?._id || "";
+  const hasSyncedFixedLevels = useRef(false);
 
   const productTierRows = useMemo(() => {
-    if (!effectiveProductId) return productTiers;
-    return productTiers.filter((tier) => String(tier.productId) === effectiveProductId);
+    if (!effectiveProductId) return [];
+    return [...productTiers]
+      .filter((tier) => String(tier.productId) === effectiveProductId)
+      .sort((a, b) => a.minQty - b.minQty);
   }, [productTiers, effectiveProductId]);
 
   const settingsMap = useMemo(() => {
@@ -218,20 +204,62 @@ export function PricingManagementCard() {
   const dynamicEnabled = settingsMap.get("dynamicPricingEnabled")?.value !== "false";
   const legacyFallbackEnabled = settingsMap.get("legacyFallbackEnabled")?.value !== "false";
 
+  useEffect(() => {
+    if (hasSyncedFixedLevels.current) return;
+    hasSyncedFixedLevels.current = true;
+    void syncFixedCustomerLevels();
+  }, [syncFixedCustomerLevels]);
+
+  const fixedLevelRows = useMemo(() => {
+    const byCode = new Map(customerLevels.map((item) => [String(item.code).trim().toUpperCase(), item]));
+    return FIXED_CUSTOMER_LEVELS.map((fixed) => {
+      const item = byCode.get(fixed.code);
+      return {
+        fixed,
+        item,
+        monthlyLimit: item?.monthlyLimit ?? item?.minMonthlyAmount ?? fixed.monthlyLimit,
+        discountPct: item?.discountPct ?? 0,
+      };
+    });
+  }, [customerLevels]);
+
+  const levelDrafts = useMemo(() => {
+    const next: Record<FixedCustomerLevelCode, { monthlyLimit: string; discountPct: string }> = {
+      BRONCE: { monthlyLimit: "", discountPct: "0" },
+      PLATA: { monthlyLimit: "", discountPct: "0" },
+      ORO: { monthlyLimit: "", discountPct: "0" },
+      DIAMANTE: { monthlyLimit: "", discountPct: "0" },
+      ULTRA: { monthlyLimit: "", discountPct: "0" },
+    };
+
+    for (const row of fixedLevelRows) {
+      next[row.fixed.code] = {
+        monthlyLimit: typeof row.monthlyLimit === "number" ? String(row.monthlyLimit) : "",
+        discountPct: String(row.discountPct ?? 0),
+      };
+    }
+
+    for (const code of FIXED_CUSTOMER_LEVEL_ORDER) {
+      const override = levelDraftOverrides[code];
+      if (!override) continue;
+      next[code] = {
+        monthlyLimit: override.monthlyLimit ?? next[code].monthlyLimit,
+        discountPct: override.discountPct ?? next[code].discountPct,
+      };
+    }
+
+    return next;
+  }, [fixedLevelRows, levelDraftOverrides]);
+
   const handleSaveTier = async () => {
-    if (!tierDraft?.productId) {
+    if (!effectiveProductId) {
       addToast({ title: "Producto requerido", description: "Selecciona un producto.", color: "warning" });
       return;
     }
-    const minQty = parseRequiredNumber(tierDraft.minQty);
-    const maxQty = parseOptionalNumber(tierDraft.maxQty);
-    const basePrice = parseRequiredNumber(tierDraft.basePrice);
-    if (minQty <= 0) {
-      addToast({ title: "Validación", description: "La cantidad mínima debe ser mayor a 0.", color: "warning" });
-      return;
-    }
-    if (typeof maxQty === "number" && maxQty < minQty) {
-      addToast({ title: "Validación", description: "La cantidad máxima debe ser mayor o igual a la mínima.", color: "warning" });
+    const upperLimit = parseRequiredNumber(tierDraft?.upperLimit || "");
+    const basePrice = parseRequiredNumber(tierDraft?.basePrice || "");
+    if (upperLimit <= 0) {
+      addToast({ title: "Validación", description: "El límite superior debe ser mayor a 0.", color: "warning" });
       return;
     }
     if (basePrice < 0) {
@@ -239,16 +267,46 @@ export function PricingManagementCard() {
       return;
     }
 
+    const nextRanges: Array<{ id?: string; upperLimit: number; basePrice: number; notes?: string }> = productTierRows.map((tier) => ({
+      id: String(tier._id),
+      upperLimit: typeof tier.maxQty === "number" ? tier.maxQty : tier.minQty,
+      basePrice: tier.basePrice,
+      notes: tier.notes || undefined,
+    }));
+
+    const draftRange = {
+      id: tierDraft?.id as string | undefined,
+      upperLimit,
+      basePrice,
+      notes: undefined,
+    };
+
+    const existingIndex = draftRange.id
+      ? nextRanges.findIndex((tier) => tier.id === draftRange.id)
+      : -1;
+    if (existingIndex >= 0) {
+      nextRanges[existingIndex] = draftRange;
+    } else {
+      nextRanges.push(draftRange);
+    }
+
+    const ordered = [...nextRanges].sort((a, b) => a.upperLimit - b.upperLimit);
+    for (let i = 1; i < ordered.length; i++) {
+      if (ordered[i].upperLimit <= ordered[i - 1].upperLimit) {
+        addToast({ title: "Validación", description: "Los límites deben ser ascendentes y sin empates.", color: "warning" });
+        return;
+      }
+    }
+
     try {
-      await upsertTier({
-        id: (tierDraft.id || undefined) as Id<"pricingProductTiers"> | undefined,
-        productId: tierDraft.productId as Id<"products">,
-        minQty,
-        maxQty,
-        basePrice,
-        active: tierDraft.active,
-        ruleVersion: parseOptionalNumber(tierDraft.ruleVersion),
-        notes: tierDraft.notes || undefined,
+      await syncProductPriceRanges({
+        productId: effectiveProductId as Id<"products">,
+        ranges: ordered.map((range) => ({
+          id: range.id as Id<"pricingProductTiers"> | undefined,
+          upperLimit: range.upperLimit,
+          basePrice: range.basePrice,
+          notes: range.notes,
+        })),
       });
       setTierDraft(null);
       addToast({ title: "Rango guardado", color: "success" });
@@ -289,33 +347,40 @@ export function PricingManagementCard() {
     }
   };
 
-  const handleSaveLevel = async () => {
-    const discountPct = parseRequiredNumber(levelDraft?.discountPct || "0");
-    const minMonthlyAmount = parseOptionalNumber(levelDraft?.minMonthlyAmount || "");
-    if (!levelDraft?.code.trim()) {
-      addToast({ title: "Código requerido", description: "El código del nivel es obligatorio.", color: "warning" });
-      return;
-    }
+  const handleSaveLevel = async (code: FixedCustomerLevelCode) => {
+    const draft = levelDrafts[code];
+    const discountPct = parseRequiredNumber(draft?.discountPct || "0");
+    const monthlyLimit = code === "ULTRA" ? undefined : parseOptionalNumber(draft?.monthlyLimit || "");
+
     if (discountPct < 0 || discountPct > 100) {
       addToast({ title: "Validación", description: "El descuento debe estar entre 0 y 100.", color: "warning" });
       return;
     }
-    if (typeof minMonthlyAmount === "number" && minMonthlyAmount < 0) {
-      addToast({ title: "Validación", description: "La meta mensual no puede ser negativa.", color: "warning" });
+    if (code !== "ULTRA" && (typeof monthlyLimit !== "number" || monthlyLimit <= 0)) {
+      addToast({ title: "Validación", description: "El límite debe ser mayor a 0.", color: "warning" });
       return;
     }
+
+    const nextDrafts = { ...levelDrafts, [code]: draft };
+    const orderedLimits = FIXED_CUSTOMER_LEVEL_ORDER.map((fixedCode) => {
+      const raw = nextDrafts[fixedCode]?.monthlyLimit;
+      return fixedCode === "ULTRA" ? undefined : parseOptionalNumber(raw || "");
+    });
+    if (
+      (orderedLimits[0] !== undefined && orderedLimits[1] !== undefined && orderedLimits[1] <= orderedLimits[0]) ||
+      (orderedLimits[1] !== undefined && orderedLimits[2] !== undefined && orderedLimits[2] <= orderedLimits[1]) ||
+      (orderedLimits[2] !== undefined && orderedLimits[3] !== undefined && orderedLimits[3] <= orderedLimits[2])
+    ) {
+      addToast({ title: "Validación", description: "Los límites deben ser ascendentes y sin empates.", color: "warning" });
+      return;
+    }
+
     try {
       await upsertLevel({
-        id: (levelDraft?.id || undefined) as Id<"pricingCustomerLevels"> | undefined,
-        code: levelDraft.code.trim(),
-        name: levelDraft.name.trim(),
-        minMonthlyAmount,
+        code,
+        monthlyLimit,
         discountPct,
-        active: levelDraft.active,
-        ruleVersion: parseOptionalNumber(levelDraft.ruleVersion),
-        description: levelDraft.description || undefined,
       });
-      setLevelDraft(null);
       addToast({ title: "Nivel guardado", color: "success" });
     } catch (error) {
       addToast({ title: "Error", description: error instanceof Error ? error.message : "No se pudo guardar el nivel.", color: "danger" });
@@ -331,70 +396,50 @@ export function PricingManagementCard() {
     }
   };
 
+  const selectedProduct = products.find((product) => product._id === effectiveProductId) || null;
+
   const tierForm = tierDraft ? (
-      <Card className="border border-primary/20 bg-primary/5">
-        <CardBody className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <Select
-              label="Producto"
-              variant="bordered"
-              selectedKeys={tierDraft.productId ? [tierDraft.productId] : []}
-              onSelectionChange={(keys) => setTierDraft({ ...tierDraft, productId: String(Array.from(keys)[0] || "") })}
-            >
-              {products.map((product) => (
-                <SelectItem key={product._id} textValue={`${product.producto} (${product.sku})`}>
-                  {product.producto} ({product.sku})
-                </SelectItem>
-              ))}
-            </Select>
-            <Input
-              label="Versión"
-              variant="bordered"
-              type="number"
-              value={tierDraft.ruleVersion}
-              onValueChange={(value) => setTierDraft({ ...tierDraft, ruleVersion: value })}
-            />
-            <Input
-              label="Cantidad mínima"
-              variant="bordered"
-              type="number"
-              value={tierDraft.minQty}
-              onValueChange={(value) => setTierDraft({ ...tierDraft, minQty: value })}
-            />
-            <Input
-              label="Cantidad máxima"
-              variant="bordered"
-              type="number"
-              value={tierDraft.maxQty}
-              onValueChange={(value) => setTierDraft({ ...tierDraft, maxQty: value })}
-            />
-            <Input
-              label="Precio base"
-              variant="bordered"
-              type="number"
-              value={tierDraft.basePrice}
-              onValueChange={(value) => setTierDraft({ ...tierDraft, basePrice: value })}
-              startContent={<span className="text-default-400">$</span>}
-            />
-            <Input
-              label="Notas"
-              variant="bordered"
-              value={tierDraft.notes}
-              onValueChange={(value) => setTierDraft({ ...tierDraft, notes: value })}
-            />
+    <Card className="border border-primary/20 bg-primary/5">
+      <CardBody className="space-y-4">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <p className="font-semibold">
+              {tierDraft.id ? "Editar rango" : "Nuevo rango"}
+            </p>
+            <p className="text-tiny text-default-500">
+              {selectedProduct ? `${selectedProduct.producto} (${selectedProduct.sku})` : "Selecciona un producto para editar rangos."}
+            </p>
           </div>
-          <div className="flex items-center justify-between gap-3">
-            <Switch isSelected={tierDraft.active} onValueChange={(value) => setTierDraft({ ...tierDraft, active: value })}>
-              Activo
-            </Switch>
-            <div className="flex gap-2">
-              <Button variant="flat" onPress={() => setTierDraft(null)}>Cancelar</Button>
-              <Button color="primary" onPress={handleSaveTier}>Guardar rango</Button>
-            </div>
-          </div>
-        </CardBody>
-      </Card>
-    ) : null;
+          <Button variant="light" onPress={() => setTierDraft(null)}>
+            Cerrar
+          </Button>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <Input
+            label="Límite superior"
+            variant="bordered"
+            type="number"
+            step="0.01"
+            value={tierDraft.upperLimit}
+            onValueChange={(value) => setTierDraft({ ...tierDraft, upperLimit: value })}
+          />
+          <Input
+            label="Precio"
+            variant="bordered"
+            type="number"
+            step="0.01"
+            value={tierDraft.basePrice}
+            onValueChange={(value) => setTierDraft({ ...tierDraft, basePrice: value })}
+            startContent={<span className="text-default-400">$</span>}
+          />
+        </div>
+        <div className="flex justify-end gap-2">
+          <Button variant="flat" onPress={() => setTierDraft(null)}>Cancelar</Button>
+          <Button color="primary" onPress={handleSaveTier}>Guardar rango</Button>
+        </div>
+      </CardBody>
+    </Card>
+  ) : null;
 
   const zoneForm = zoneDraft ? (
       <Card className="border border-primary/20 bg-primary/5">
@@ -463,65 +508,7 @@ export function PricingManagementCard() {
       </Card>
     ) : null;
 
-  const levelForm = levelDraft ? (
-      <Card className="border border-primary/20 bg-primary/5">
-        <CardBody className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <Input
-              label="Código"
-              variant="bordered"
-              value={levelDraft.code}
-              onValueChange={(value) => setLevelDraft({ ...levelDraft, code: value })}
-              placeholder="BRONCE / PLATA / ORO"
-            />
-            <Input
-              label="Nombre"
-              variant="bordered"
-              value={levelDraft.name}
-              onValueChange={(value) => setLevelDraft({ ...levelDraft, name: value })}
-              placeholder="Bronce"
-            />
-            <Input
-              label="Meta mensual"
-              variant="bordered"
-              type="number"
-              value={levelDraft.minMonthlyAmount}
-              onValueChange={(value) => setLevelDraft({ ...levelDraft, minMonthlyAmount: value })}
-              startContent={<span className="text-default-400">$</span>}
-            />
-            <Input
-              label="Descuento %"
-              variant="bordered"
-              type="number"
-              value={levelDraft.discountPct}
-              onValueChange={(value) => setLevelDraft({ ...levelDraft, discountPct: value })}
-            />
-            <Input
-              label="Versión"
-              variant="bordered"
-              type="number"
-              value={levelDraft.ruleVersion}
-              onValueChange={(value) => setLevelDraft({ ...levelDraft, ruleVersion: value })}
-            />
-            <Input
-              label="Descripción"
-              variant="bordered"
-              value={levelDraft.description}
-              onValueChange={(value) => setLevelDraft({ ...levelDraft, description: value })}
-            />
-          </div>
-          <div className="flex items-center justify-between gap-3">
-            <Switch isSelected={levelDraft.active} onValueChange={(value) => setLevelDraft({ ...levelDraft, active: value })}>
-              Activo
-            </Switch>
-            <div className="flex gap-2">
-              <Button variant="flat" onPress={() => setLevelDraft(null)}>Cancelar</Button>
-              <Button color="primary" onPress={handleSaveLevel}>Guardar nivel</Button>
-            </div>
-          </div>
-        </CardBody>
-      </Card>
-    ) : null;
+  const levelForm = null;
 
   return (
     <Card className="border border-default-200 shadow-sm bg-content1">
@@ -571,46 +558,38 @@ export function PricingManagementCard() {
                     ))}
                   </Select>
                 </div>
-                <Button color="primary" variant="flat" startContent={<PlusIcon className="size-4" />} onPress={() => setTierDraft({ ...defaultTierDraft, productId: effectiveProductId })}>
+                <Button color="primary" variant="flat" startContent={<PlusIcon className="size-4" />} onPress={() => setTierDraft({ upperLimit: "", basePrice: "" })}>
                   Nuevo rango
                 </Button>
               </div>
               {tierForm}
               <Table aria-label="Rangos por producto" removeWrapper>
                 <TableHeader>
-                  <TableColumn>PRODUCTO</TableColumn>
-                  <TableColumn>MIN</TableColumn>
-                  <TableColumn>MAX</TableColumn>
-                  <TableColumn>BASE</TableColumn>
-                  <TableColumn>VERSIÓN</TableColumn>
-                  <TableColumn>ESTADO</TableColumn>
+                  <TableColumn>RANGO</TableColumn>
+                  <TableColumn>PRECIO</TableColumn>
                   <TableColumn>ACCIONES</TableColumn>
                 </TableHeader>
                 <TableBody items={productTierRows} emptyContent="No hay rangos configurados para este producto.">
                   {(item) => (
                     <TableRow key={item._id}>
-                      <TableCell>{item.productName}</TableCell>
-                      <TableCell>{item.minQty}</TableCell>
-                      <TableCell>{item.maxQty ?? "∞"}</TableCell>
-                      <TableCell>{formatCurrency(item.basePrice)}</TableCell>
-                      <TableCell>{item.ruleVersion}</TableCell>
                       <TableCell>
-                        <Chip size="sm" variant="flat" color={item.active ? "success" : "default"}>
-                          {item.active ? "Activo" : "Inactivo"}
-                        </Chip>
+                        <div className="flex flex-col">
+                          <span className="font-medium">
+                            {item.minQty} - {typeof item.maxQty === "number" ? item.maxQty : "∞"}
+                          </span>
+                          <span className="text-tiny text-default-500">
+                            {selectedProduct ? selectedProduct.producto : "Producto"}
+                          </span>
+                        </div>
                       </TableCell>
+                      <TableCell>{formatCurrency(item.basePrice)}</TableCell>
                       <TableCell>
                         <div className="flex items-center gap-2">
                           <Tooltip content="Editar">
                             <Button isIconOnly size="sm" variant="light" onPress={() => setTierDraft({
                               id: item._id,
-                              productId: String(item.productId),
-                              minQty: String(item.minQty),
-                              maxQty: item.maxQty === undefined ? "" : String(item.maxQty),
+                              upperLimit: item.maxQty === undefined ? "" : String(item.maxQty),
                               basePrice: String(item.basePrice),
-                              active: item.active,
-                              ruleVersion: String(item.ruleVersion || ""),
-                              notes: item.notes || "",
                             })}>
                               <PencilSquareIcon className="size-4" />
                             </Button>
@@ -618,7 +597,17 @@ export function PricingManagementCard() {
                           <Tooltip content="Eliminar" color="danger">
                             <Button isIconOnly size="sm" variant="light" onPress={async () => {
                               try {
-                                await removeTier({ id: item._id as Id<"pricingProductTiers"> });
+                                await syncProductPriceRanges({
+                                  productId: effectiveProductId as Id<"products">,
+                                  ranges: productTierRows
+                                    .filter((tier) => tier._id !== item._id)
+                                    .map((tier) => ({
+                                      id: tier._id as Id<"pricingProductTiers">,
+                                      upperLimit: typeof tier.maxQty === "number" ? tier.maxQty : tier.minQty,
+                                      basePrice: tier.basePrice,
+                                      notes: tier.notes,
+                                    })),
+                                });
                                 addToast({ title: "Rango eliminado", color: "success" });
                               } catch {
                                 addToast({ title: "Error", description: "No se pudo eliminar el rango.", color: "danger" });
@@ -727,69 +716,80 @@ export function PricingManagementCard() {
             }
           >
             <div className="mt-4 space-y-4">
-              <div className="flex justify-end">
-                <Button color="primary" variant="flat" startContent={<PlusIcon className="size-4" />} onPress={() => setLevelDraft({ ...defaultLevelDraft })}>
-                  Nuevo nivel
-                </Button>
-              </div>
               {levelForm}
-              <Table aria-label="Niveles de cliente" removeWrapper>
-                <TableHeader>
-                  <TableColumn>CÓDIGO</TableColumn>
-                  <TableColumn>NOMBRE</TableColumn>
-                  <TableColumn>META</TableColumn>
-                  <TableColumn>DESCUENTO</TableColumn>
-                  <TableColumn>VERSIÓN</TableColumn>
-                  <TableColumn>ESTADO</TableColumn>
-                  <TableColumn>ACCIONES</TableColumn>
-                </TableHeader>
-                <TableBody items={customerLevels} emptyContent="No hay niveles configurados.">
-                  {(item) => (
-                    <TableRow key={item._id}>
-                      <TableCell>{item.code}</TableCell>
-                      <TableCell>{item.name}</TableCell>
-                      <TableCell>{item.minMonthlyAmount ? formatCurrency(item.minMonthlyAmount) : "—"}</TableCell>
-                      <TableCell>{formatPercent(item.discountPct)}</TableCell>
-                      <TableCell>{item.ruleVersion}</TableCell>
-                      <TableCell>
-                        <Chip size="sm" variant="flat" color={item.active ? "success" : "default"}>
-                          {item.active ? "Activo" : "Inactivo"}
-                        </Chip>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <Tooltip content="Editar">
-                            <Button isIconOnly size="sm" variant="light" onPress={() => setLevelDraft({
-                              id: item._id,
-                              code: item.code,
-                              name: item.name,
-                              minMonthlyAmount: item.minMonthlyAmount === undefined ? "" : String(item.minMonthlyAmount),
-                              discountPct: String(item.discountPct),
-                              active: item.active,
-                              ruleVersion: String(item.ruleVersion || ""),
-                              description: item.description || "",
-                            })}>
-                              <PencilSquareIcon className="size-4" />
-                            </Button>
-                          </Tooltip>
-                          <Tooltip content="Eliminar" color="danger">
-                            <Button isIconOnly size="sm" variant="light" onPress={async () => {
-                              try {
-                                await removeLevel({ id: item._id as Id<"pricingCustomerLevels"> });
-                                addToast({ title: "Nivel eliminado", color: "success" });
-                              } catch {
-                                addToast({ title: "Error", description: "No se pudo eliminar el nivel.", color: "danger" });
-                              }
-                            }}>
-                              <TrashIcon className="size-4 text-danger" />
-                            </Button>
-                          </Tooltip>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  )}
-                </TableBody>
-              </Table>
+              <div className="rounded-xl border border-default-200 overflow-hidden">
+                <Table aria-label="Niveles fijos de cliente" removeWrapper>
+                  <TableHeader>
+                    <TableColumn>NIVEL</TableColumn>
+                    <TableColumn>LÍMITE DE RANGO</TableColumn>
+                    <TableColumn>DESCUENTO / MARGEN</TableColumn>
+                    <TableColumn>ACCIONES</TableColumn>
+                  </TableHeader>
+                  <TableBody items={fixedLevelRows} emptyContent="No hay niveles configurados.">
+                    {(row) => {
+                      const draft = levelDrafts[row.fixed.code];
+                      const isUltra = row.fixed.code === "ULTRA";
+                      return (
+                        <TableRow key={row.fixed.code}>
+                          <TableCell>
+                            <div className="flex flex-col">
+                              <span className="font-semibold">{FIXED_CUSTOMER_LEVEL_LABELS[row.fixed.code]}</span>
+                              <span className="text-tiny text-default-500">Código: {row.fixed.code}</span>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            {isUltra ? (
+                              <Chip size="sm" variant="flat" color="default">Sin tope</Chip>
+                            ) : (
+                              <Input
+                                variant="bordered"
+                                type="number"
+                                value={draft?.monthlyLimit || ""}
+                                onValueChange={(value) => setLevelDraftOverrides((prev) => ({
+                                  ...prev,
+                                  [row.fixed.code]: {
+                                    monthlyLimit: value,
+                                    discountPct: prev[row.fixed.code]?.discountPct ?? draft?.discountPct ?? "0",
+                                  },
+                                }))}
+                                startContent={<span className="text-default-400">$</span>}
+                              />
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            <Input
+                              variant="bordered"
+                              type="number"
+                              value={draft?.discountPct || "0"}
+                              onValueChange={(value) => setLevelDraftOverrides((prev) => ({
+                                ...prev,
+                                [row.fixed.code]: {
+                                  monthlyLimit: prev[row.fixed.code]?.monthlyLimit ?? draft?.monthlyLimit ?? "",
+                                  discountPct: value,
+                                },
+                              }))}
+                            />
+                            <p className="mt-1 text-tiny text-default-500">
+                              {row.fixed.code === "ULTRA" ? "Solo mayoristas" : row.fixed.code === "DIAMANTE" ? "Hasta este tope para comerciales" : "Nivel fijo"}
+                            </p>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-2">
+                              <Button
+                                color="primary"
+                                variant="flat"
+                                onPress={() => void handleSaveLevel(row.fixed.code)}
+                              >
+                                Guardar
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    }}
+                  </TableBody>
+                </Table>
+              </div>
             </div>
           </Tab>
 

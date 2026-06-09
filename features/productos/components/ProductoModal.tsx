@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import { useForm, Controller } from "react-hook-form";
+import { useForm, Controller, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
   Modal,
@@ -48,6 +48,9 @@ const LISTA_KEYS = [
   "lista15",
 ] as const;
 
+const COST_KEYS = LISTA_KEYS.slice(0, 5);
+const SALE_KEYS = LISTA_KEYS.slice(10, 15);
+
 const defaultValues: ProductoFormValues = {
   sku: "",
   codigo: "",
@@ -61,13 +64,14 @@ const defaultValues: ProductoFormValues = {
 
 /** Convierte un Product a valores del formulario para edición. */
 function productoToFormValues(p: Product): ProductoFormValues {
+  const product = p as Product & { categoriaId?: string; subcategoriaId?: string };
   return {
     sku: p.sku,
     codigo: p.codigo,
     producto: p.producto,
     cantidadEmpaque: p.cantidadEmpaque,
-    categoria: (p as any).categoriaId ?? p.categoria,
-    subcategoria: (p as any).subcategoriaId ?? p.subcategoria,
+    categoria: product.categoriaId ?? p.categoria,
+    subcategoria: product.subcategoriaId ?? p.subcategoria,
     status: p.status as "Activo" | "Inactivo",
     ...Object.fromEntries(
       LISTA_KEYS.map((k) => {
@@ -118,14 +122,13 @@ export function ProductoModal({ isOpen, onClose, producto, onSubmit, isReadOnly 
     handleSubmit,
     reset,
     formState: { errors },
-    watch,
     setValue,
   } = useForm<ProductoFormValues>({
     resolver: zodResolver(productoSchema),
     defaultValues,
   });
 
-  const selectedCategoryId = watch("categoria");
+  const selectedCategoryId = useWatch({ control, name: "categoria" });
   
   const categories = useQuery(api.product_categories.functions.listCategories);
   const subcategories = useQuery(api.product_categories.functions.listSubcategories, 
@@ -357,7 +360,7 @@ export function ProductoModal({ isOpen, onClose, producto, onSubmit, isReadOnly 
               >
                 <Tab key="costo" title="Costo">
                   <div className="grid gap-4 pt-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
-                    {LISTA_KEYS.slice(0, 5).map((key, i) => (
+                    {COST_KEYS.map((key, i) => (
                       <Controller
                         key={key}
                         name={key}
@@ -386,47 +389,16 @@ export function ProductoModal({ isOpen, onClose, producto, onSubmit, isReadOnly 
                     ))}
                   </div>
                 </Tab>
-                <Tab key="mayoreo" title="Mayoreo">
-                  <div className="grid gap-4 pt-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
-                    {LISTA_KEYS.slice(5, 10).map((key, i) => (
-                      <Controller
-                        key={key}
-                        name={key}
-                        control={control}
-                        render={({ field }) => (
-                          <Input
-                            label={`Mayoreo ${i + 1}`}
-                            placeholder="0.00"
-                            type="number"
-                            step="0.01"
-                            min="0"
-                            value={field.value ?? ""}
-                            onValueChange={field.onChange}
-                            onBlur={field.onBlur}
-                            variant="bordered"
-                            classNames={{
-                              base: "w-full min-w-0",
-                              inputWrapper: "min-h-10 h-10 min-w-[118px]",
-                              input: "text-end text-sm tabular-nums",
-                            }}
-                            startContent={<span className="text-default-400 font-medium">$</span>}
-                            isReadOnly={isReadOnly}
-                          />
-                        )}
-                      />
-                    ))}
-                  </div>
-                </Tab>
                 <Tab key="venta" title="Venta">
                   <div className="grid gap-4 pt-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
-                    {LISTA_KEYS.slice(10, 15).map((key, i) => (
+                    {SALE_KEYS.map((key, i) => (
                       <Controller
                         key={key}
                         name={key}
                         control={control}
                         render={({ field }) => (
                           <Input
-                            label={`Precio Venta ${i + 1}`}
+                            label={`Venta ${i + 1}`}
                             placeholder="0.00"
                             type="number"
                             step="0.01"

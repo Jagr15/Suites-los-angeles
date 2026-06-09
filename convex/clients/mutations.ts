@@ -3,25 +3,33 @@ import { v } from "convex/values";
 import { hasPermission, isAdmin, requireIdentity, requirePermission } from "../common/utils";
 import { Id } from "../_generated/dataModel";
 import type { MutationCtx } from "../_generated/server";
+import {
+  ensureFixedCustomerLevels,
+  getFixedCustomerLevelId,
+} from "../pricing/customer_levels";
 
 const clientFields = {
+  clientType: v.optional(v.union(v.literal("commercial"), v.literal("wholesaler"), v.literal("retail"))),
   commercialName: v.string(),
-  buyerName: v.string(),
-  requiresInvoice: v.boolean(),
+  buyerName: v.optional(v.string()),
+  responsable: v.optional(v.string()),
+  requiresInvoice: v.optional(v.boolean()),
   businessName: v.optional(v.string()),
   rfc: v.optional(v.string()),
   taxRegime: v.optional(v.string()),
-  mapsUrl: v.string(),
-  townId: v.string(),
-  townName: v.string(),
-  municipalityId: v.string(),
-  municipalityName: v.string(),
+  mapsUrl: v.optional(v.string()),
+  townId: v.optional(v.string()),
+  townName: v.optional(v.string()),
+  municipalityId: v.optional(v.string()),
+  municipalityName: v.optional(v.string()),
   pricingCustomerLevelId: v.optional(v.id("pricingCustomerLevels")),
-  visitFrequency: v.union(v.literal("Semanal"), v.literal("Quincenal"), v.literal("Mensual")),
+  visitFrequency: v.optional(v.union(v.literal("Semanal"), v.literal("Quincenal"), v.literal("Mensual"))),
+  tipoEntrega: v.optional(v.string()),
+  diaEntrega: v.optional(v.string()),
   assignedRouteId: v.optional(v.id("routes")),
   assignedRouteName: v.optional(v.string()),
-  creditLimit: v.number(),
-  creditDays: v.number(),
+  creditLimit: v.optional(v.number()),
+  creditDays: v.optional(v.number()),
   availableScheduleStart: v.optional(v.string()),
   availableScheduleEnd: v.optional(v.string()),
   stateId: v.optional(v.string()),
@@ -34,6 +42,171 @@ const clientFields = {
 
 function normalizeText(value?: string) {
   return (value ?? "").trim();
+}
+
+type ClientMutationArgs = {
+  clientType?: "commercial" | "wholesaler" | "retail";
+  commercialName: string;
+  buyerName?: string;
+  responsable?: string;
+  requiresInvoice?: boolean;
+  businessName?: string;
+  rfc?: string;
+  taxRegime?: string;
+  mapsUrl?: string;
+  townId?: string;
+  townName?: string;
+  municipalityId?: string;
+  municipalityName?: string;
+  pricingCustomerLevelId?: Id<"pricingCustomerLevels">;
+  visitFrequency?: "Semanal" | "Quincenal" | "Mensual";
+  tipoEntrega?: string;
+  diaEntrega?: string;
+  assignedRouteId?: Id<"routes">;
+  assignedRouteName?: string;
+  creditLimit?: number;
+  creditDays?: number;
+  availableScheduleStart?: string;
+  availableScheduleEnd?: string;
+  stateId?: string;
+  stateName?: string;
+  lat?: number;
+  lng?: number;
+  image?: string;
+  visitOrder?: number;
+};
+
+type NormalizedClientPayload = {
+  clientType: "commercial" | "wholesaler" | "retail";
+  commercialName: string;
+  buyerName: string;
+  responsable: string;
+  requiresInvoice: boolean;
+  businessName?: string;
+  rfc?: string;
+  taxRegime?: string;
+  mapsUrl: string;
+  townId: string;
+  townName: string;
+  municipalityId: string;
+  municipalityName: string;
+  pricingCustomerLevelId?: Id<"pricingCustomerLevels">;
+  visitFrequency: "Semanal" | "Quincenal" | "Mensual";
+  tipoEntrega?: "pickup" | "delivery";
+  diaEntrega?: string;
+  assignedRouteId?: Id<"routes">;
+  assignedRouteName?: string;
+  creditLimit: number;
+  creditDays: number;
+  availableScheduleStart?: string;
+  availableScheduleEnd?: string;
+  stateId?: string;
+  stateName?: string;
+  lat?: number;
+  lng?: number;
+  image?: string;
+  visitOrder?: number;
+};
+
+async function normalizeClientPayload(
+  ctx: MutationCtx,
+  args: ClientMutationArgs
+): Promise<NormalizedClientPayload> {
+  const clientType = args.clientType ?? "commercial";
+  const isRetail = clientType === "retail";
+  const isWholesaler = clientType === "wholesaler";
+  const commercialName = normalizeText(args.commercialName);
+  const buyerName = isRetail
+    ? commercialName
+    : normalizeText(args.buyerName) || normalizeText(args.responsable) || normalizeText(commercialName);
+  const responsible = normalizeText(args.responsable) || buyerName;
+  const requiresInvoice = isRetail ? false : !!args.requiresInvoice;
+  const mapsUrl = isRetail ? "" : normalizeText(args.mapsUrl);
+  const townId = isRetail ? "" : normalizeText(args.townId);
+  const townName = isRetail ? "" : normalizeText(args.townName);
+  const municipalityId = isRetail ? "" : normalizeText(args.municipalityId);
+  const municipalityName = isRetail ? "" : normalizeText(args.municipalityName);
+  const stateId = isRetail ? "" : normalizeText(args.stateId);
+  const stateName = isRetail ? "" : normalizeText(args.stateName);
+  const visitFrequency = isRetail ? "Semanal" : (args.visitFrequency ?? "Semanal");
+  const creditLimit = isRetail ? 0 : Number(args.creditLimit ?? 0);
+  const creditDays = isRetail ? 0 : Number(args.creditDays ?? 0);
+  const availableScheduleStart = isRetail ? undefined : args.availableScheduleStart;
+  const availableScheduleEnd = isRetail ? undefined : args.availableScheduleEnd;
+  const assignedRouteId = isRetail ? undefined : args.assignedRouteId;
+  const assignedRouteName = isRetail ? undefined : args.assignedRouteName;
+  const rawTipoEntrega = normalizeText(args.tipoEntrega);
+  const tipoEntrega = isWholesaler
+    ? (rawTipoEntrega === "delivery" ? "delivery" : "pickup")
+    : undefined;
+  const diaEntrega = isWholesaler ? normalizeText(args.diaEntrega) || "Lunes" : undefined;
+
+  if (!isRetail) {
+    assertLocationConsistency({
+      stateId,
+      stateName,
+      municipalityId,
+      municipalityName,
+      townId,
+      townName,
+    });
+    if (!buyerName) throw new Error("El encargado es obligatorio.");
+    if (!Number.isFinite(creditLimit)) throw new Error("El límite de crédito es inválido.");
+    if (!Number.isFinite(creditDays)) throw new Error("Los días de crédito son inválidos.");
+  }
+
+  await ensureFixedCustomerLevels(ctx);
+  const bronzeLevelId = await getFixedCustomerLevelId(ctx, "BRONCE");
+  let levelId: Id<"pricingCustomerLevels"> | undefined;
+  if (isRetail) {
+    levelId = bronzeLevelId ?? undefined;
+  } else {
+    levelId = args.pricingCustomerLevelId;
+  }
+
+  if (!isRetail && levelId) {
+    const level = await ctx.db.get(levelId);
+    if (!level) throw new Error("El nivel de precio seleccionado no existe.");
+    const code = normalizeText(level.code).toUpperCase();
+    const allowedCodes = clientType === "wholesaler"
+      ? new Set(["BRONCE", "PLATA", "ORO", "DIAMANTE", "ULTRA"])
+      : new Set(["BRONCE", "PLATA", "ORO", "DIAMANTE"]);
+    if (!allowedCodes.has(code)) {
+      throw new Error("El nivel seleccionado no es válido para este tipo de cliente.");
+    }
+  }
+
+  return {
+    clientType,
+    commercialName,
+    buyerName,
+    responsable: responsible,
+    requiresInvoice,
+    businessName: isRetail ? undefined : args.businessName,
+    rfc: isRetail ? undefined : args.rfc,
+    taxRegime: isRetail ? undefined : args.taxRegime,
+    mapsUrl,
+    townId,
+    townName,
+    municipalityId,
+    municipalityName,
+    pricingCustomerLevelId: levelId,
+    visitFrequency,
+    tipoEntrega,
+    diaEntrega,
+    assignedRouteId,
+    assignedRouteName,
+    creditLimit,
+    creditDays,
+    availableScheduleStart,
+    availableScheduleEnd,
+    stateId,
+    stateName,
+    lat: args.lat,
+    lng: args.lng,
+    image: args.image,
+    visitOrder: args.visitOrder,
+  };
 }
 
 function assertLocationConsistency(args: {
@@ -116,8 +289,8 @@ export const create = mutation({
       "customers:allow_create",
       "Acceso denegado: no puedes crear clientes."
     );
-    assertLocationConsistency(args);
-    return await ctx.db.insert("clients", args);
+    const data = await normalizeClientPayload(ctx, args);
+    return await ctx.db.insert("clients", data);
   },
 });
 
@@ -134,12 +307,13 @@ export const update = mutation({
     const current = await ctx.db.get(args.id);
     if (!current) throw new Error("Cliente no encontrado");
     await assertCustomerOwnershipIfRestricted(ctx, current);
+    const data = await normalizeClientPayload(ctx, args);
 
-    if (!(await isAdmin(ctx))) {
+    if (!(await isAdmin(ctx)) && data.clientType !== "retail") {
       const gpsChanged =
-        (current.mapsUrl || "") !== (args.mapsUrl || "") ||
-        (current.lat ?? null) !== (args.lat ?? null) ||
-        (current.lng ?? null) !== (args.lng ?? null);
+        (current.mapsUrl || "") !== (data.mapsUrl || "") ||
+        (current.lat ?? null) !== (data.lat ?? null) ||
+        (current.lng ?? null) !== (data.lng ?? null);
       if (gpsChanged) {
         await requirePermission(
           ctx,
@@ -148,7 +322,7 @@ export const update = mutation({
         );
       }
 
-      if (current.creditLimit !== args.creditLimit) {
+      if (current.creditLimit !== data.creditLimit) {
         await requirePermission(
           ctx,
           "customers:allow_credit_limit_assignment",
@@ -156,7 +330,7 @@ export const update = mutation({
         );
       }
 
-      if (current.creditDays !== args.creditDays) {
+      if (current.creditDays !== data.creditDays) {
         await requirePermission(
           ctx,
           "customers:allow_credit_terms_edit",
@@ -165,10 +339,9 @@ export const update = mutation({
       }
     }
 
-    assertLocationConsistency(args);
-    const { id, ...data } = args;
-    await ctx.db.patch(id, data);
-    return id;
+    const { ...clientData } = data;
+    await ctx.db.patch(args.id, clientData);
+    return args.id;
   },
 });
 

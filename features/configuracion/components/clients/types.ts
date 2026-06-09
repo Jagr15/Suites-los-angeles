@@ -1,7 +1,32 @@
+export type ClientType = "commercial" | "wholesaler" | "retail";
+
+export const CLIENT_TYPE_LABELS: Record<ClientType, string> = {
+  commercial: "Comercial",
+  wholesaler: "Mayorista",
+  retail: "Minorista",
+};
+
+export const DELIVERY_TYPE_LABELS = {
+  pickup: "Recoge en sucursal",
+  delivery: "Envío",
+} as const;
+
+export const DELIVERY_DAY_OPTIONS = [
+  "Lunes",
+  "Martes",
+  "Miércoles",
+  "Jueves",
+  "Viernes",
+  "Sábado",
+  "Domingo",
+];
+
 export interface Client {
   id: string;
+  clientType: ClientType;
   commercialName: string;
   buyerName: string;
+  responsable?: string;
   requiresInvoice: boolean;
   businessName?: string;
   rfc?: string;
@@ -16,6 +41,8 @@ export interface Client {
   pricingCustomerLevelId?: string;
   pricingCustomerLevelName?: string;
   visitFrequency: "Semanal" | "Quincenal" | "Mensual";
+  tipoEntrega?: "pickup" | "delivery";
+  diaEntrega?: string;
   assignedRouteId: string;
   assignedRouteName: string;
   creditLimit: number;
@@ -29,6 +56,7 @@ export interface Client {
 export const INITIAL_CLIENTS: Client[] = [
   {
     id: "1",
+    clientType: "commercial",
     commercialName: "Abarrotes Doña Mari",
     buyerName: "María Hernández",
     requiresInvoice: true,
@@ -48,6 +76,7 @@ export const INITIAL_CLIENTS: Client[] = [
   },
   {
     id: "2",
+    clientType: "commercial",
     commercialName: "Mini Super El Paso",
     buyerName: "Jorge Luna",
     requiresInvoice: false,

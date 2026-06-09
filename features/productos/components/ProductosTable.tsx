@@ -21,14 +21,13 @@ import { Product } from "../hooks/use-products";
 const ROWS_PER_PAGE = 6;
 
 const getColumnsForTab = (tab: string) => {
-  let start = 0; let end = 15;
-  if (tab === "costo") { start = 0; end = 5; }
-  else if (tab === "mayoreo") { start = 5; end = 10; }
-  else if (tab === "venta") { start = 10; end = 15; }
+  let start = 0;
+  let end = 5;
+  if (tab === "venta") { start = 10; end = 15; }
 
   return Array.from({ length: end - start }, (_, i) => ({
     key: `lista${start + i + 1}`,
-    label: `Precio ${start + i + 1}`,
+    label: tab === "venta" ? `Venta ${i + 1}` : `Costo ${i + 1}`,
   }));
 };
 
