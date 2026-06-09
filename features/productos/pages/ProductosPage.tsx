@@ -10,6 +10,9 @@ import { useRoles } from "@/shared/hooks";
 import type { ProductoCreate } from "@/shared/types/producto";
 import * as XLSX from "xlsx";
 
+const COST_MIRROR_KEYS = ["lista1", "lista2", "lista3", "lista4", "lista5"] as const;
+const SALE_MIRROR_KEYS = ["lista11", "lista12", "lista13", "lista14", "lista15"] as const;
+
 export function ProductosPage() {
   const { products, addProduct, updateProduct, deleteProduct, bulkUpsert } = useProducts();
   const { hasPermission, isAdmin } = useRoles();
@@ -51,7 +54,17 @@ export function ProductosPage() {
   const handleGuardarCambios = useCallback(async () => {
     try {
       for (const [id, fields] of Object.entries(pendingEdits)) {
-        const formattedFields = { ...fields };
+        const formattedFields = { ...fields } as Record<string, string>;
+        if (formattedFields.lista1 !== undefined) {
+          for (const key of COST_MIRROR_KEYS) {
+            formattedFields[key] = formattedFields.lista1;
+          }
+        }
+        if (formattedFields.lista11 !== undefined) {
+          for (const key of SALE_MIRROR_KEYS) {
+            formattedFields[key] = formattedFields.lista11;
+          }
+        }
         // Aseguramos que los precios tengan el signo $ antes de guardar
         Object.keys(formattedFields).forEach(key => {
           if (key.startsWith("lista")) {

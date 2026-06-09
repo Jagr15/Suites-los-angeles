@@ -5,6 +5,11 @@ import {
   Card,
   CardHeader,
   CardBody,
+  Modal,
+  ModalContent,
+  ModalHeader,
+  ModalBody,
+  ModalFooter,
   Tabs,
   Tab,
   Button,
@@ -127,6 +132,14 @@ const defaultZoneDraft: ZoneDraft = {
   notes: "",
 };
 
+type LevelDraftState = { monthlyLimit: string; discountPct: string };
+
+type LevelEditDraft = {
+  code: FixedCustomerLevelCode;
+  monthlyLimit: string;
+  discountPct: string;
+};
+
 function parseOptionalNumber(value: string): number | undefined {
   if (!value.trim()) return undefined;
   const parsed = Number(value);
@@ -184,7 +197,8 @@ export function PricingManagementCard() {
   const [activeTab, setActiveTab] = useState("tiers");
   const [tierDraft, setTierDraft] = useState<TierDraft | null>(null);
   const [zoneDraft, setZoneDraft] = useState<ZoneDraft | null>(null);
-  const [levelDraftOverrides, setLevelDraftOverrides] = useState<Partial<Record<FixedCustomerLevelCode, { monthlyLimit: string; discountPct: string }>>>({});
+  const [levelDraftOverrides, setLevelDraftOverrides] = useState<Partial<Record<FixedCustomerLevelCode, LevelDraftState>>>({});
+  const [levelEditDraft, setLevelEditDraft] = useState<LevelEditDraft | null>(null);
   const [settingDrafts, setSettingDrafts] = useState<Record<string, string>>({});
   const [selectedProductId, setSelectedProductId] = useState<string>(products[0]?._id || "");
   const effectiveProductId = selectedProductId || products[0]?._id || "";
@@ -224,7 +238,7 @@ export function PricingManagementCard() {
   }, [customerLevels]);
 
   const levelDrafts = useMemo(() => {
-    const next: Record<FixedCustomerLevelCode, { monthlyLimit: string; discountPct: string }> = {
+    const next: Record<FixedCustomerLevelCode, LevelDraftState> = {
       BRONCE: { monthlyLimit: "", discountPct: "0" },
       PLATA: { monthlyLimit: "", discountPct: "0" },
       ORO: { monthlyLimit: "", discountPct: "0" },
@@ -250,6 +264,32 @@ export function PricingManagementCard() {
 
     return next;
   }, [fixedLevelRows, levelDraftOverrides]);
+
+  const updateLevelDraft = (
+    code: FixedCustomerLevelCode,
+    field: keyof LevelDraftState,
+    value: string
+  ) => {
+    setLevelDraftOverrides((prev) => {
+      const base = levelDrafts[code] ?? { monthlyLimit: "", discountPct: "0" };
+      return {
+        ...prev,
+        [code]: {
+          monthlyLimit: field === "monthlyLimit" ? value : (prev[code]?.monthlyLimit ?? base.monthlyLimit),
+          discountPct: field === "discountPct" ? value : (prev[code]?.discountPct ?? base.discountPct),
+        },
+      };
+    });
+  };
+
+  const openLevelEditor = (code: FixedCustomerLevelCode) => {
+    const draft = levelDrafts[code] ?? { monthlyLimit: "", discountPct: "0" };
+    setLevelEditDraft({
+      code,
+      monthlyLimit: draft.monthlyLimit,
+      discountPct: draft.discountPct,
+    });
+  };
 
   const handleSaveTier = async () => {
     if (!effectiveProductId) {
@@ -348,7 +388,10 @@ export function PricingManagementCard() {
   };
 
   const handleSaveLevel = async (code: FixedCustomerLevelCode) => {
-    const draft = levelDrafts[code];
+    const draft = (levelEditDraft?.code === code ? levelEditDraft : levelDrafts[code]) ?? {
+      monthlyLimit: "",
+      discountPct: "0",
+    };
     const discountPct = parseRequiredNumber(draft?.discountPct || "0");
     const monthlyLimit = code === "ULTRA" ? undefined : parseOptionalNumber(draft?.monthlyLimit || "");
 
@@ -381,6 +424,12 @@ export function PricingManagementCard() {
         monthlyLimit,
         discountPct,
       });
+      setLevelDraftOverrides((prev) => {
+        const next = { ...prev };
+        delete next[code];
+        return next;
+      });
+      setLevelEditDraft(null);
       addToast({ title: "Nivel guardado", color: "success" });
     } catch (error) {
       addToast({ title: "Error", description: error instanceof Error ? error.message : "No se pudo guardar el nivel.", color: "danger" });
@@ -509,6 +558,9 @@ export function PricingManagementCard() {
     ) : null;
 
   const levelForm = null;
+  const editingLevelRow = levelEditDraft
+    ? fixedLevelRows.find((row) => row.fixed.code === levelEditDraft.code) ?? null
+    : null;
 
   return (
     <Card className="border border-default-200 shadow-sm bg-content1">
@@ -727,7 +779,6 @@ export function PricingManagementCard() {
                   </TableHeader>
                   <TableBody items={fixedLevelRows} emptyContent="No hay niveles configurados.">
                     {(row) => {
-                      const draft = levelDrafts[row.fixed.code];
                       const isUltra = row.fixed.code === "ULTRA";
                       return (
                         <TableRow key={row.fixed.code}>
@@ -738,49 +789,24 @@ export function PricingManagementCard() {
                             </div>
                           </TableCell>
                           <TableCell>
-                            {isUltra ? (
-                              <Chip size="sm" variant="flat" color="default">Sin tope</Chip>
-                            ) : (
-                              <Input
-                                variant="bordered"
-                                type="number"
-                                value={draft?.monthlyLimit || ""}
-                                onValueChange={(value) => setLevelDraftOverrides((prev) => ({
-                                  ...prev,
-                                  [row.fixed.code]: {
-                                    monthlyLimit: value,
-                                    discountPct: prev[row.fixed.code]?.discountPct ?? draft?.discountPct ?? "0",
-                                  },
-                                }))}
-                                startContent={<span className="text-default-400">$</span>}
-                              />
-                            )}
+                            {isUltra ? <Chip size="sm" variant="flat" color="default">Sin tope</Chip> : formatCurrency(row.monthlyLimit ?? 0)}
                           </TableCell>
                           <TableCell>
-                            <Input
-                              variant="bordered"
-                              type="number"
-                              value={draft?.discountPct || "0"}
-                              onValueChange={(value) => setLevelDraftOverrides((prev) => ({
-                                ...prev,
-                                [row.fixed.code]: {
-                                  monthlyLimit: prev[row.fixed.code]?.monthlyLimit ?? draft?.monthlyLimit ?? "",
-                                  discountPct: value,
-                                },
-                              }))}
-                            />
-                            <p className="mt-1 text-tiny text-default-500">
-                              {row.fixed.code === "ULTRA" ? "Solo mayoristas" : row.fixed.code === "DIAMANTE" ? "Hasta este tope para comerciales" : "Nivel fijo"}
-                            </p>
+                            <div className="flex flex-col gap-1">
+                              <span>{row.discountPct ?? 0}%</span>
+                              <p className="text-tiny text-default-500">
+                                {row.fixed.code === "ULTRA" ? "Solo mayoristas" : "Nombre fijo"}
+                              </p>
+                            </div>
                           </TableCell>
                           <TableCell>
                             <div className="flex items-center gap-2">
                               <Button
                                 color="primary"
                                 variant="flat"
-                                onPress={() => void handleSaveLevel(row.fixed.code)}
+                                onPress={() => openLevelEditor(row.fixed.code)}
                               >
-                                Guardar
+                                Editar
                               </Button>
                             </div>
                           </TableCell>
@@ -872,6 +898,67 @@ export function PricingManagementCard() {
           </Tab>
         </Tabs>
       </CardBody>
+      <Modal isOpen={!!levelEditDraft} onOpenChange={(open) => { if (!open) setLevelEditDraft(null); }}>
+        <ModalContent>
+          {() => {
+            const row = editingLevelRow;
+            if (!row || !levelEditDraft) return null;
+            const isUltra = row.fixed.code === "ULTRA";
+            return (
+              <>
+                <ModalHeader>Editar nivel {FIXED_CUSTOMER_LEVEL_LABELS[row.fixed.code]}</ModalHeader>
+                <ModalBody className="space-y-4">
+                  <Input
+                    label="Nombre del nivel"
+                    variant="bordered"
+                    value={FIXED_CUSTOMER_LEVEL_LABELS[row.fixed.code]}
+                    isReadOnly
+                  />
+                  {isUltra ? (
+                    <div className="space-y-1">
+                      <p className="text-sm font-medium">Límite de rango</p>
+                      <Chip size="sm" variant="flat" color="default">Sin tope</Chip>
+                      <p className="text-tiny text-default-500">Solo mayoristas</p>
+                    </div>
+                  ) : (
+                    <Input
+                      label="Nuevo límite de rango"
+                      variant="bordered"
+                      type="text"
+                      inputMode="decimal"
+                      value={levelEditDraft.monthlyLimit}
+                      onValueChange={(value) => {
+                        updateLevelDraft(row.fixed.code, "monthlyLimit", value);
+                        setLevelEditDraft((prev) => prev ? { ...prev, monthlyLimit: value } : prev);
+                      }}
+                      startContent={<span className="text-default-400">$</span>}
+                    />
+                  )}
+                  <Input
+                    label="Nuevo descuento / margen"
+                    variant="bordered"
+                    type="text"
+                    inputMode="decimal"
+                    value={levelEditDraft.discountPct}
+                    onValueChange={(value) => {
+                      updateLevelDraft(row.fixed.code, "discountPct", value);
+                      setLevelEditDraft((prev) => prev ? { ...prev, discountPct: value } : prev);
+                    }}
+                    endContent={<span className="text-default-400">%</span>}
+                  />
+                  <p className="text-tiny text-default-500">
+                    {isUltra ? "Solo mayoristas" : "Nombre fijo"}
+                  </p>
+                </ModalBody>
+                <ModalFooter>
+                  <Button variant="flat" onPress={() => setLevelEditDraft(null)}>Cancelar</Button>
+                  <Button color="primary" onPress={() => void handleSaveLevel(row.fixed.code)}>Guardar</Button>
+                </ModalFooter>
+              </>
+            );
+          }}
+        </ModalContent>
+      </Modal>
     </Card>
   );
 }

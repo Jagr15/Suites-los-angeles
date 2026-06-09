@@ -1,4 +1,5 @@
 "use client";
+/* eslint-disable @typescript-eslint/no-explicit-any */
 
 import { useState, useCallback, useMemo, useEffect } from "react";
 import { useQuery, useMutation } from "convex/react";
@@ -183,7 +184,12 @@ export function BodegaPage() {
         const currentSalida = editId
           ? (salidas || []).find((s: any) => String(s._id || s.id) === String(editId))
           : null;
-        const nextClientId = values.clientId || currentSalida?.clientId || "";
+        const fallbackGeneralClient = (clients || []).find((client: any) => {
+          const normalizedName = String(client.commercialName || client.buyerName || "").trim().toLowerCase();
+          const clientType = String(client.clientType || "");
+          return normalizedName === "cliente general" || clientType === "retail";
+        }) || clients?.[0];
+        const nextClientId = values.clientId || currentSalida?.clientId || (values.targetType === "route" ? String(fallbackGeneralClient?._id || "") : "");
         const payload = {
           numeroSalida: isSuperAdmin && editId
             ? values.numeroCarga
@@ -201,6 +207,8 @@ export function BodegaPage() {
           clienteDireccion: values.clienteDireccion || "",
           ruta: values.ruta || "",
           destino: values.destino || "",
+          recipientType: values.recipientType || undefined,
+          shippingMode: values.shippingMode || undefined,
           totalAmount,
           tipo: values.tipo || "carga",
           items: cleanItems,

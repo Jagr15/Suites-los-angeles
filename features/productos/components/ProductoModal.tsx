@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useForm, Controller, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
@@ -19,12 +19,12 @@ import {
   addToast,
   useDisclosure,
 } from "@heroui/react";
-import { PlusIcon, PencilSquareIcon } from "@heroicons/react/24/outline";
+import { PlusIcon, PencilSquareIcon, TrashIcon } from "@heroicons/react/24/outline";
 import { productoSchema, type ProductoFormValues } from "@/shared/schemas";
 import { PRODUCTO_STATUS } from "@/shared/types/producto";
 import type { ProductoCreate } from "@/shared/types/producto";
 import { Product } from "../hooks/use-products";
-import { useQuery } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
 import { CategoryModal } from "./categories/CategoryModal";
@@ -48,8 +48,22 @@ const LISTA_KEYS = [
   "lista15",
 ] as const;
 
-const COST_KEYS = LISTA_KEYS.slice(0, 5);
-const SALE_KEYS = LISTA_KEYS.slice(10, 15);
+const COST_KEY = "lista1";
+const COST_MIRROR_KEYS = ["lista1", "lista2", "lista3", "lista4", "lista5"] as const;
+const SALE_KEY = "lista11";
+const SALE_MIRROR_KEYS = ["lista11", "lista12", "lista13", "lista14", "lista15"] as const;
+
+type ProductTierDraft = {
+  id?: string;
+  upperLimit: string;
+  basePrice: string;
+};
+
+type ProductTierEditorProps = {
+  productId?: string;
+  initialRows: ProductTierDraft[];
+  isReadOnly?: boolean;
+};
 
 const defaultValues: ProductoFormValues = {
   sku: "",
@@ -96,6 +110,9 @@ type ProductoModalProps = {
 
 /** Convierte valores del formulario (precios opcionales) a ProductoCreate (todos string). */
 function toProductoCreate(data: ProductoFormValues): ProductoCreate {
+  const costValue = data[COST_KEY] ?? "";
+  const saleValue = data[SALE_KEY] ?? "";
+
   return {
     sku: data.sku,
     codigo: data.codigo,
@@ -106,7 +123,12 @@ function toProductoCreate(data: ProductoFormValues): ProductoCreate {
     status: data.status,
     ...Object.fromEntries(
       LISTA_KEYS.map((k) => {
-        const val = data[k] ?? "";
+        const sourceValue = COST_MIRROR_KEYS.includes(k as typeof COST_MIRROR_KEYS[number])
+          ? costValue
+          : SALE_MIRROR_KEYS.includes(k as typeof SALE_MIRROR_KEYS[number])
+            ? saleValue
+            : data[k] ?? "";
+        const val = sourceValue ?? "";
         // Agregamos el signo de pesos si no lo tiene
         const valWithSign = typeof val === "string" && val && !val.startsWith("$") ? `$${val}` : val;
         return [k, valWithSign];
@@ -115,8 +137,192 @@ function toProductoCreate(data: ProductoFormValues): ProductoCreate {
   } as ProductoCreate;
 }
 
+function ProductTierEditor({ productId, initialRows, isReadOnly }: ProductTierEditorProps) {
+  const syncProductPriceRanges = useMutation(api.pricing.mutations.syncProductPriceRanges);
+  const [tierRows, setTierRows] = useState<ProductTierDraft[]>(initialRows);
+
+  const hasTierChanges = JSON.stringify(tierRows) !== JSON.stringify(initialRows);
+
+  const handleTierChange = (index: number, field: keyof ProductTierDraft, value: string) => {
+    setTierRows((prev) => prev.map((row, rowIndex) => (
+      rowIndex === index ? { ...row, [field]: value } : row
+    )));
+  };
+
+  const handleAddTier = () => {
+    setTierRows((prev) => [...prev, { upperLimit: "", basePrice: "" }]);
+  };
+
+  const handleRemoveTier = (index: number) => {
+    setTierRows((prev) => prev.filter((_, rowIndex) => rowIndex !== index));
+  };
+
+  const handleSaveTiers = async () => {
+    if (!productId || isReadOnly) return;
+
+    const normalizedRanges = tierRows.map((row) => ({
+      id: row.id as Id<"pricingProductTiers"> | undefined,
+      upperLimit: Number(row.upperLimit),
+      basePrice: Number(row.basePrice),
+    }));
+
+    for (const range of normalizedRanges) {
+      if (!Number.isFinite(range.upperLimit) || range.upperLimit <= 0) {
+        addToast({
+          title: "Validación",
+          description: "Cada tope debe ser un número mayor a 0.",
+          color: "warning",
+        });
+        return;
+      }
+      if (!Number.isFinite(range.basePrice) || range.basePrice < 0) {
+        addToast({
+          title: "Validación",
+          description: "Cada precio debe ser un número igual o mayor a 0.",
+          color: "warning",
+        });
+        return;
+      }
+    }
+
+    const orderedRanges = [...normalizedRanges].sort((a, b) => a.upperLimit - b.upperLimit);
+    for (let i = 1; i < orderedRanges.length; i++) {
+      if (orderedRanges[i].upperLimit <= orderedRanges[i - 1].upperLimit) {
+        addToast({
+          title: "Validación",
+          description: "Los topes deben ser ascendentes y sin duplicados.",
+          color: "warning",
+        });
+        return;
+      }
+    }
+
+    try {
+      await syncProductPriceRanges({
+        productId: productId as Id<"products">,
+        ranges: orderedRanges,
+      });
+      addToast({
+        title: "Rangos guardados",
+        description: "Los rangos por cantidad se actualizaron correctamente.",
+        color: "success",
+      });
+    } catch (error) {
+      addToast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "No se pudieron guardar los rangos.",
+        color: "danger",
+      });
+    }
+  };
+
+  return (
+    <div className="mt-6 flex flex-col gap-4">
+      <div className="flex items-center justify-between gap-3 px-1">
+        <div className="flex flex-col gap-1">
+          <p className="text-sm font-bold uppercase tracking-wider text-primary">Rangos por cantidad</p>
+          <p className="text-xs text-default-500 font-medium">
+            Cada producto maneja sus propios topes y precios sin huecos entre tramos.
+          </p>
+        </div>
+        {!isReadOnly && !!productId && (
+          <Button color="primary" variant="flat" startContent={<PlusIcon className="size-4" />} onPress={handleAddTier}>
+            Agregar rango
+          </Button>
+        )}
+      </div>
+
+      <Divider className="my-1" />
+
+      {!productId ? (
+        <div className="rounded-xl border border-default-200 bg-default-50 px-4 py-3 text-sm text-default-600">
+          Guarda el producto primero para configurar sus rangos por cantidad.
+        </div>
+      ) : (
+        <div className="space-y-3">
+          <div className="grid grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_auto] gap-3 px-1 text-xs font-semibold uppercase tracking-wide text-default-500">
+            <span>Rango</span>
+            <span>Precio</span>
+            <span className="text-right">Acciones</span>
+          </div>
+
+          {tierRows.length === 0 ? (
+            <div className="rounded-xl border border-dashed border-default-300 px-4 py-6 text-center text-sm text-default-500">
+              No hay rangos configurados para este producto.
+            </div>
+          ) : (
+            tierRows.map((row, index) => {
+              const previousUpperLimit = index === 0 ? "0" : (tierRows[index - 1]?.upperLimit || "0");
+              return (
+                <div
+                  key={row.id || `draft-${index}`}
+                  className="grid grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_auto] gap-3 rounded-xl border border-default-200 bg-content1 p-3"
+                >
+                  <div className="space-y-2">
+                    <p className="text-xs font-medium text-default-500">
+                      {index === 0 ? `0 a ${row.upperLimit || "..."}` : `Más de ${previousUpperLimit} a ${row.upperLimit || "..."}`}
+                    </p>
+                    <Input
+                      label="Hasta"
+                      placeholder="Ej. 10 o 0.5"
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={row.upperLimit}
+                      onValueChange={(value) => handleTierChange(index, "upperLimit", value)}
+                      isReadOnly={isReadOnly}
+                    />
+                  </div>
+                  <Input
+                    label="Precio"
+                    placeholder="0.00"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={row.basePrice}
+                    onValueChange={(value) => handleTierChange(index, "basePrice", value)}
+                    startContent={<span className="text-default-400 font-medium">$</span>}
+                    isReadOnly={isReadOnly}
+                  />
+                  <div className="flex items-end justify-end">
+                    {!isReadOnly && (
+                      <Button
+                        isIconOnly
+                        size="sm"
+                        variant="light"
+                        color="danger"
+                        onPress={() => handleRemoveTier(index)}
+                        aria-label="Eliminar rango"
+                      >
+                        <TrashIcon className="size-4" />
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              );
+            })
+          )}
+
+          {!isReadOnly && (
+            <div className="flex justify-end">
+              <Button color="primary" onPress={() => void handleSaveTiers()} isDisabled={!hasTierChanges}>
+                Guardar rangos
+              </Button>
+            </div>
+          )}
+
+          <p className="px-1 text-xs text-default-500">
+            Los topes se ordenan al guardar. No se permiten negativos, duplicados ni precios menores a 0.
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function ProductoModal({ isOpen, onClose, producto, onSubmit, isReadOnly }: ProductoModalProps) {
   const isEdit = !!producto;
+  const productTiersQuery = useQuery(api.pricing.queries.listProductTiers);
   const {
     control,
     handleSubmit,
@@ -143,11 +349,14 @@ export function ProductoModal({ isOpen, onClose, producto, onSubmit, isReadOnly 
     onOpenChange: onCatOpenChange 
   } = useDisclosure();
   
-  const { 
-    isOpen: isSubOpen, 
-    onOpen: onSubOpen, 
-    onOpenChange: onSubOpenChange 
+  const {
+    isOpen: isSubOpen,
+    onOpen: onSubOpen,
+    onOpenChange: onSubOpenChange
   } = useDisclosure();
+  const productTierRows = (productTiersQuery || [])
+    .filter((tier) => String(tier.productId) === String(producto?.id || ""))
+    .sort((a, b) => a.minQty - b.minQty);
 
   const handleAddCategory = () => {
     onCatOpen();
@@ -359,69 +568,74 @@ export function ProductoModal({ isOpen, onClose, producto, onSubmit, isReadOnly 
                 }}
               >
                 <Tab key="costo" title="Costo">
-                  <div className="grid gap-4 pt-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
-                    {COST_KEYS.map((key, i) => (
-                      <Controller
-                        key={key}
-                        name={key}
-                        control={control}
-                        render={({ field }) => (
-                          <Input
-                            label={`Costo ${i + 1}`}
-                            placeholder="0.00"
-                            type="number"
-                            step="0.01"
-                            min="0"
-                            value={field.value ?? ""}
-                            onValueChange={field.onChange}
-                            onBlur={field.onBlur}
-                            variant="bordered"
-                            classNames={{
-                              base: "w-full min-w-0",
-                              inputWrapper: "min-h-10 h-10 min-w-[118px]",
-                              input: "text-end text-sm tabular-nums",
-                            }}
-                            startContent={<span className="text-default-400 font-medium">$</span>}
-                            isReadOnly={isReadOnly}
-                          />
-                        )}
-                      />
-                    ))}
+                  <div className="grid gap-4 pt-4 sm:grid-cols-2">
+                    <Controller
+                      name={COST_KEY}
+                      control={control}
+                      render={({ field }) => (
+                        <Input
+                          label="Costo"
+                          placeholder="0.00"
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          value={field.value ?? ""}
+                          onValueChange={field.onChange}
+                          onBlur={field.onBlur}
+                          variant="bordered"
+                          classNames={{
+                            base: "w-full min-w-0",
+                            inputWrapper: "min-h-10 h-10",
+                            input: "text-end text-sm tabular-nums",
+                          }}
+                          startContent={<span className="text-default-400 font-medium">$</span>}
+                          isReadOnly={isReadOnly}
+                        />
+                      )}
+                    />
                   </div>
                 </Tab>
                 <Tab key="venta" title="Venta">
-                  <div className="grid gap-4 pt-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
-                    {SALE_KEYS.map((key, i) => (
-                      <Controller
-                        key={key}
-                        name={key}
-                        control={control}
-                        render={({ field }) => (
-                          <Input
-                            label={`Venta ${i + 1}`}
-                            placeholder="0.00"
-                            type="number"
-                            step="0.01"
-                            min="0"
-                            value={field.value ?? ""}
-                            onValueChange={field.onChange}
-                            onBlur={field.onBlur}
-                            variant="bordered"
-                            classNames={{
-                              base: "w-full min-w-0",
-                              inputWrapper: "min-h-10 h-10 min-w-[118px]",
-                              input: "text-end text-sm tabular-nums",
-                            }}
-                            startContent={<span className="text-default-400 font-medium">$</span>}
-                            isReadOnly={isReadOnly}
-                          />
-                        )}
-                      />
-                    ))}
+                  <div className="grid gap-4 pt-4 sm:grid-cols-2">
+                    <Controller
+                      name={SALE_KEY}
+                      control={control}
+                      render={({ field }) => (
+                        <Input
+                          label="Venta"
+                          placeholder="0.00"
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          value={field.value ?? ""}
+                          onValueChange={field.onChange}
+                          onBlur={field.onBlur}
+                          variant="bordered"
+                          classNames={{
+                            base: "w-full min-w-0",
+                            inputWrapper: "min-h-10 h-10",
+                            input: "text-end text-sm tabular-nums",
+                          }}
+                          startContent={<span className="text-default-400 font-medium">$</span>}
+                          isReadOnly={isReadOnly}
+                        />
+                      )}
+                    />
                   </div>
                 </Tab>
               </Tabs>
             </div>
+
+            <ProductTierEditor
+              key={`${producto?.id || "new"}:${productTierRows.map((tier) => `${tier._id}:${tier.maxQty ?? ""}:${tier.basePrice}`).join("|")}`}
+              productId={producto?.id}
+              initialRows={productTierRows.map((tier) => ({
+                id: String(tier._id),
+                upperLimit: typeof tier.maxQty === "number" ? String(tier.maxQty) : "",
+                basePrice: String(tier.basePrice ?? 0),
+              }))}
+              isReadOnly={isReadOnly}
+            />
           </ModalBody>
           <ModalFooter className="shrink-0 flex-wrap gap-2">
             <Button type="button" variant="light" onPress={handleClose}>

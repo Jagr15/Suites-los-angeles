@@ -21,14 +21,12 @@ import { Product } from "../hooks/use-products";
 const ROWS_PER_PAGE = 6;
 
 const getColumnsForTab = (tab: string) => {
-  let start = 0;
-  let end = 5;
-  if (tab === "venta") { start = 10; end = 15; }
-
-  return Array.from({ length: end - start }, (_, i) => ({
-    key: `lista${start + i + 1}`,
-    label: tab === "venta" ? `Venta ${i + 1}` : `Costo ${i + 1}`,
-  }));
+  return [
+    {
+      key: tab === "venta" ? "lista11" : "lista1",
+      label: tab === "venta" ? "Venta" : "Costo",
+    },
+  ];
 };
 
 type ProductosTableProps = {

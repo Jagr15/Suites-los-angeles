@@ -12,7 +12,6 @@ import {
 } from "@heroui/react";
 import {
     MagnifyingGlassIcon,
-    TruckIcon,
     BuildingStorefrontIcon,
     PlusIcon,
     TrashIcon,
@@ -73,6 +72,8 @@ const parseCurrency = (val: string | number) => {
     return isNaN(parsed) ? 0 : parsed;
 };
 
+const compactFolio = (value?: string) => (value || "").replace(/-/g, "");
+
 type BodegaEntradaFormProps = {
     entrada?: (BodegaRow & { _id?: string; receptionStatus?: string; recepcion?: string; items?: EntryItem[] }) | null;
     selectedWarehouseId: string;
@@ -127,7 +128,6 @@ export function BodegaEntradaForm({
         reset,
         setValue,
         watch,
-        formState: { errors },
     } = useForm<BodegaEntradaFormValues>({
         defaultValues: entrada ? { ...entrada } : defaultValues,
     });
@@ -301,148 +301,141 @@ export function BodegaEntradaForm({
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 gap-3 xl:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)]">
                 <div className="bg-white p-3 rounded-xl border border-default-200 shadow-sm transition-all group">
-                    <div className="flex items-center gap-2 mb-3 ml-1">
-                        <TruckIcon className="size-4 text-primary" />
-                        <h3 className="text-xs font-bold uppercase text-primary/80">Origen (Proveedor)</h3>
-                    </div>
-                    <Controller
-                        name="supplierId"
-                        control={control}
-                        render={({ field }) => (
-                            <Autocomplete
-                                defaultItems={suppliers}
-                                placeholder="Buscar proveedor..."
-                                className="w-full"
-                                onSelectionChange={(val) => field.onChange(val ? String(val) : "")}
-                                selectedKey={field.value || null}
-                                variant="flat"
-                                color="primary"
-                                size="md"
-                                classNames={{
-                                    base: "w-full",
-                                    listbox: "rounded-2xl",
-                                    popoverContent: "rounded-2xl shadow-xl",
-                                }}
-                                inputProps={{
-                                    classNames: {
-                                        inputWrapper: "rounded-lg bg-default-50 font-semibold min-h-10",
-                                        input: "text-sm font-semibold",
-                                    }
-                                }}
-                            >
-                                {(item) => (
-                                    <AutocompleteItem key={item._id} textValue={item.businessName} className="rounded-xl">
-                                        <div className="flex flex-col">
-                                            <span className="font-bold text-sm text-default-800">{item.businessName}</span>
-                                            <span className="text-[10px] text-default-400">RFC: {item.rfc}</span>
-                                        </div>
-                                    </AutocompleteItem>
-                                )}
-                            </Autocomplete>
-                        )}
-                    />
-                </div>
+                    <div className="grid gap-3 md:grid-cols-[minmax(0,1.4fr)_repeat(4,minmax(0,0.8fr))]">
+                        <Controller
+                            name="supplierId"
+                            control={control}
+                            render={({ field }) => (
+                                <Autocomplete
+                                    label="Proveedor"
+                                    defaultItems={suppliers}
+                                    placeholder="Buscar proveedor..."
+                                    className="w-full"
+                                    onSelectionChange={(val) => field.onChange(val ? String(val) : "")}
+                                    selectedKey={field.value || null}
+                                    variant="bordered"
+                                    size="sm"
+                                    classNames={{
+                                        base: "w-full",
+                                        listbox: "rounded-2xl",
+                                        popoverContent: "rounded-2xl shadow-xl",
+                                    }}
+                                    inputProps={{
+                                        classNames: {
+                                            inputWrapper: "rounded-xl bg-default-50/60 min-h-10",
+                                            input: "text-sm font-semibold",
+                                        }
+                                    }}
+                                >
+                                    {(item) => (
+                                        <AutocompleteItem key={item._id} textValue={item.businessName} className="rounded-xl">
+                                            <div className="flex flex-col">
+                                                <span className="font-bold text-sm text-default-800">{item.businessName}</span>
+                                                <span className="text-[10px] text-default-400">RFC: {item.rfc}</span>
+                                            </div>
+                                        </AutocompleteItem>
+                                    )}
+                                </Autocomplete>
+                            )}
+                        />
 
-                <div className="bg-white p-3 rounded-xl border border-default-200 shadow-sm transition-all group">
-                    <div className="flex items-center gap-2 mb-3 ml-1">
-                        <BuildingStorefrontIcon className="size-4 text-secondary" />
-                        <h3 className="text-xs font-bold uppercase text-secondary/80">Almacén Destino</h3>
-                    </div>
-                    <Input
-                      value={selectedWarehouseName || "Bodega no seleccionada"}
-                      isReadOnly
-                      variant="flat"
-                      color="secondary"
-                    />
-                </div>
-            </div>
+                        <Input
+                          label="Almacén"
+                          value={selectedWarehouseName || "Bodega no seleccionada"}
+                          isReadOnly
+                          variant="bordered"
+                          size="sm"
+                          classNames={{ inputWrapper: "rounded-xl bg-default-50/60 min-h-10" }}
+                          startContent={<BuildingStorefrontIcon className="size-4 text-secondary" />}
+                        />
 
-            <div className="flex flex-wrap items-center gap-3 p-3 bg-white rounded-xl border border-default-200 shadow-sm">
-                <div className="flex flex-col flex-1 min-w-[200px]">
-                    <span className="text-[10px] uppercase font-bold text-default-400 ml-1 mb-1.5">No. Folio / Entrada</span>
-                    <Controller
-                        name="folio"
-                        control={control}
-                        render={({ field }) => (
-                            <Input
-                                {...field}
-                                size="sm"
-                                variant="bordered"
-                                placeholder="Se genera al guardar"
-                                isReadOnly
-                                classNames={{
-                                    inputWrapper: "h-10 rounded-xl border-default-200 bg-default-50/50",
-                                    input: "font-bold"
-                                }}
-                            />
-                        )}
-                    />
-                </div>
-
-                <div className="flex flex-col w-36">
-                    <span className="text-[10px] uppercase font-bold text-default-400 ml-1 mb-1.5">Estado Pago</span>
-                    <Controller
-                        name="status"
-                        control={control}
-                        render={({ field }) => (
-                            <Select
-                                {...field}
-                                size="sm"
-                                variant="bordered"
-                                isDisabled={!canEditPaymentStatus}
-                                classNames={{ trigger: "h-10 rounded-xl border-default-200 bg-default-50/50" }}
-                                selectedKeys={field.value ? [field.value] : []}
-                                onChange={(e) => field.onChange(e.target.value)}
-                            >
-                                <SelectItem key="Pendiente" textValue="Pendiente">Pendiente</SelectItem>
-                                <SelectItem key="Pagado" textValue="Pagado">Pagado</SelectItem>
-                                <SelectItem key="Cancelado" textValue="Cancelado">Cancelado</SelectItem>
-                            </Select>
-                        )}
-                    />
-                </div>
-
-                <div className="flex flex-col w-40">
-                    <span className="text-[10px] uppercase font-bold text-default-400 ml-1 mb-1.5">Estado Entrega</span>
-                    <Controller
-                        name="receptionStatus"
-                        control={control}
-                        render={({ field }) => (
-                            <Select
-                                {...field}
-                                size="sm"
-                                variant="bordered"
-                                isDisabled={!canEditReceptionStatus}
-                                classNames={{ trigger: "h-10 rounded-xl border-default-200 bg-default-50/50" }}
-                                selectedKeys={field.value ? [field.value] : []}
-                                onChange={(e) => field.onChange(e.target.value)}
-                            >
-                                <SelectItem key="Completa" textValue="Completa">Completa</SelectItem>
-                                <SelectItem key="Faltante" textValue="Faltante">Faltante</SelectItem>
-                                <SelectItem key="Pendiente" textValue="Pendiente">Pendiente</SelectItem>
-                            </Select>
-                        )}
-                    />
-                </div>
-
-                <div className="flex flex-col w-44">
-                    <span className="text-[10px] uppercase font-bold text-default-400 ml-1 mb-1.5">Fecha del Documento</span>
-                    <Controller
-                        name="date"
-                        control={control}
-                        render={({ field }) => (
-                            <div className="flex items-center h-10 px-4 rounded-xl border-2 border-default-200 bg-default-50/50">
-                                <input
-                                    {...field}
-                                    type="date"
-                                    disabled={!canEditDate}
-                                    className="w-full text-sm font-bold bg-transparent outline-none cursor-pointer"
+                        <Controller
+                            name="folio"
+                            control={control}
+                            render={({ field }) => (
+                                <Input
+                                    label="Entrada"
+                                    value={compactFolio(field.value) || "Pendiente"}
+                                    size="sm"
+                                    variant="bordered"
+                                    isReadOnly
+                                    classNames={{
+                                        inputWrapper: "rounded-xl bg-default-50/60 min-h-10",
+                                        input: "font-bold tracking-wide"
+                                    }}
                                 />
-                            </div>
-                        )}
-                    />
+                            )}
+                        />
+
+                        <Controller
+                            name="status"
+                            control={control}
+                            render={({ field }) => (
+                                <Select
+                                    label="Pago"
+                                    size="sm"
+                                    variant="bordered"
+                                    isDisabled={!canEditPaymentStatus}
+                                    classNames={{ trigger: "min-h-10 rounded-xl border-default-200 bg-default-50/60" }}
+                                    selectedKeys={field.value ? [field.value] : []}
+                                    onChange={(e) => field.onChange(e.target.value)}
+                                >
+                                    <SelectItem key="Pendiente" textValue="Pendiente">Pendiente</SelectItem>
+                                    <SelectItem key="Pagado" textValue="Pagado">Pagado</SelectItem>
+                                    <SelectItem key="Cancelado" textValue="Cancelado">Cancelado</SelectItem>
+                                </Select>
+                            )}
+                        />
+
+                        <Controller
+                            name="date"
+                            control={control}
+                            render={({ field }) => (
+                                <Input
+                                    {...field}
+                                    label="Fecha"
+                                    type="date"
+                                    size="sm"
+                                    variant="bordered"
+                                    isReadOnly={!canEditDate}
+                                    classNames={{ inputWrapper: "rounded-xl bg-default-50/60 min-h-10" }}
+                                />
+                            )}
+                        />
+                    </div>
+                </div>
+
+                <div className="bg-white p-3 rounded-xl border border-default-200 shadow-sm transition-all group">
+                    <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_minmax(0,0.9fr)]">
+                        <Controller
+                            name="receptionStatus"
+                            control={control}
+                            render={({ field }) => (
+                                <Select
+                                    label="Entrega"
+                                    size="sm"
+                                    variant="bordered"
+                                    isDisabled={!canEditReceptionStatus}
+                                    classNames={{ trigger: "min-h-10 rounded-xl border-default-200 bg-default-50/60" }}
+                                    selectedKeys={field.value ? [field.value] : []}
+                                    onChange={(e) => field.onChange(e.target.value)}
+                                >
+                                    <SelectItem key="Completa" textValue="Completa">Completa</SelectItem>
+                                    <SelectItem key="Faltante" textValue="Faltante">Faltante</SelectItem>
+                                    <SelectItem key="Pendiente" textValue="Pendiente">Pendiente</SelectItem>
+                                </Select>
+                            )}
+                        />
+
+                        <div className="rounded-xl border border-default-200 bg-default-50/60 px-3 py-2">
+                            <p className="text-[10px] font-bold uppercase text-default-400">Resumen</p>
+                            <p className="mt-1 text-sm font-semibold text-default-700">
+                                {formItems.length} productos
+                            </p>
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -542,7 +535,7 @@ export function BodegaEntradaForm({
                     </Button>
                 </div>
 
-                <div className="overflow-hidden rounded-xl border border-default-100">
+                <div className="max-h-[46vh] overflow-auto rounded-xl border border-default-100">
                     <table className="w-full text-left text-sm text-foreground">
                         <thead className="border-b border-default-100 bg-default-50 text-default-500">
                             <tr>

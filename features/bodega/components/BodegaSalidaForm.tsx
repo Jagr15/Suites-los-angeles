@@ -1,4 +1,5 @@
 "use client";
+/* eslint-disable @typescript-eslint/no-explicit-any */
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useForm, Controller, useWatch } from "react-hook-form";
@@ -9,14 +10,11 @@ import {
   Input,
   Select,
   SelectItem,
-  Autocomplete,
-  AutocompleteItem,
 } from "@heroui/react";
 import {
   PlusIcon,
   TrashIcon,
   ArrowLeftIcon,
-  TruckIcon,
   BuildingStorefrontIcon,
 } from "@heroicons/react/24/outline";
 import { api } from "@/convex/_generated/api";
@@ -44,8 +42,10 @@ const defaultValues: CargaBodegaFormValues = {
   status: "Listo para surtir",
   responsable: "",
   tipoEntrega: "sucursal",
+  shippingMode: "pickup",
   productos: [],
   clientId: "",
+  recipientType: "route",
   clienteDireccion: "",
   agente: "",
   almacen: "",
@@ -57,6 +57,17 @@ const defaultValues: CargaBodegaFormValues = {
   numeroDocumento: "",
 };
 
+const compactWarehouseFolio = (value?: string) => (value || "").replace(/-/g, "");
+
+type TargetOption = {
+  key: string;
+  type: "route" | "wholesaler" | "retail";
+  label: string;
+  description: string;
+  route?: any;
+  client?: any;
+};
+
 function mapSalidaToFormValues(salida: any, productsById: Map<string, any>): CargaBodegaFormValues {
   return {
     numeroCarga: salida?.numeroSalida || salida?.numeroCarga || "Se genera al guardar",
@@ -64,7 +75,9 @@ function mapSalidaToFormValues(salida: any, productsById: Map<string, any>): Car
     status: salida?.status || "Listo para surtir",
     responsable: salida?.responsable || "",
     tipoEntrega: salida?.tipoEntrega || "sucursal",
+    shippingMode: salida?.shippingMode || ((salida?.tipoEntrega || "sucursal") === "pedido" ? "delivery" : "pickup"),
     clientId: salida?.clientId || "",
+    recipientType: salida?.recipientType || undefined,
     productos: (salida?.productos || salida?.items || []).map((prod: any) => {
       const productId = String(prod.productId || prod.id || "");
       const product = productsById.get(productId);
@@ -145,6 +158,46 @@ export function BodegaSalidaForm({
   const productsById = useMemo(() => {
     return new Map(products.map((product) => [String(product._id), product]));
   }, [products]);
+  const eligibleClients = useMemo(
+    () =>
+      clients.filter((client: any) => {
+        const clientType = String(client.clientType || "commercial");
+        return clientType === "wholesaler" || clientType === "retail";
+      }),
+    [clients]
+  );
+  const internalRoutes = useMemo(
+    () => routes.filter((route: any) => String(route.routeType || "Interna") === "Interna"),
+    [routes]
+  );
+  const targetOptions = useMemo<TargetOption[]>(() => {
+    const routeOptions = internalRoutes.map((route: any) => ({
+      key: `route:${String(route._id)}`,
+      type: "route" as const,
+      label: route.name || "Ruta interna",
+      description: route.destination || "Ruta interna",
+      route,
+    }));
+    const wholesalerOptions = eligibleClients
+      .filter((client: any) => String(client.clientType) === "wholesaler")
+      .map((client: any) => ({
+        key: `client:${String(client._id)}`,
+        type: "wholesaler" as const,
+        label: client.commercialName || client.buyerName || "Cliente mayorista",
+        description: client.townName || client.municipalityName || "Mayorista",
+        client,
+      }));
+    const retailOptions = eligibleClients
+      .filter((client: any) => String(client.clientType) === "retail")
+      .map((client: any) => ({
+        key: `client:${String(client._id)}`,
+        type: "retail" as const,
+        label: client.commercialName || client.buyerName || "Cliente minorista",
+        description: "Público general",
+        client,
+      }));
+    return [...routeOptions, ...wholesalerOptions, ...retailOptions];
+  }, [eligibleClients, internalRoutes]);
 
   const {
     control,
@@ -159,20 +212,35 @@ export function BodegaSalidaForm({
   });
 
   const tipoEntrega = useWatch({ control, name: "tipoEntrega", defaultValue: "sucursal" });
+  const shippingMode = useWatch({ control, name: "shippingMode", defaultValue: "pickup" });
   const selectedRouteName = useWatch({ control, name: "ruta", defaultValue: "" });
   const statusOptions = useMemo(() => getBodegaStatusOptionsByTipo(tipoEntrega), [tipoEntrega]);
   const formItems = watch("productos") || [];
   const selectedClientId = useWatch({ control, name: "clientId", defaultValue: "" });
-  const selectedRoute = useMemo(
-    () => routes.find((route: any) => route.name === selectedRouteName) || null,
-    [routes, selectedRouteName]
-  );
-  const selectedRouteType = selectedRoute?.routeType || "Interna";
-  const isExternalRoute = selectedRouteType === "Externa";
   const selectedClient = useMemo(
     () => clients.find((client: any) => String(client._id) === String(selectedClientId)) || null,
     [clients, selectedClientId]
   );
+  const selectedRoute = useMemo(
+    () => internalRoutes.find((route: any) => route.name === selectedRouteName) || null,
+    [internalRoutes, selectedRouteName]
+  );
+  const selectedTargetKey = useMemo(() => {
+    if (selectedRoute) return `route:${String(selectedRoute._id)}`;
+    if (selectedClient) return `client:${String(selectedClient._id)}`;
+    return "";
+  }, [selectedClient, selectedRoute]);
+  const selectedTarget = useMemo(
+    () => targetOptions.find((option) => option.key === selectedTargetKey) || null,
+    [selectedTargetKey, targetOptions]
+  );
+  const targetType = selectedTarget?.type || null;
+  const isWholesalerTarget = targetType === "wholesaler";
+  const isRetailTarget = targetType === "retail";
+  const isRouteTarget = targetType === "route";
+  const showPricingColumns = isWholesalerTarget;
+  const totalLabel = isWholesalerTarget ? "Total Cotización" : "Cantidad Total";
+  const showShippingSelector = isRouteTarget || isWholesalerTarget;
 
   const [selectedProduct, setSelectedProduct] = useState<(typeof products)[number] | null>(null);
   const [productInput, setProductInput] = useState("");
@@ -241,18 +309,74 @@ export function BodegaSalidaForm({
     return montoTotalValue.toLocaleString("en-US", { minimumFractionDigits: 2 });
   }, [montoTotalValue]);
 
-  const applySelectedClient = (clientId: string) => {
-    const client = clients.find((item: any) => String(item._id) === String(clientId));
-    setValue("clientId", clientId);
+  const applySelectedTarget = (targetKey: string) => {
+    const target = targetOptions.find((option) => option.key === targetKey);
+    if (!target) return;
+    const nextType = target.type;
+    const normalizedItems = formItems.map((item: any) => {
+      const product = productsById.get(String(item.productId || item.id || ""));
+      const nextPrice = nextType === "wholesaler" ? Number(product?.lista1 || 0) : 0;
+      return {
+        ...item,
+        precio: nextPrice,
+        basePrice: nextPrice,
+        finalPrice: nextPrice,
+        subtotal: Number(item.cantidad || 0) * nextPrice,
+        pricingSource: nextType === "wholesaler" ? "legacy_lista1" : "",
+        pricingRuleVersion: 0,
+      };
+    });
+    setValue("productos", normalizedItems);
+
+    if (target.type === "route") {
+      const route = target.route;
+      const nextShippingMode = route?.deliveryType === "envio" ? "delivery" : "pickup";
+      setValue("shippingMode", nextShippingMode);
+      setValue("tipoEntrega", nextShippingMode === "delivery" ? "pedido" : "sucursal");
+      setValue("recipientType", "route");
+      setValue("ruta", route?.name || "");
+      setValue("destino", route?.destination || "");
+      if (canAssignResponsible) {
+        setValue("responsable", route?.assignedProfileName || route?.assignedUserName || "");
+      }
+      setValue("clientId", "");
+      setValue("clienteNombre", route?.name || "Ruta interna");
+      setValue("clienteCodigo", "");
+      setValue("clienteDireccion", route?.destination || "");
+      return;
+    }
+
+    const client = target.client;
+    const nextShippingMode = target.type === "wholesaler"
+      ? (client?.tipoEntrega === "delivery" ? "delivery" : "pickup")
+      : "pickup";
+    setValue("shippingMode", nextShippingMode);
+    setValue("tipoEntrega", nextShippingMode === "delivery" ? "pedido" : "sucursal");
+    setValue("recipientType", target.type);
+    setValue("clientId", String(client?._id || ""));
     setValue("clienteNombre", client?.commercialName || client?.buyerName || "");
     setValue("clienteCodigo", String(client?._id || ""));
+    setValue("ruta", "");
+    if (target.type === "wholesaler") {
+      setValue("destino", client?.townName || client?.municipalityName || "");
+      setValue("clienteDireccion", client?.townName || client?.municipalityName || "");
+      if (canAssignResponsible) {
+        setValue("responsable", client?.responsable || client?.buyerName || "");
+      }
+    } else {
+      setValue("destino", "");
+      setValue("clienteDireccion", client?.commercialName || client?.buyerName || "Público general");
+      if (canAssignResponsible) {
+        setValue("responsable", client?.responsable || client?.buyerName || "Público general");
+      }
+    }
   };
 
   const handleAddProduct = () => {
     if (!selectedProduct) return;
 
     const qty = Math.max(1, parseInt(addQty || "1", 10) || 1);
-    const price = isExternalRoute ? Number(selectedProduct.lista1 || 0) : 0;
+    const price = isWholesalerTarget ? Number(selectedProduct.lista1 || 0) : 0;
     const existingIndex = formItems.findIndex((i: any) => i.productId === selectedProduct._id || i.id === selectedProduct._id);
 
     if (existingIndex >= 0) {
@@ -279,7 +403,7 @@ export function BodegaSalidaForm({
           zoneMargin: 0,
           discountPct: 0,
           finalPrice: price,
-          pricingSource: isExternalRoute ? "legacy_lista1" : "",
+          pricingSource: isWholesalerTarget ? "legacy_lista1" : "",
           pricingRuleVersion: 0,
         },
       ]);
@@ -290,16 +414,6 @@ export function BodegaSalidaForm({
     setAddQty("1");
     setShowResults(false);
     setTimeout(() => productInputRef.current?.focus(), 50);
-  };
-
-  const handleRouteSelection = (routeName: string) => {
-    setValue("ruta", routeName);
-    const route = routes.find((item: any) => item.name === routeName);
-    if (!route) return;
-    setValue("destino", route.destination || "");
-    if (canAssignResponsible) {
-      setValue("responsable", route.assignedProfileName || route.assignedUserName || "");
-    }
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -333,6 +447,9 @@ export function BodegaSalidaForm({
         almacen: selectedWarehouseName,
         totalAmount: montoTotalValue,
         productos: formItems,
+        targetType,
+        recipientType: targetType,
+        shippingMode,
       },
       salida?._id ?? salida?.id
     );
@@ -356,11 +473,11 @@ export function BodegaSalidaForm({
         <div className="flex items-center justify-between md:justify-end gap-3">
           <div className="flex flex-col items-end">
             <span className="text-[10px] uppercase font-bold text-default-400 mb-1">
-              {isExternalRoute ? "Total Cotización" : "Cantidad Total"}
+              {totalLabel}
             </span>
             <div className="flex items-center justify-center h-9 rounded-lg border border-primary/20 bg-primary/5 px-3">
               <span className="text-base font-bold text-primary leading-none">
-                {isExternalRoute ? (
+                {isWholesalerTarget ? (
                   <>
                     <span className="text-xs mr-1 font-bold text-primary/60">$</span>
                     {montoTotalFormatted}
@@ -382,103 +499,33 @@ export function BodegaSalidaForm({
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-        <div className="bg-white p-3 rounded-xl border border-default-200 shadow-sm transition-all group">
-          <div className="flex items-center gap-2 mb-3 ml-1">
-            <BuildingStorefrontIcon className="size-4 text-primary" />
-            <h3 className="text-xs font-bold uppercase text-primary/80">Origen (Bodega)</h3>
-          </div>
-          <Controller
-            name="almacen"
-            control={control}
-            render={() => (
-              <Input
-                value={selectedWarehouseName || "Bodega no seleccionada"}
-                isReadOnly
-                variant="flat"
-                color="primary"
-              />
-            )}
-          />
-        </div>
-
-        <div className="bg-white p-3 rounded-xl border border-default-200 shadow-sm transition-all group">
-          <div className="flex items-center gap-2 mb-3 ml-1">
-            <TruckIcon className="size-4 text-primary" />
-            <h3 className="text-xs font-bold uppercase text-primary/80">Ruta y Destino</h3>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-            <Controller
-              name="ruta"
-              control={control}
-              render={({ field }) => (
-                <Autocomplete
-                  defaultItems={routes as any[]}
-                  placeholder="Seleccionar ruta"
-                  onSelectionChange={(val) => handleRouteSelection(val ? String(routes.find((route: any) => route._id === val)?.name || "") : "")}
-                  selectedKey={(routes.find((route: any) => route.name === field.value)?._id as string) || null}
-                  variant="flat"
-                  color="primary"
-                  isDisabled={!canAssignResponsible}
-                >
-                  {(item: any) => (
-                    <AutocompleteItem key={item._id} textValue={item.name}>
-                      {item.name}
-                    </AutocompleteItem>
-                  )}
-                </Autocomplete>
-              )}
-            />
-            <Controller
-              name="destino"
-              control={control}
-              render={({ field }) => (
-                <Input
-                  label="Destino"
-                  placeholder="Destino de la ruta"
-                  variant="flat"
-                  value={field.value || ""}
-                  onValueChange={field.onChange}
-                  isDisabled={!canAssignResponsible}
-                />
-              )}
-            />
-            <Controller
-              name="responsable"
-              control={control}
-              render={({ field }) => (
-                <Input
-                  label="Responsable"
-                  placeholder="Nombre del responsable"
-                  variant="flat"
-                  value={field.value || ""}
-                  onValueChange={field.onChange}
-                  isDisabled={!canAssignResponsible}
-                  isInvalid={!!errors.responsable}
-                  errorMessage={errors.responsable?.message?.toString()}
-                />
-              )}
-            />
-          </div>
-        </div>
-      </div>
-
       <div className="bg-white p-3 rounded-xl border border-default-200 shadow-sm">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+        <div className="grid grid-cols-1 md:grid-cols-[minmax(0,1fr)_minmax(0,0.9fr)_minmax(0,0.8fr)_minmax(0,0.8fr)] gap-3">
+          <Input
+            label="Almacén"
+            value={selectedWarehouseName || "Bodega no seleccionada"}
+            isReadOnly
+            variant="bordered"
+            size="sm"
+            classNames={{ inputWrapper: "rounded-xl bg-default-50/60 min-h-10" }}
+            startContent={<BuildingStorefrontIcon className="size-4 text-primary" />}
+          />
           <Controller
             name="numeroCarga"
             control={control}
             render={({ field }) => (
               <Input
-                label="No. salida"
-                variant="flat"
-                value={field.value || ""}
+                label="Salida"
+                variant="bordered"
+                size="sm"
+                value={compactWarehouseFolio(field.value || "") || "Pendiente"}
                 onValueChange={field.onChange}
                 isReadOnly={!isSuperAdmin}
                 isDisabled={!isSuperAdmin}
                 description={!isEdit ? "Se genera al guardar" : undefined}
                 isInvalid={!!errors.numeroCarga}
                 errorMessage={errors.numeroCarga?.message?.toString()}
+                classNames={{ inputWrapper: "rounded-xl bg-default-50/60 min-h-10" }}
               />
             )}
           />
@@ -488,9 +535,11 @@ export function BodegaSalidaForm({
             render={({ field }) => (
               <Select
                 label="Estado"
-                variant="flat"
+                variant="bordered"
+                size="sm"
                 selectedKeys={field.value ? [field.value] : []}
                 onSelectionChange={(keys) => field.onChange(Array.from(keys)[0])}
+                classNames={{ trigger: "min-h-10 rounded-xl border-default-200 bg-default-50/60" }}
               >
                 {statusOptions.map((s) => (
                   <SelectItem key={s}>{s}</SelectItem>
@@ -505,12 +554,49 @@ export function BodegaSalidaForm({
               <Input
                 label="Fecha"
                 type="date"
-                variant="flat"
+                variant="bordered"
+                size="sm"
                 value={field.value || ""}
                 onValueChange={field.onChange}
                 isInvalid={!!errors.fecha}
                 errorMessage={errors.fecha?.message?.toString()}
+                classNames={{ inputWrapper: "rounded-xl bg-default-50/60 min-h-10" }}
               />
+            )}
+          />
+        </div>
+      </div>
+
+      <div className="bg-white p-3 rounded-xl border border-default-200 shadow-sm">
+        <div className="grid grid-cols-1 md:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)_minmax(0,0.8fr)_minmax(0,1fr)] gap-3">
+          <Controller
+            name="targetKey"
+            control={control}
+            render={({ field }) => (
+              <Select
+                label="Destinatario"
+                placeholder="Selecciona ruta interna, mayorista o minorista"
+                variant="bordered"
+                size="sm"
+                selectedKeys={field.value ? [field.value] : selectedTargetKey ? [selectedTargetKey] : []}
+                onSelectionChange={(keys) => {
+                  const targetKey = String(Array.from(keys)[0] || "");
+                  field.onChange(targetKey);
+                  applySelectedTarget(targetKey);
+                }}
+                classNames={{ trigger: "min-h-10 rounded-xl border-default-200 bg-default-50/60" }}
+              >
+                {targetOptions.map((option) => (
+                  <SelectItem key={option.key} textValue={option.label}>
+                    <div className="flex flex-col">
+                      <span className="font-semibold">{option.label}</span>
+                      <span className="text-tiny text-default-400">
+                        {option.type === "route" ? `Ruta interna • ${option.description}` : option.type === "wholesaler" ? `Mayorista • ${option.description}` : `Minorista • ${option.description}`}
+                      </span>
+                    </div>
+                  </SelectItem>
+                ))}
+              </Select>
             )}
           />
           <Controller
@@ -519,61 +605,89 @@ export function BodegaSalidaForm({
             render={({ field }) => (
               <Select
                 label="Tipo"
-                variant="flat"
+                variant="bordered"
+                size="sm"
                 selectedKeys={field.value ? [field.value] : []}
                 onSelectionChange={(keys) => field.onChange(Array.from(keys)[0])}
+                classNames={{ trigger: "min-h-10 rounded-xl border-default-200 bg-default-50/60" }}
               >
                 <SelectItem key="sucursal">Sucursal</SelectItem>
                 <SelectItem key="pedido">Pedido</SelectItem>
               </Select>
             )}
           />
-        </div>
-      </div>
-
-      <div className="bg-white p-3 rounded-xl border border-default-200 shadow-sm">
-        <div className="flex items-center gap-2 mb-3 ml-1">
-          <TruckIcon className="size-4 text-primary" />
-          <h3 className="text-xs font-bold uppercase text-primary/80">Cliente</h3>
-        </div>
-        <Controller
-          name="clientId"
-          control={control}
-          rules={{ required: "Selecciona un cliente" }}
-          render={({ field }) => (
-            <Select
-              label="Cliente"
-              placeholder={rawClients === undefined ? "Cargando clientes..." : "Selecciona un cliente"}
-              variant="flat"
-              selectedKeys={field.value ? [field.value] : []}
-              onSelectionChange={(keys) => {
-                const clientId = String(Array.from(keys)[0] || "");
-                field.onChange(clientId);
-                applySelectedClient(clientId);
-              }}
-              isLoading={rawClients === undefined}
-              isInvalid={!!errors.clientId}
-              errorMessage={errors.clientId?.message?.toString()}
-            >
-              {clients.map((client: any) => (
-                <SelectItem key={String(client._id)} textValue={client.commercialName || client.buyerName || "Cliente"}>
-                  <div className="flex flex-col">
-                    <span className="font-semibold">{client.commercialName || client.buyerName || "Cliente"}</span>
-                    <span className="text-tiny text-default-400">{String(client._id)}</span>
-                  </div>
-                </SelectItem>
-              ))}
-            </Select>
+          {showShippingSelector ? (
+            <Controller
+              name="shippingMode"
+              control={control}
+              render={({ field }) => (
+                <Select
+                  label="Envío"
+                  variant="bordered"
+                  size="sm"
+                  selectedKeys={field.value ? [field.value] : []}
+                  onSelectionChange={(keys) => {
+                    const nextValue = String(Array.from(keys)[0] || "pickup") as "delivery" | "pickup";
+                    field.onChange(nextValue);
+                    setValue("tipoEntrega", nextValue === "delivery" ? "pedido" : "sucursal");
+                  }}
+                  classNames={{ trigger: "min-h-10 rounded-xl border-default-200 bg-default-50/60" }}
+                >
+                  <SelectItem key="pickup">Sin envío</SelectItem>
+                  <SelectItem key="delivery">Con envío</SelectItem>
+                </Select>
+              )}
+            />
+          ) : (
+            <div className="rounded-xl border border-default-200 bg-default-50/60 px-3 py-2">
+              <p className="text-[10px] font-bold uppercase text-default-400">Envío</p>
+              <p className="mt-1 text-sm font-semibold text-default-700">No aplica</p>
+            </div>
           )}
-        />
+          <Controller
+            name="destino"
+            control={control}
+            render={({ field }) => (
+              <Input
+                label="Destino"
+                placeholder={isRetailTarget ? "No requerido para minorista" : "Destino"}
+                variant="bordered"
+                size="sm"
+                value={field.value || ""}
+                onValueChange={field.onChange}
+                isReadOnly={isRouteTarget || isWholesalerTarget}
+                classNames={{ inputWrapper: "rounded-xl bg-default-50/60 min-h-10" }}
+              />
+            )}
+          />
+          <Controller
+            name="responsable"
+            control={control}
+            render={({ field }) => (
+              <Input
+                label="Responsable"
+                placeholder="Nombre del responsable"
+                variant="bordered"
+                size="sm"
+                value={field.value || ""}
+                onValueChange={field.onChange}
+                isReadOnly={isRouteTarget || isWholesalerTarget}
+                isDisabled={!canAssignResponsible}
+                isInvalid={!!errors.responsable}
+                errorMessage={errors.responsable?.message?.toString()}
+                classNames={{ inputWrapper: "rounded-xl bg-default-50/60 min-h-10" }}
+              />
+            )}
+          />
+        </div>
         <div className="mt-2 grid gap-2 sm:grid-cols-2 text-tiny text-default-500">
           <div>
-            <span className="font-semibold text-default-700">Nombre snapshot:</span>{" "}
-            {selectedClient?.commercialName || selectedClient?.buyerName || watch("clienteNombre") || "Pendiente"}
+            <span className="font-semibold text-default-700">Destinatario:</span>{" "}
+            {selectedTarget?.label || watch("clienteNombre") || "Pendiente"}
           </div>
           <div>
-            <span className="font-semibold text-default-700">Código snapshot:</span>{" "}
-            {watch("clienteCodigo") || (selectedClient ? String(selectedClient._id) : "Pendiente")}
+            <span className="font-semibold text-default-700">Tipo:</span>{" "}
+            {isRouteTarget ? "Ruta interna" : isWholesalerTarget ? "Mayorista" : isRetailTarget ? "Minorista" : "Pendiente"}
           </div>
         </div>
       </div>
@@ -616,7 +730,7 @@ export function BodegaSalidaForm({
                         <span className={`px-2 py-0.5 rounded-full font-bold ${index === activeIndex ? "bg-white/20" : "bg-default-100"}`}>
                           Stock: {prod.stock}
                         </span>
-                        {isExternalRoute ? (
+                        {showPricingColumns ? (
                           <span className={`font-bold ${index === activeIndex ? "text-white" : "text-primary"}`}>
                             ${Number(prod.lista1 || 0).toFixed(2)}
                           </span>
@@ -657,16 +771,16 @@ export function BodegaSalidaForm({
           </Button>
         </div>
 
-        <div className="overflow-hidden rounded-xl border border-default-100">
+        <div className="max-h-[46vh] overflow-auto rounded-xl border border-default-100">
           <table className="w-full text-left text-sm text-foreground">
             <thead className="border-b border-default-100 bg-default-50 text-default-500">
               <tr>
                 <th className="px-4 py-3 font-semibold">SKU</th>
                 <th className="px-4 py-3 font-semibold">Descripción</th>
                 <th className="px-4 py-3 text-right font-semibold">Cant.</th>
-                <th className="px-4 py-3 text-right font-semibold">Precio unitario</th>
-                <th className="px-4 py-3 text-right font-semibold">Subtotal</th>
-                <th className="px-4 py-3 text-right font-semibold">Fuente</th>
+                {showPricingColumns ? <th className="px-4 py-3 text-right font-semibold">Precio unitario</th> : null}
+                {showPricingColumns ? <th className="px-4 py-3 text-right font-semibold">Subtotal</th> : null}
+                {showPricingColumns ? <th className="px-4 py-3 text-right font-semibold">Fuente</th> : null}
                 <th className="px-4 py-3 text-right font-semibold"></th>
               </tr>
             </thead>
@@ -689,13 +803,19 @@ export function BodegaSalidaForm({
                       }}
                     />
                   </td>
-                  <td className="px-4 py-3 text-right font-mono">${Number(prod.precio ?? prod.finalPrice ?? 0).toFixed(2)}</td>
-                  <td className="px-4 py-3 text-right font-mono font-bold text-primary">
-                    ${Number(prod.subtotal ?? Number(prod.precio ?? prod.finalPrice ?? 0) * Number(prod.cantidad || 0)).toFixed(2)}
-                  </td>
-                  <td className="px-4 py-3 text-right text-xs text-default-500">
-                    {prod.pricingSource || (Number(prod.pricingRuleVersion || 0) > 0 ? "dynamic" : "legacy")}
-                  </td>
+                  {showPricingColumns ? (
+                    <td className="px-4 py-3 text-right font-mono">${Number(prod.precio ?? prod.finalPrice ?? 0).toFixed(2)}</td>
+                  ) : null}
+                  {showPricingColumns ? (
+                    <td className="px-4 py-3 text-right font-mono font-bold text-primary">
+                      ${Number(prod.subtotal ?? Number(prod.precio ?? prod.finalPrice ?? 0) * Number(prod.cantidad || 0)).toFixed(2)}
+                    </td>
+                  ) : null}
+                  {showPricingColumns ? (
+                    <td className="px-4 py-3 text-right text-xs text-default-500">
+                      {prod.pricingSource || (Number(prod.pricingRuleVersion || 0) > 0 ? "dynamic" : "legacy")}
+                    </td>
+                  ) : null}
                   <td className="px-4 py-3 text-right">
                     <Button
                       isIconOnly
@@ -711,7 +831,7 @@ export function BodegaSalidaForm({
               ))}
               {formItems.length === 0 && (
                 <tr>
-                  <td colSpan={7} className="px-4 py-10 text-center text-default-400 italic">
+                  <td colSpan={showPricingColumns ? 7 : 4} className="px-4 py-10 text-center text-default-400 italic">
                     No hay productos agregados a la salida.
                   </td>
                 </tr>

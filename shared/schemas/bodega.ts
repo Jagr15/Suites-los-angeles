@@ -54,6 +54,8 @@ export const cargaBodegaSchema = z.object({
   almacen: z.string().optional(),
   bodegaId: z.string().optional(),
   clientId: z.string().optional(),
+  recipientType: z.enum(["route", "wholesaler", "retail"]).optional(),
+  shippingMode: z.enum(["delivery", "pickup"]).optional(),
 
   // Compatibilidad / productos
   tipoEntrega: z.enum(BODEGA_TIPO_ENTREGA_OPTIONS).default("sucursal"),

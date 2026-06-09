@@ -23,6 +23,8 @@ export const salidaFields = {
   numeroDocumento: v.optional(v.string()),
   ruta: v.optional(v.string()),
   destino: v.optional(v.string()),
+  recipientType: v.optional(v.string()),
+  shippingMode: v.optional(v.string()),
   
   items: v.array(
     v.object({

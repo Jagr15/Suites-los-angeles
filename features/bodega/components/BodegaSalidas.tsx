@@ -1,4 +1,5 @@
 "use client";
+/* eslint-disable @typescript-eslint/no-explicit-any */
 
 import { useState, useMemo, useEffect } from "react";
 import { addToast } from "@heroui/react";
@@ -26,7 +27,7 @@ import {
     CheckIcon,
     XMarkIcon
 } from "@heroicons/react/24/outline";
-import { useMutation } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import type { SalidaRow } from "@/shared/mocks";
 
@@ -45,6 +46,7 @@ const FILTERS = [
 ];
 
 const STATUS_OPTIONS = FILTERS.filter(f => f.key !== "todos").map(f => f.label);
+const BASE_FLOW = ["Creado", "Surtido", "Revisado", "Empacado", "En Tarima", "Completado"] as const;
 
 const columns = [
     { key: "numeroSalida", label: "No Salida" },
@@ -82,6 +84,50 @@ export function BodegaSalidas({ items: initialItems, onAgregar, onEditar, onBorr
     const [editForm, setEditForm] = useState<Partial<SalidaRow>>({});
 
     const updateSalida = useMutation(api.salidas.mutations.update);
+    const clients = useQuery(api.clients.queries.list) || [];
+    const routes = useQuery(api.routes.queries.list) || [];
+
+    const resolveProcessConfig = (item: any) => {
+        const client = clients.find((candidate: any) => String(candidate._id) === String(item.clientId));
+        const route = routes.find((candidate: any) => String(candidate.name || "").trim() === String(item.ruta || "").trim());
+        const recipientType = item.recipientType
+            || (route ? "route" : client?.clientType === "retail" ? "retail" : client?.clientType === "wholesaler" ? "wholesaler" : undefined)
+            || (item.ruta ? "route" : "wholesaler");
+        const shippingMode = item.shippingMode
+            || (recipientType === "route" ? (route?.deliveryType === "envio" ? "delivery" : "pickup") : undefined)
+            || (recipientType === "wholesaler" ? (client?.tipoEntrega === "delivery" ? "delivery" : "pickup") : undefined)
+            || ((item.tipoEntrega || "") === "pedido" ? "delivery" : "pickup");
+
+        return {
+            recipientType,
+            shippingMode,
+        };
+    };
+
+    const getFlowForItem = (item: any) => {
+        const config = resolveProcessConfig(item);
+        if (config.recipientType === "retail") {
+            return ["Creado", "Entregado"];
+        }
+        if (config.shippingMode === "delivery") {
+            return [...BASE_FLOW, "Enviado", "Entregado"];
+        }
+        return [...BASE_FLOW, "Entregado"];
+    };
+
+    const getNextStatusForItem = (item: any) => {
+        const config = resolveProcessConfig(item);
+        if (config.recipientType === "retail") {
+            return item.status === "Entregado" ? null : "Entregado";
+        }
+        const flow = getFlowForItem(item);
+        const currentIndex = flow.indexOf(item.status);
+        if (currentIndex === -1) {
+            if (item.status === "Listo para surtir") return "Surtido";
+            return flow[0] || null;
+        }
+        return currentIndex < flow.length - 1 ? flow[currentIndex + 1] : null;
+    };
 
     // Sincronizar con cambios externos
     useEffect(() => {
@@ -140,18 +186,7 @@ export function BodegaSalidas({ items: initialItems, onAgregar, onEditar, onBorr
     };
 
     const handleAvanzarEstado = async (item: SalidaRow) => {
-        let nextStatus: string | null = null;
-        
-        if (item.tipo === "venta") {
-            if (item.status === "Creado") {
-                nextStatus = "Entregado";
-            }
-        } else {
-            const currentIndex = STATUS_OPTIONS.indexOf(item.status);
-            if (currentIndex < STATUS_OPTIONS.length - 1) {
-                nextStatus = STATUS_OPTIONS[currentIndex + 1];
-            }
-        }
+        const nextStatus = getNextStatusForItem(item as any);
 
         if (nextStatus) {
             try {
@@ -180,6 +215,8 @@ export function BodegaSalidas({ items: initialItems, onAgregar, onEditar, onBorr
                     numeroDocumento: (item as any).numeroDocumento,
                     ruta: (item as any).ruta,
                     destino: (item as any).destino,
+                    recipientType: (item as any).recipientType,
+                    shippingMode: (item as any).shippingMode,
                 });
 
                 addToast({
@@ -197,11 +234,11 @@ export function BodegaSalidas({ items: initialItems, onAgregar, onEditar, onBorr
         let result = localItems || [];
 
         if (envioType === "sin") {
-            result = result.filter(item => item.status !== "Enviado" && item.status !== "Entregado");
+            result = result.filter(item => resolveProcessConfig(item as any).shippingMode === "pickup");
         } else if (envioType === "con") {
-            result = result.filter(item => item.status === "Enviado" || item.status === "Entregado");
+            result = result.filter(item => resolveProcessConfig(item as any).shippingMode === "delivery");
         } else if (envioType === "minorista") {
-            result = result.filter(item => item.tipo === "venta");
+            result = result.filter(item => resolveProcessConfig(item as any).recipientType === "retail");
         }
 
         if (activeFilter !== "todos") {
@@ -361,7 +398,7 @@ export function BodegaSalidas({ items: initialItems, onAgregar, onEditar, onBorr
                                                 onChange={(e) => setEditForm({ ...editForm, status: e.target.value as any })}
                                                 onClick={(e) => e.stopPropagation()}
                                             >
-                                                {(item.tipo === "venta" ? ["Creado", "Entregado"] : STATUS_OPTIONS).map(s => <option key={s} value={s}>{s}</option>)}
+                                                {getFlowForItem(item as any).map(s => <option key={s} value={s}>{s}</option>)}
                                             </select>
                                         ) : (
                                             <Chip
@@ -393,8 +430,8 @@ export function BodegaSalidas({ items: initialItems, onAgregar, onEditar, onBorr
                                                 </>
                                             ) : (
                                                 <>
-                                                    {(item.status !== "Entregado") && (item.tipo !== "venta" || item.status === "Creado") && (
-                                                        <Tooltip content="Avanzar Estado">
+                                                    {item.status !== "Entregado" && (
+                                                        <Tooltip content={item.status === "Creado" ? "Listo para surtir" : "Avanzar estado"}>
                                                             <Button
                                                                 isIconOnly
                                                                 size="sm"
