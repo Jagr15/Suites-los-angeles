@@ -1,7 +1,7 @@
 "use client";
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { addToast } from "@heroui/react";
 import {
     Table,
@@ -22,7 +22,6 @@ import {
     PlusIcon,
     MagnifyingGlassIcon,
     FunnelIcon,
-    PencilSquareIcon,
     TrashIcon,
     CheckIcon,
     XMarkIcon
@@ -45,25 +44,51 @@ const FILTERS = [
     { key: "entregado", label: "Entregado", color: "default" as const },
 ];
 
-const STATUS_OPTIONS = FILTERS.filter(f => f.key !== "todos").map(f => f.label);
 const BASE_FLOW = ["Creado", "Surtido", "Revisado", "Empacado", "En Tarima", "Completado"] as const;
+const DELIVERY_FLOW = [...BASE_FLOW, "Enviado", "Entregado"] as const;
+const PICKUP_FLOW = [...BASE_FLOW, "Entregado"] as const;
+const RETAIL_FLOW = ["Creado", "Entregado"] as const;
+
+function trimStatus(status?: string) {
+    return String(status || "").trim();
+}
+
+function normalizeStatusForFlow(status?: string) {
+    const normalized = trimStatus(status);
+    if (normalized === "Listo para surtir") return "Creado";
+    if (normalized === "Listo para checar") return "Revisado";
+    if (normalized === "Listo para empacar") return "Empacado";
+    if (normalized === "Listo para entregar") return "Completado";
+    if (normalized === "Listo para enviar") return "Completado";
+    if (normalized === "En Camino") return "Enviado";
+    return normalized;
+}
 
 const columns = [
-    { key: "numeroSalida", label: "No Salida" },
-    { key: "responsable", label: "Responsable" },
-    { key: "lugarRuta", label: "Lugar/Ruta" },
-    { key: "fecha", label: "Fecha" },
-    { key: "status", label: "Estado" },
-    { key: "valor", label: "Productos / Total" },
-    { key: "actions", label: "Acciones" },
+    { key: "numeroSalida", label: "No Salida", width: "w-[120px]" },
+    { key: "responsable", label: "Responsable", width: "w-[190px]" },
+    { key: "lugarRuta", label: "Lugar/Ruta", width: "w-[170px]" },
+    { key: "fecha", label: "Fecha", width: "w-[120px]" },
+    { key: "status", label: "Estado", width: "w-[140px]" },
+    { key: "valor", label: "Productos / Total", width: "w-[180px]" },
+    { key: "actions", label: "Acciones", width: "w-[160px]" },
 ];
 
 function statusColor(status: string): "success" | "warning" | "danger" | "primary" | "default" {
-    if (status === "Creado") return "danger";
-    if (status === "Surtido" || status === "Revisado" || status === "Empacado") return "warning";
-    if (status === "En Tarima" || status === "Completado") return "success";
-    if (status === "Enviado" || status === "Entregado") return "default";
+    const normalized = normalizeStatusForFlow(status);
+    if (normalized === "Creado") return "danger";
+    if (normalized === "Surtido" || normalized === "Revisado" || normalized === "Empacado") return "warning";
+    if (normalized === "En Tarima" || normalized === "Completado") return "success";
+    if (normalized === "Enviado" || normalized === "Entregado") return "default";
     return "default";
+}
+
+function getDisplayStatus(status?: string) {
+    return trimStatus(status) || "Creado";
+}
+
+function getComparableStatus(status?: string) {
+    return normalizeStatusForFlow(status);
 }
 
 type BodegaSalidasProps = {
@@ -71,15 +96,13 @@ type BodegaSalidasProps = {
     onAgregar?: () => void;
     onEditar?: (item: SalidaRow) => void;
     onBorrar?: (item: SalidaRow) => void;
-    onVer?: (item: SalidaRow) => void;
     canDelete?: boolean;
 };
 
-export function BodegaSalidas({ items: initialItems, onAgregar, onEditar, onBorrar, onVer, canDelete = true }: BodegaSalidasProps) {
+export function BodegaSalidas({ items: initialItems, onAgregar, onEditar, onBorrar, canDelete = true }: BodegaSalidasProps) {
     const [page, setPage] = useState(1);
     const [activeFilter, setActiveFilter] = useState("todos");
     const [envioType, setEnvioType] = useState<"todos" | "sin" | "con" | "minorista">("todos");
-    const [localItems, setLocalItems] = useState(initialItems);
     const [editingId, setEditingId] = useState<string | null>(null);
     const [editForm, setEditForm] = useState<Partial<SalidaRow>>({});
 
@@ -87,62 +110,87 @@ export function BodegaSalidas({ items: initialItems, onAgregar, onEditar, onBorr
     const clients = useQuery(api.clients.queries.list) || [];
     const routes = useQuery(api.routes.queries.list) || [];
 
-    const resolveProcessConfig = (item: any) => {
+    const resolveProcessConfig = useCallback((item: any) => {
         const client = clients.find((candidate: any) => String(candidate._id) === String(item.clientId));
-        const route = routes.find((candidate: any) => String(candidate.name || "").trim() === String(item.ruta || "").trim());
-        const recipientType = item.recipientType
-            || (route ? "route" : client?.clientType === "retail" ? "retail" : client?.clientType === "wholesaler" ? "wholesaler" : undefined)
-            || (item.ruta ? "route" : "wholesaler");
-        const shippingMode = item.shippingMode
-            || (recipientType === "route" ? (route?.deliveryType === "envio" ? "delivery" : "pickup") : undefined)
-            || (recipientType === "wholesaler" ? (client?.tipoEntrega === "delivery" ? "delivery" : "pickup") : undefined)
-            || ((item.tipoEntrega || "") === "pedido" ? "delivery" : "pickup");
+        const route = routes.find((candidate: any) =>
+            String(candidate._id || "").trim() === String(item.rutaId || item.routeId || "").trim()
+            || String(candidate.name || "").trim() === String(item.ruta || "").trim()
+        );
+        const explicitRecipient = trimStatus(item.recipientType);
+        const inferredRecipientType =
+            explicitRecipient === "route" || explicitRecipient === "wholesaler" || explicitRecipient === "retail"
+                ? explicitRecipient
+                : route
+                    ? "route"
+                    : client?.clientType === "wholesaler"
+                        ? "wholesaler"
+                        : client?.clientType === "retail"
+                            ? "retail"
+                            : "unknown";
+        const explicitShippingMode = trimStatus(item.shippingMode);
+        const inferredShippingMode =
+            explicitShippingMode === "delivery" || explicitShippingMode === "pickup"
+                ? explicitShippingMode
+                : inferredRecipientType === "route"
+                    ? (route?.deliveryType === "envio" ? "delivery" : "pickup")
+                    : inferredRecipientType === "wholesaler"
+                        ? (client?.tipoEntrega === "delivery" ? "delivery" : "pickup")
+                        : (item.tipoEntrega || "") === "pedido"
+                            ? "delivery"
+                            : undefined;
 
         return {
-            recipientType,
-            shippingMode,
+            recipientType: inferredRecipientType,
+            shippingMode: inferredShippingMode,
         };
-    };
+    }, [clients, routes]);
 
     const getFlowForItem = (item: any) => {
         const config = resolveProcessConfig(item);
         if (config.recipientType === "retail") {
-            return ["Creado", "Entregado"];
+            return RETAIL_FLOW;
         }
-        if (config.shippingMode === "delivery") {
-            return [...BASE_FLOW, "Enviado", "Entregado"];
+        if (config.recipientType === "route" || config.recipientType === "wholesaler") {
+            return config.shippingMode === "delivery" ? DELIVERY_FLOW : PICKUP_FLOW;
         }
-        return [...BASE_FLOW, "Entregado"];
+        return PICKUP_FLOW;
     };
 
     const getNextStatusForItem = (item: any) => {
         const config = resolveProcessConfig(item);
+        const currentStatus = getComparableStatus(item.status);
         if (config.recipientType === "retail") {
-            return item.status === "Entregado" ? null : "Entregado";
+            return currentStatus === "Entregado" ? null : "Entregado";
         }
-        const flow = getFlowForItem(item);
-        const currentIndex = flow.indexOf(item.status);
+        const flow = getFlowForItem(item) as readonly string[];
+        const currentIndex = flow.indexOf(currentStatus);
         if (currentIndex === -1) {
-            if (item.status === "Listo para surtir") return "Surtido";
+            if (config.recipientType === "unknown") {
+                return null;
+            }
             return flow[0] || null;
         }
         return currentIndex < flow.length - 1 ? flow[currentIndex + 1] : null;
     };
 
-    // Sincronizar con cambios externos
-    useEffect(() => {
-        setLocalItems(initialItems);
-    }, [initialItems]);
-
     const handleSaveInline = async () => {
         if (!editingId) return;
-        const itemToUpdate = localItems.find(p => p.id === editingId);
+        const itemToUpdate = initialItems.find(p => p.id === editingId);
         if (!itemToUpdate) return;
 
         try {
             const cleanItem = { ...itemToUpdate, ...editForm };
-            // @ts-ignore - Convex IDs and extra fields
+            const resolvedConfig = resolveProcessConfig(cleanItem as any);
             const id = (itemToUpdate as any)._id || itemToUpdate.id;
+            const nextRecipientType =
+                (cleanItem as any).recipientType
+                || (itemToUpdate as any).recipientType
+                || (resolvedConfig.recipientType !== "unknown" ? resolvedConfig.recipientType : undefined);
+            const nextShippingMode =
+                (cleanItem as any).shippingMode
+                || (itemToUpdate as any).shippingMode
+                || resolvedConfig.shippingMode
+                || undefined;
 
             await updateSalida({
                 id: id as any,
@@ -166,6 +214,8 @@ export function BodegaSalidas({ items: initialItems, onAgregar, onEditar, onBorr
                 numeroDocumento: (cleanItem as any).numeroDocumento,
                 ruta: (cleanItem as any).ruta,
                 destino: (cleanItem as any).destino,
+                recipientType: nextRecipientType === "unknown" ? undefined : nextRecipientType,
+                shippingMode: nextShippingMode,
             });
 
             setEditingId(null);
@@ -175,7 +225,7 @@ export function BodegaSalidas({ items: initialItems, onAgregar, onEditar, onBorr
                 description: "Los cambios se guardaron correctamente.",
                 color: "success" 
             });
-        } catch (error) {
+        } catch {
             addToast({ title: "Error", description: "No se pudo actualizar la salida", color: "danger" });
         }
     };
@@ -190,8 +240,15 @@ export function BodegaSalidas({ items: initialItems, onAgregar, onEditar, onBorr
 
         if (nextStatus) {
             try {
-                // @ts-ignore
+                const resolvedConfig = resolveProcessConfig(item as any);
                 const id = (item as any)._id || item.id;
+                const nextRecipientType =
+                    (item as any).recipientType
+                    || resolvedConfig.recipientType;
+                const nextShippingMode =
+                    (item as any).shippingMode
+                    || resolvedConfig.shippingMode
+                    || undefined;
                 
                 await updateSalida({
                     id: id as any,
@@ -215,8 +272,8 @@ export function BodegaSalidas({ items: initialItems, onAgregar, onEditar, onBorr
                     numeroDocumento: (item as any).numeroDocumento,
                     ruta: (item as any).ruta,
                     destino: (item as any).destino,
-                    recipientType: (item as any).recipientType,
-                    shippingMode: (item as any).shippingMode,
+                    recipientType: nextRecipientType === "unknown" ? undefined : nextRecipientType,
+                    shippingMode: nextShippingMode,
                 });
 
                 addToast({
@@ -224,17 +281,26 @@ export function BodegaSalidas({ items: initialItems, onAgregar, onEditar, onBorr
                     description: `La salida ${item.numeroSalida} pasó a: ${nextStatus}`,
                     color: "success"
                 });
-            } catch (error) {
+            } catch {
                 addToast({ title: "Error", description: "No se pudo actualizar el estado", color: "danger" });
             }
+        } else if (resolveProcessConfig(item as any).recipientType === "unknown") {
+            addToast({
+                title: "No se pudo avanzar",
+                description: "No se pudo inferir el tipo de destinatario. Edita la salida antes de avanzar.",
+                color: "warning",
+            });
         }
     };
 
     const filteredItems = useMemo(() => {
-        let result = localItems || [];
+        let result = initialItems || [];
 
         if (envioType === "sin") {
-            result = result.filter(item => resolveProcessConfig(item as any).shippingMode === "pickup");
+            result = result.filter(item => {
+                const config = resolveProcessConfig(item as any);
+                return config.recipientType !== "retail" && config.shippingMode === "pickup";
+            });
         } else if (envioType === "con") {
             result = result.filter(item => resolveProcessConfig(item as any).shippingMode === "delivery");
         } else if (envioType === "minorista") {
@@ -243,11 +309,11 @@ export function BodegaSalidas({ items: initialItems, onAgregar, onEditar, onBorr
 
         if (activeFilter !== "todos") {
             const filter = FILTERS.find(f => f.key === activeFilter);
-            result = result.filter(item => item.status === filter?.label);
+            result = result.filter(item => getComparableStatus(item.status) === filter?.label);
         }
 
         return result;
-    }, [localItems, activeFilter, envioType]);
+    }, [initialItems, activeFilter, envioType, resolveProcessConfig]);
 
     const paginatedRows = useMemo(() => {
         const start = (page - 1) * ROWS_PER_PAGE;
@@ -319,13 +385,20 @@ export function BodegaSalidas({ items: initialItems, onAgregar, onEditar, onBorr
             </div>
 
             <div className="bg-white rounded-3xl border border-default-100 overflow-hidden shadow-sm">
-                <Table aria-label="Tabla de salidas" shadow="none" removeWrapper className="bg-transparent">
+                <div className="overflow-x-auto">
+                <Table
+                    aria-label="Tabla de salidas"
+                    shadow="none"
+                    removeWrapper
+                    className="min-w-[1120px] bg-transparent table-fixed"
+                    classNames={{ wrapper: "bg-transparent" }}
+                >
                     <TableHeader>
                         {columns.map((column) => (
                             <TableColumn
                                 key={column.key}
-                                className="bg-default-50 text-default-500 font-semibold uppercase tracking-wider h-11 text-xs px-6"
-                                align={column.key === "actions" ? "end" : "start"}
+                                className={`${column.width} bg-default-50 text-default-500 font-semibold uppercase tracking-wider h-11 text-xs px-4 ${column.key === "actions" ? "text-center" : "text-left"}`}
+                                align={column.key === "actions" ? "center" : "start"}
                             >
                                 {column.label}
                             </TableColumn>
@@ -334,13 +407,19 @@ export function BodegaSalidas({ items: initialItems, onAgregar, onEditar, onBorr
                     <TableBody items={paginatedRows} emptyContent="No hay registros registrados.">
                         {(item: SalidaRow) => {
                             const isEditing = editingId === item.id;
+                            const displayStatus = getDisplayStatus(item.status);
+                            const flow = getFlowForItem(item as any) as readonly string[];
+                            const statusOptionsForRow = [
+                                ...flow,
+                                ...(displayStatus && !flow.includes(displayStatus) ? [displayStatus] : []),
+                            ];
                             return (
                                 <TableRow 
                                     key={(item as any)._id || item.id} 
                                     className={`border-b border-default-50 last:border-0 transition-colors h-14 ${isEditing ? "bg-primary/5" : "hover:bg-default-50/50 cursor-pointer"}`}
                                     onClick={() => onEditar?.(item)}
                                 >
-                                    <TableCell className="px-6">
+                                    <TableCell className="px-4 whitespace-nowrap">
                                         <Button
                                             size="sm"
                                             variant="light"
@@ -353,72 +432,72 @@ export function BodegaSalidas({ items: initialItems, onAgregar, onEditar, onBorr
                                             {item.numeroSalida}
                                         </Button>
                                     </TableCell>
-                                    <TableCell className="px-6">
+                                    <TableCell className="px-4 max-w-[190px]">
                                         {isEditing ? (
                                             <input
                                                 autoFocus
-                                                className="w-full text-sm font-semibold bg-white border border-primary/30 rounded px-2 py-1 outline-none focus:border-primary shadow-sm"
+                                                className="w-full min-w-0 text-sm font-semibold bg-white border border-primary/30 rounded px-2 py-1 outline-none focus:border-primary shadow-sm"
                                                 value={editForm.responsable || ""}
                                                 onChange={(e) => setEditForm({ ...editForm, responsable: e.target.value })}
                                                 onClick={(e) => e.stopPropagation()}
                                             />
                                         ) : (
-                                            <span className="font-semibold text-foreground text-sm cursor-text">{item.responsable}</span>
+                                            <span className="block truncate font-semibold text-foreground text-sm cursor-text">{item.responsable}</span>
                                         )}
                                     </TableCell>
-                                    <TableCell className="px-6">
+                                    <TableCell className="px-4 max-w-[170px]">
                                         {isEditing ? (
                                             <input
-                                                className="w-full text-sm bg-white border border-primary/30 rounded px-2 py-1 outline-none focus:border-primary shadow-sm"
+                                                className="w-full min-w-0 text-sm bg-white border border-primary/30 rounded px-2 py-1 outline-none focus:border-primary shadow-sm"
                                                 value={editForm.lugarRuta || ""}
                                                 onChange={(e) => setEditForm({ ...editForm, lugarRuta: e.target.value })}
                                                 onClick={(e) => e.stopPropagation()}
                                             />
                                         ) : (
-                                            <span className="text-default-500 text-sm font-normal cursor-text">{item.lugarRuta}</span>
+                                            <span className="block truncate text-default-500 text-sm font-normal cursor-text">{item.lugarRuta}</span>
                                         )}
                                     </TableCell>
-                                    <TableCell className="px-6">
+                                    <TableCell className="px-4 whitespace-nowrap">
                                         {isEditing ? (
                                             <input
-                                                className="w-full text-sm bg-white border border-primary/30 rounded px-2 py-1 outline-none focus:border-primary shadow-sm"
+                                                className="w-full min-w-0 text-sm bg-white border border-primary/30 rounded px-2 py-1 outline-none focus:border-primary shadow-sm"
                                                 value={editForm.fecha || ""}
                                                 onChange={(e) => setEditForm({ ...editForm, fecha: e.target.value })}
                                                 onClick={(e) => e.stopPropagation()}
                                             />
                                         ) : (
-                                            <span className="text-default-500 text-sm font-normal cursor-text">{item.fecha}</span>
+                                            <span className="block text-default-500 text-sm font-normal cursor-text">{item.fecha}</span>
                                         )}
                                     </TableCell>
-                                    <TableCell className="px-6">
+                                    <TableCell className="px-4">
                                         {isEditing ? (
                                             <select
                                                 className="w-full text-xs font-bold uppercase tracking-tighter bg-white border border-primary/30 rounded px-1 py-1 outline-none focus:border-primary shadow-sm"
-                                                value={editForm.status}
+                                                value={editForm.status || displayStatus}
                                                 onChange={(e) => setEditForm({ ...editForm, status: e.target.value as any })}
                                                 onClick={(e) => e.stopPropagation()}
                                             >
-                                                {getFlowForItem(item as any).map(s => <option key={s} value={s}>{s}</option>)}
+                                                {statusOptionsForRow.map(s => <option key={s} value={s}>{s}</option>)}
                                             </select>
                                         ) : (
                                             <Chip
                                                 size="sm"
                                                 variant="flat"
-                                                color={statusColor(item.status)}
+                                                color={statusColor(displayStatus)}
                                                 className="font-bold uppercase tracking-tighter text-[10px] h-6"
                                             >
-                                                {item.status}
+                                                {displayStatus}
                                             </Chip>
                                         )}
                                     </TableCell>
-                                    <TableCell className="px-6">
+                                    <TableCell className="px-4 whitespace-nowrap">
                                         <span className="font-semibold text-foreground text-sm">
                                             <span className="text-default-400 mr-1 text-xs">$</span>
                                             {((item as any).totalAmount || (item as any).valor || 0).toLocaleString("en-US", { minimumFractionDigits: 2 })}
                                         </span>
                                     </TableCell>
-                                    <TableCell className="text-end px-6">
-                                        <div className="flex items-center justify-end gap-1">
+                                    <TableCell className="px-4">
+                                        <div className="flex items-center justify-center gap-1 min-w-[128px]">
                                             {isEditing ? (
                                                 <>
                                                     <Button isIconOnly size="sm" variant="flat" color="success" onPress={handleSaveInline}>
@@ -430,8 +509,8 @@ export function BodegaSalidas({ items: initialItems, onAgregar, onEditar, onBorr
                                                 </>
                                             ) : (
                                                 <>
-                                                    {item.status !== "Entregado" && (
-                                                        <Tooltip content={item.status === "Creado" ? "Listo para surtir" : "Avanzar estado"}>
+                                                    {displayStatus !== "Entregado" && (
+                                                        <Tooltip content={displayStatus === "Creado" ? "Listo para surtir" : "Avanzar estado"}>
                                                             <Button
                                                                 isIconOnly
                                                                 size="sm"
@@ -472,6 +551,7 @@ export function BodegaSalidas({ items: initialItems, onAgregar, onEditar, onBorr
                         }}
                     </TableBody>
                 </Table>
+                </div>
 
                 {totalPages > 1 && (
                     <div className="p-4 flex justify-center border-t border-default-50 bg-default-50/30">

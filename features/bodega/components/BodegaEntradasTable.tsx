@@ -15,6 +15,13 @@ import {
 import { EyeIcon, PencilSquareIcon, TrashIcon, ArrowRightCircleIcon, CheckIcon } from "@heroicons/react/24/outline";
 import type { BodegaRow } from "@/shared/mocks";
 
+type BodegaEntradaItem = BodegaRow & {
+  _id: string;
+  supplierName?: string;
+  date?: string;
+  totalAmount?: number;
+};
+
 const ROWS_PER_PAGE = 8;
 
 const columns = [
@@ -28,12 +35,12 @@ const columns = [
 ];
 
 type BodegaEntradasTableProps = {
-  items: BodegaRow[];
-  onVer?: (item: BodegaRow) => void;
-  onEditar?: (item: BodegaRow) => void;
-  onBorrar?: (item: BodegaRow) => void;
-  onPasarASalida?: (item: BodegaRow) => void;
-  onAvanzarEstado?: (item: BodegaRow) => void;
+  items: BodegaEntradaItem[];
+  onVer?: (item: BodegaEntradaItem) => void;
+  onEditar?: (item: BodegaEntradaItem) => void;
+  onBorrar?: (item: BodegaEntradaItem) => void;
+  onPasarASalida?: (item: BodegaEntradaItem) => void;
+  onAvanzarEstado?: (item: BodegaEntradaItem) => void;
   canDelete?: boolean;
 };
 
@@ -70,7 +77,7 @@ export function BodegaEntradasTable({
             ))}
           </TableHeader>
           <TableBody items={paginatedRows} emptyContent="No hay registros registrados.">
-            {(item: any) => (
+            {(item) => (
               <TableRow key={item._id} className="border-b border-default-50 last:border-0 hover:bg-default-50/50 transition-colors h-10">
                 <TableCell className="font-semibold text-primary text-sm">
                   {item.folio || `ENT-${item._id.toString().slice(-4)}`}

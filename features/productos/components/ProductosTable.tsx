@@ -1,7 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { useState, useMemo } from "react";
+import { useMemo, useState } from "react";
 import {
   Table,
   TableHeader,
@@ -14,11 +14,14 @@ import {
   Button,
   Tooltip,
   Input,
+  Select,
+  SelectItem,
 } from "@heroui/react";
 import { EyeIcon, PencilSquareIcon, TrashIcon } from "@heroicons/react/24/outline";
 import { Product } from "../hooks/use-products";
 
-const ROWS_PER_PAGE = 6;
+const ROWS_PER_PAGE_OPTIONS = [10, 15, 20, 25, 30, 50] as const;
+const DEFAULT_ROWS_PER_PAGE = 15;
 
 const getColumnsForTab = (tab: string) => {
   return [
@@ -53,10 +56,18 @@ export function ProductosTable({ productos: rows, onVer, onEditar, onBorrar, onP
   ], [activeTab]);
 
   const [page, setPage] = useState(1);
+  const [rowsPerPage, setRowsPerPage] = useState(DEFAULT_ROWS_PER_PAGE);
+  const totalRows = rows.length;
+  const totalPages = Math.max(1, Math.ceil(totalRows / rowsPerPage));
+  const currentPage = Math.min(page, totalPages);
+
   const paginatedRows = useMemo(() => {
-    const start = (page - 1) * ROWS_PER_PAGE;
-    return rows.slice(start, start + ROWS_PER_PAGE);
-  }, [rows, page]);
+    const start = (currentPage - 1) * rowsPerPage;
+    return rows.slice(start, start + rowsPerPage);
+  }, [rows, currentPage, rowsPerPage]);
+
+  const startItem = totalRows === 0 ? 0 : (currentPage - 1) * rowsPerPage + 1;
+  const endItem = totalRows === 0 ? 0 : Math.min(currentPage * rowsPerPage, totalRows);
 
   const handleVer = (item: Product) => {
     onVer?.(item);
@@ -67,14 +78,53 @@ export function ProductosTable({ productos: rows, onVer, onEditar, onBorrar, onP
   const handleBorrar = (item: Product) => {
     onBorrar?.(item);
   };
-  const totalPages = Math.ceil(rows.length / ROWS_PER_PAGE);
-
   return (
-    <div className="flex flex-col gap-4">
-      <div className="w-full overflow-x-auto rounded-2xl">
+    <div className="flex flex-col gap-4 rounded-2xl border border-default-100 bg-content1 p-4 shadow-sm">
+      <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+        <div className="flex flex-col gap-1">
+          <p className="text-sm font-semibold text-foreground">
+            {totalRows} productos encontrados
+          </p>
+          <p className="text-xs text-default-500">
+            Mostrando {startItem}-{endItem} de {totalRows}
+          </p>
+        </div>
+
+        <div className="w-full md:w-56">
+          <Select
+            label="Mostrar"
+            size="sm"
+            variant="bordered"
+            selectedKeys={[String(rowsPerPage)]}
+            onSelectionChange={(keys) => {
+              const next = Number(Array.from(keys)[0]);
+              if (!Number.isFinite(next)) return;
+              setRowsPerPage(next);
+              setPage(1);
+            }}
+            classNames={{
+              trigger: "h-11",
+              value: "font-semibold",
+            }}
+          >
+            {ROWS_PER_PAGE_OPTIONS.map((option) => (
+              <SelectItem key={String(option)} textValue={String(option)}>
+                {option}
+              </SelectItem>
+            ))}
+          </Select>
+        </div>
+      </div>
+
+      <div className="w-full overflow-x-auto rounded-2xl border border-default-100">
         <Table
           aria-label="Tabla de productos"
-          classNames={{ wrapper: "shadow-sm min-w-[1360px]" }}
+          removeWrapper
+          shadow="none"
+          className="min-w-[1520px] bg-transparent"
+          classNames={{
+            wrapper: "bg-transparent",
+          }}
         >
           <TableHeader columns={columns}>
             {(column) => (
@@ -85,15 +135,15 @@ export function ProductosTable({ productos: rows, onVer, onEditar, onBorrar, onP
                   column.key.startsWith("lista") || column.key === "actions" ? "end" : "start"
                 }
                 className={
-                  column.key === "sku" ? "w-[120px]" :
+                  `${column.key === "sku" ? "w-[120px]" :
                   column.key === "codigo" ? "w-[120px]" :
                   column.key === "producto" ? "w-[260px]" :
-                  column.key === "cantidadEmpaque" ? "w-[110px]" :
+                  column.key === "cantidadEmpaque" ? "w-[120px]" :
                   column.key === "categoria" ? "w-[180px]" :
                   column.key === "subcategoria" ? "w-[180px]" :
                   column.key === "status" ? "w-[120px]" :
-                  column.key.startsWith("lista") ? "w-[132px]" :
-                  "w-[140px]"
+                  column.key.startsWith("lista") ? "w-[150px]" :
+                  "w-[140px]"} h-11 bg-default-50 text-[11px] font-semibold uppercase tracking-wider text-default-500`.trim()
                 }
               >
                 {column.label}
@@ -102,7 +152,7 @@ export function ProductosTable({ productos: rows, onVer, onEditar, onBorrar, onP
           </TableHeader>
           <TableBody items={paginatedRows} emptyContent="No hay productos.">
             {(item) => (
-              <TableRow key={item.id}>
+              <TableRow key={item.id} className="h-12 border-b border-default-50 hover:bg-default-50/60 transition-colors">
                 {(columnKey) => {
                   const colKeyStr = columnKey as string;
                   let cellContent;
@@ -141,17 +191,16 @@ export function ProductosTable({ productos: rows, onVer, onEditar, onBorrar, onP
                     const numericValue = typeof rawValue === "string" ? rawValue.replace("$", "") : rawValue;
                     
                     cellContent = (
-                      <Input 
-                        size="sm" 
+                      <Input
                         type="number"
                         step="0.01"
                         value={numericValue} 
                         onValueChange={(v) => onPriceChange?.(item.id, colKeyStr, v)} 
-                        classNames={{ 
-                          base: "w-full min-w-[116px]",
-                          inputWrapper: "min-h-10 h-10 min-w-[116px] px-2",
-                          input: "text-end text-sm tabular-nums",
-                        }} 
+                        classNames={{
+                          base: "w-full min-w-[140px]",
+                          inputWrapper: "min-h-11 h-11 min-w-[140px] px-3",
+                          input: "text-end text-sm font-medium tabular-nums",
+                        }}
                         aria-label={label}
                         startContent={<span className="text-default-400 text-[10px] shrink-0">$</span>}
                         isDisabled={!canEditPrices}
@@ -165,12 +214,12 @@ export function ProductosTable({ productos: rows, onVer, onEditar, onBorrar, onP
                     <TableCell 
                       className={
                         colKeyStr === "sku" || colKeyStr === "codigo" || colKeyStr === "producto" || colKeyStr === "categoria" || colKeyStr === "subcategoria"
-                          ? "whitespace-nowrap"
+                          ? "whitespace-nowrap py-3"
                           : ""
                       }
                       style={
                         colKeyStr.startsWith("lista")
-                          ? { padding: "4px", minWidth: "116px" }
+                          ? { padding: "6px", minWidth: "140px" }
                           : colKeyStr === "actions"
                             ? { minWidth: "132px" }
                             : colKeyStr === "producto"
@@ -188,14 +237,19 @@ export function ProductosTable({ productos: rows, onVer, onEditar, onBorrar, onP
         </Table>
       </div>
       {totalPages > 1 && (
-        <div className="flex justify-end">
-          <div className="inline-flex rounded-lg bg-gray-200 px-3 py-2 dark:bg-gray-800">
+        <div className="flex flex-col gap-3 border-t border-default-100 pt-3 lg:flex-row lg:items-center lg:justify-between">
+          <p className="text-xs text-default-500">
+            Página {currentPage} de {totalPages}
+          </p>
+          <div className="inline-flex justify-end rounded-lg bg-default-100 px-3 py-2">
             <Pagination
               showControls
-              page={page}
+              page={currentPage}
               total={totalPages}
               onChange={setPage}
-              classNames={{ cursor: "bg-primary" }}
+              classNames={{
+                cursor: "bg-primary font-semibold shadow-lg shadow-primary/20",
+              }}
             />
           </div>
         </div>

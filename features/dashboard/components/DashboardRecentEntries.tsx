@@ -27,10 +27,10 @@ const moneyFormatter = new Intl.NumberFormat("es-MX", {
 
 const columns = [
   { key: "folio", label: "Folio" },
-  { key: "destinatario", label: "Destinatario" },
+  { key: "proveedor", label: "Proveedor" },
   { key: "fecha", label: "Fecha" },
   { key: "estado", label: "Estado" },
-  { key: "total", label: "Total" },
+  { key: "monto", label: "Monto" },
 ];
 
 function formatMoney(value: number) {
@@ -50,86 +50,46 @@ function formatDate(value?: string) {
 
 function getStatusColor(status?: string): "success" | "warning" | "danger" | "primary" | "default" {
   const normalized = String(status || "").trim().toLowerCase();
-  if (!normalized || normalized === "creado") return "default";
-  if (normalized.includes("entregado")) return "success";
-  if (normalized.includes("en camino") || normalized.includes("enviado")) return "primary";
-  if (normalized.includes("surtido") || normalized.includes("revisado") || normalized.includes("empacado")) {
-    return "warning";
-  }
+  if (!normalized || normalized === "pendiente") return "warning";
+  if (normalized === "pagado") return "success";
+  if (normalized === "cancelado") return "danger";
+  if (normalized === "vencido") return "warning";
   return "default";
 }
 
-type SalidaRecord = {
+type PurchaseRecord = {
   _id: string;
-  numeroSalida?: string;
-  fecha?: string;
+  folio?: string;
+  date?: string;
   status?: string;
   totalAmount?: number;
-  clientId?: string;
-  rutaId?: string;
-  routeId?: string;
-  ruta?: string;
-  destino?: string;
-  recipientType?: string;
-  clienteNombre?: string;
+  supplierName?: string;
 };
 
-type ClientRecord = {
-  _id: string;
-  commercialName?: string;
-  buyerName?: string;
-  name?: string;
-};
-
-type RouteRecord = {
-  _id: string;
-  name?: string;
-};
-
-function resolveDestinatario(salida: SalidaRecord, clients: ClientRecord[], routes: RouteRecord[]) {
-  const client = clients.find((candidate) => String(candidate._id) === String(salida.clientId));
-  const route = routes.find((candidate) =>
-    String(candidate._id) === String(salida.rutaId || salida.routeId || "") ||
-    String(candidate.name || "").trim().toLowerCase() === String(salida.ruta || "").trim().toLowerCase()
-  );
-
-  if (String(salida.recipientType || "") === "route" || route) {
-    return route?.name || salida.ruta || salida.destino || "Ruta interna";
-  }
-
-  if (client) {
-    return client.commercialName || client.buyerName || client.name || "Cliente mayorista";
-  }
-
-  return salida.destino || salida.clienteNombre || "Destinatario no definido";
-}
-
-export function DashboardTable() {
+export function DashboardRecentEntries() {
   const { selectedWarehouseId } = useWarehouse();
-  const salidas = useQuery(
-    api.salidas.queries.list,
+  const purchases = useQuery(
+    api.purchases.queries.list,
     selectedWarehouseId ? { bodegaId: selectedWarehouseId as Id<"bodegas"> } : {}
-  ) as SalidaRecord[] | undefined;
-  const clients = (useQuery(api.clients.queries.list) || []) as ClientRecord[];
-  const routes = (useQuery(api.routes.queries.list) || []) as RouteRecord[];
+  ) as PurchaseRecord[] | undefined;
 
-  const rows = useMemo(() => (salidas ?? []).slice(0, 6), [salidas]);
-  const isLoading = salidas === undefined;
+  const rows = useMemo(() => (purchases ?? []).slice(0, 6), [purchases]);
+  const isLoading = purchases === undefined;
 
   return (
     <Card className="h-full">
       <CardHeader className="flex items-center justify-between gap-3 pb-0">
         <div>
-          <h3 className="text-lg font-semibold">Últimas salidas</h3>
-          <p className="text-tiny text-default-500">Movimientos reales del sistema</p>
+          <h3 className="text-lg font-semibold">Entradas recientes</h3>
+          <p className="text-tiny text-default-500">Compras y recepciones reales</p>
         </div>
-        <Chip size="sm" color="primary" variant="flat">
+        <Chip size="sm" color="success" variant="flat">
           {rows.length} registros
         </Chip>
       </CardHeader>
       <CardBody className="pt-2">
         <Table
-          aria-label="Últimas salidas"
+          aria-label="Entradas recientes"
           classNames={{
             wrapper: "shadow-none",
             th: "bg-default-100",
@@ -139,7 +99,7 @@ export function DashboardTable() {
             {(column) => (
               <TableColumn
                 key={column.key}
-                align={column.key === "total" ? "end" : "start"}
+                align={column.key === "monto" ? "end" : "start"}
               >
                 {column.label}
               </TableColumn>
@@ -147,29 +107,29 @@ export function DashboardTable() {
           </TableHeader>
           <TableBody
             items={rows}
-            emptyContent={isLoading ? "Cargando movimientos..." : "No hay salidas recientes"}
+            emptyContent={isLoading ? "Cargando entradas..." : "No hay entradas recientes"}
           >
             {(item) => (
               <TableRow key={String(item._id)}>
                 {(columnKey) => {
                   if (columnKey === "folio") {
-                    return <TableCell className="font-semibold text-primary">{item.numeroSalida || "Sin folio"}</TableCell>;
+                    return <TableCell className="font-semibold text-primary">{item.folio || "Sin folio"}</TableCell>;
                   }
-                  if (columnKey === "destinatario") {
+                  if (columnKey === "proveedor") {
                     return (
                       <TableCell className="font-medium text-foreground">
-                        {resolveDestinatario(item, clients, routes)}
+                        {item.supplierName || "Proveedor desconocido"}
                       </TableCell>
                     );
                   }
                   if (columnKey === "fecha") {
-                    return <TableCell className="text-default-500">{formatDate(item.fecha)}</TableCell>;
+                    return <TableCell className="text-default-500">{formatDate(item.date)}</TableCell>;
                   }
                   if (columnKey === "estado") {
                     return (
                       <TableCell>
                         <Chip size="sm" color={getStatusColor(item.status)} variant="flat">
-                          {String(item.status || "Creado")}
+                          {String(item.status || "Pendiente")}
                         </Chip>
                       </TableCell>
                     );

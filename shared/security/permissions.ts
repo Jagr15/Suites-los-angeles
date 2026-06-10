@@ -221,7 +221,11 @@ export const PERMISSION_GROUPS: PermissionGroupDefinition[] = [
 export const DEFAULT_PERMISSIONS_BY_ROLE: Record<PermissionRoleName, string[]> = {
   SuperAdmin: ["all", ...UNIQUE_ALL_KEYS],
   Admin: ["all", ...UNIQUE_ALL_KEYS],
-  Bodeguero: UNIQUE_ALL_KEYS.filter((key) => warehouseDefaults.has(key)),
+  Bodeguero: [
+    ...UNIQUE_ALL_KEYS.filter((key) => warehouseDefaults.has(key)),
+    "warehouse_outputs:allow_create",
+    "warehouse_outputs:edit_status",
+  ],
   Vendedor: UNIQUE_ALL_KEYS.filter((key) => vendorDefaults.has(key)),
 };
 

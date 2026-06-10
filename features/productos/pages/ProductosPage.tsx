@@ -218,7 +218,7 @@ export function ProductosPage() {
 
   return (
     <div className="flex flex-col">
-      <div className="space-y-4 p-4 md:p-5">
+      <div className="space-y-5 p-4 md:p-5">
         <ProductosHeader activeTab={activeTab} onTabChange={setActiveTab} visibleTabs={visibleTabs} />
         <ProductosToolbar 
           onAgregar={handleOpenCreate} 
@@ -226,6 +226,19 @@ export function ProductosPage() {
           searchValue={searchQuery}
           onSearchChange={setSearchQuery}
         />
+        <div className="flex flex-col gap-2 rounded-2xl border border-default-100 bg-content1 px-4 py-3 shadow-sm sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-col gap-1">
+            <p className="text-sm font-semibold text-foreground">
+              {displayProductos.length} productos encontrados
+            </p>
+            <p className="text-xs text-default-500">
+              Los precios de costo y venta se editan directamente desde la tabla; los rangos por producto se guardan desde el modal.
+            </p>
+          </div>
+          <div className="text-xs font-medium text-default-500">
+            {hideCostAndMargin ? "Vista comercial activa" : "Vista completa de precios"}
+          </div>
+        </div>
         {hasPendingEdits && canEditPrices && (
           <div className="flex justify-end pt-1">
             <Button

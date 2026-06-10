@@ -81,6 +81,18 @@ export function RutasGastos({ selectedRoute, allRoutes }: { selectedRoute: Route
       : FIELD_ORDER.map((field) => ({ field, label: FIELD_LABELS[field] }));
   }, [allRoutes]);
 
+  const orderedVisibleFields = useMemo(() => {
+    if (!selectedField) return visibleFields;
+    const selectedColumn = visibleFields.find(({ field }) => field === selectedField);
+    if (!selectedColumn) {
+      return [{ field: selectedField, label: selectedRoute.destination?.trim() || selectedRoute.name?.trim() || FIELD_LABELS[selectedField] }, ...visibleFields];
+    }
+    return [
+      selectedColumn,
+      ...visibleFields.filter(({ field }) => field !== selectedField),
+    ];
+  }, [selectedField, selectedRoute.destination, selectedRoute.name, visibleFields]);
+
   const filteredItems = useMemo(() => {
     const q = normalizeText(search);
     if (!q) return mockData;
@@ -89,7 +101,7 @@ export function RutasGastos({ selectedRoute, allRoutes }: { selectedRoute: Route
 
   const rows = useMemo(() => {
     return filteredItems.map((item) => {
-      const byField = visibleFields.map(({ field }) => ({
+      const byField = orderedVisibleFields.map(({ field }) => ({
         field,
         amount: Number(item[field] || 0),
       }));
@@ -106,18 +118,18 @@ export function RutasGastos({ selectedRoute, allRoutes }: { selectedRoute: Route
         byField,
       };
     });
-  }, [filteredItems, visibleFields]);
+  }, [filteredItems, orderedVisibleFields]);
 
   const totals = useMemo(() => {
     const totalGeneral = rows.reduce((acc, row) => acc + row.total, 0);
     const rowsWithExpense = rows.filter((row) => row.total > 0).length;
     const promedioGeneral = rowsWithExpense > 0 ? totalGeneral / rowsWithExpense : 0;
-    const totalsByField = visibleFields.map(({ field }) => ({
+    const totalsByField = orderedVisibleFields.map(({ field }) => ({
       field,
       total: rows.reduce((acc, row) => acc + (row.byField.find((entry) => entry.field === field)?.amount || 0), 0),
     }));
     return { totalGeneral, promedioGeneral, totalsByField };
-  }, [rows, visibleFields]);
+  }, [rows, orderedVisibleFields]);
 
   const computedRows = useMemo(() => {
     return rows.map((row) => ({
@@ -154,13 +166,13 @@ export function RutasGastos({ selectedRoute, allRoutes }: { selectedRoute: Route
                 <tr>
                   <th className="bg-default-50 text-default-500 font-semibold uppercase tracking-wider h-11 text-xs px-4 text-left border-b border-default-100">Categoría</th>
                   <th className="bg-default-50 text-default-500 font-semibold uppercase tracking-wider h-11 text-xs px-4 text-center border-b border-default-100">Total</th>
-                  <th className="bg-default-50 text-default-500 font-semibold uppercase tracking-wider h-11 text-xs px-4 text-center border-b border-default-100">Promedio</th>
-                  <th className="bg-default-50 text-default-500 font-semibold uppercase tracking-wider h-11 text-xs px-4 text-center border-b border-default-100">%</th>
-                  {visibleFields.map(({ field, label }) => (
+                  <th className="bg-default-50 text-default-500 font-semibold uppercase tracking-wider h-11 text-xs px-4 text-center border-b border-default-100">Promedio general</th>
+                  {orderedVisibleFields.map(({ field, label }) => (
                     <th key={field} className="bg-default-50 text-default-500 font-semibold uppercase tracking-wider h-11 text-xs px-4 text-center border-b border-default-100">
                       {label}
                     </th>
                   ))}
+                  <th className="bg-default-50 text-default-500 font-semibold uppercase tracking-wider h-11 text-xs px-4 text-center border-b border-default-100">%</th>
                 </tr>
               </thead>
               <tbody>
@@ -169,12 +181,7 @@ export function RutasGastos({ selectedRoute, allRoutes }: { selectedRoute: Route
                     <td className="px-4 py-3 text-sm font-semibold text-foreground border-b border-default-100">{row.categoria}</td>
                     <td className="px-4 py-3 text-center text-sm font-bold text-default-900 border-b border-default-100">{formatCurrency(row.total)}</td>
                     <td className="px-4 py-3 text-center text-sm font-semibold text-default-700 border-b border-default-100">{formatCurrency(row.promedio)}</td>
-                    <td className="px-4 py-3 text-center border-b border-default-100">
-                      <Chip size="sm" variant="flat" color="primary" className="text-[10px] font-bold">
-                        {formatPercent(row.pctOfGeneral)}
-                      </Chip>
-                    </td>
-                    {visibleFields.map(({ field }) => {
+                    {orderedVisibleFields.map(({ field }) => {
                       const amount = row.byField.find((entry) => entry.field === field)?.amount || 0;
                       const routePct = row.total > 0 ? (amount / row.total) * 100 : 0;
                       return (
@@ -194,6 +201,11 @@ export function RutasGastos({ selectedRoute, allRoutes }: { selectedRoute: Route
                         </td>
                       );
                     })}
+                    <td className="px-4 py-3 text-center border-b border-default-100">
+                      <Chip size="sm" variant="flat" color="primary" className="text-[10px] font-bold">
+                        {formatPercent(row.pctOfGeneral)}
+                      </Chip>
+                    </td>
                   </tr>
                 ))}
 
@@ -201,12 +213,7 @@ export function RutasGastos({ selectedRoute, allRoutes }: { selectedRoute: Route
                   <td className="px-4 py-3 text-sm font-bold text-primary border-t border-primary/20">TOTAL GENERAL</td>
                   <td className="px-4 py-3 text-center text-sm font-bold text-primary border-t border-primary/20">{formatCurrency(totals.totalGeneral)}</td>
                   <td className="px-4 py-3 text-center text-sm font-bold text-primary border-t border-primary/20">{formatCurrency(totals.promedioGeneral)}</td>
-                  <td className="px-4 py-3 text-center border-t border-primary/20">
-                    <Chip size="sm" variant="flat" color="primary" className="text-[10px] font-bold">
-                      100%
-                    </Chip>
-                  </td>
-                  {visibleFields.map(({ field }) => {
+                  {orderedVisibleFields.map(({ field }) => {
                     const routeTotal = totals.totalsByField.find((entry) => entry.field === field)?.total || 0;
                     const routePct = totals.totalGeneral > 0 ? (routeTotal / totals.totalGeneral) * 100 : 0;
                     return (
@@ -226,6 +233,11 @@ export function RutasGastos({ selectedRoute, allRoutes }: { selectedRoute: Route
                       </td>
                     );
                   })}
+                  <td className="px-4 py-3 text-center border-t border-primary/20">
+                    <Chip size="sm" variant="flat" color="primary" className="text-[10px] font-bold">
+                      100%
+                    </Chip>
+                  </td>
                 </tr>
               </tbody>
             </table>

@@ -4,7 +4,5 @@ export { DashboardHeader } from "./DashboardHeader";
 export { DashboardStats } from "./DashboardStats";
 export { DashboardQuickActions } from "./DashboardQuickActions";
 export { DashboardRecentActivity } from "./DashboardRecentActivity";
-export { DashboardCharts } from "./DashboardCharts";
 export { DashboardTable } from "./DashboardTable";
-export { DashboardAgents } from "./DashboardAgents";
-export { DashboardLatestTransactions } from "./DashboardLatestTransactions";
+export { DashboardRecentEntries } from "./DashboardRecentEntries";

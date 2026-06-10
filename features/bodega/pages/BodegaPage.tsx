@@ -97,17 +97,26 @@ export function BodegaPage() {
     }
   }, [availableBodegas, selectedWarehouseId, setSelectedWarehouseId]);
 
-  const handleAgregar = useCallback(() => {
+  const handleAgregar = useCallback(async () => {
     if (!hasValidSelectedWarehouse) {
       addToast({ title: "Selecciona una bodega", color: "warning" });
       return;
     }
     setBodegaToEdit(null);
     if (currentTab === "entradas") {
-      reservePurchaseFolio({ bodegaId: selectedWarehouseId as any }).then((folio) => {
+      try {
+        const folio = await reservePurchaseFolio({ bodegaId: selectedWarehouseId as any });
         setReservedEntradaFolio(folio.folio);
         setReservedEntradaFolioNumber(folio.folioNumber);
-      });
+      } catch (error) {
+        console.error("Error reservando folio de entrada:", error);
+        addToast({
+          title: "No se pudo reservar el folio",
+          description: error instanceof Error ? error.message : "No fue posible preparar la entrada.",
+          color: "danger",
+        });
+        return;
+      }
     }
     if (currentTab === "salidas") {
       reserveSalidaFolio({ bodegaId: selectedWarehouseId as any }).then((folio) => setReservedSalidaFolio(folio.numeroSalida));
@@ -123,10 +132,29 @@ export function BodegaPage() {
           quantity: it.quantity,
           unitCost: it.unitCost,
           totalCost: it.totalCost,
-        }));
+        })).filter((item: any) =>
+          item.productId &&
+          Number.isFinite(Number(item.quantity)) &&
+          Number(item.quantity) > 0 &&
+          Number.isFinite(Number(item.unitCost)) &&
+          Number.isFinite(Number(item.totalCost))
+        );
+
+        if (!values.supplierId) {
+          addToast({ title: "Falta proveedor", description: "Selecciona un proveedor antes de guardar.", color: "warning" });
+          return;
+        }
+        if (!values.bodegaId) {
+          addToast({ title: "Falta bodega", description: "No se pudo resolver la bodega seleccionada.", color: "warning" });
+          return;
+        }
+        if (cleanItems.length === 0) {
+          addToast({ title: "Faltan productos", description: "Agrega al menos un producto para guardar la entrada.", color: "warning" });
+          return;
+        }
 
         // Limpiar el objeto principal para enviar solo lo que el schema espera
-        const { supplierId, bodegaId, date, totalAmount, status, receptionStatus, notes } = values;
+        const { supplierId, bodegaId, date, totalAmount, status, receptionStatus, notes, folio, folioNumber } = values;
         const existing = editId ? (purchases || []).find((p: any) => p._id === editId) : null;
         const canEditPayment = isAdmin || hasPermission("purchases:edit_payment_status");
         const canEditReception = isAdmin || hasPermission("purchases:edit_reception_status");
@@ -139,10 +167,14 @@ export function BodegaPage() {
           status: editId ? (canEditPayment ? status : existing?.status) : status,
           receptionStatus: editId ? (canEditReception ? receptionStatus : existing?.receptionStatus) : receptionStatus,
           notes,
-          folio: values.folio || undefined,
-          folioNumber: values.folioNumber || undefined,
+          folio: folio && folio !== "Se genera al guardar" ? folio : undefined,
+          folioNumber: folioNumber || undefined,
           items: cleanItems
         };
+
+        if (process.env.NODE_ENV !== "production") {
+          console.debug("[BodegaPage] handleSubmitEntrada payload", cleanValues);
+        }
 
         if (editId) {
           await updatePurchase({ id: editId as any, ...cleanValues });
@@ -155,7 +187,11 @@ export function BodegaPage() {
         setView("list");
       } catch (error) {
         console.error("Error en handleSubmitEntrada:", error);
-        addToast({ title: "Error", description: "No se pudo guardar la entrada", color: "danger" });
+        addToast({
+          title: "Error",
+          description: error instanceof Error ? error.message : "No se pudo guardar la entrada",
+          color: "danger",
+        });
       }
     },
     [createPurchase, hasPermission, isAdmin, purchases, updatePurchase]
@@ -228,7 +264,7 @@ export function BodegaPage() {
         addToast({ title: "Error", description: String(error), color: "danger" });
       }
     },
-    [createSalida, isSuperAdmin, salidas, updateSalida]
+    [clients, createSalida, isSuperAdmin, salidas, updateSalida]
   );
 
   const handleConfirmBorrarEntrada = useCallback(async () => {
@@ -237,7 +273,7 @@ export function BodegaPage() {
     try {
       await removePurchase({ id: bodegaToDelete._id });
       addToast({ title: "Entrada eliminada", color: "success" });
-    } catch (error) {
+    } catch {
       addToast({ title: "Error", description: "No se pudo eliminar", color: "danger" });
     } finally {
       setBodegaToDelete(null);
@@ -263,8 +299,7 @@ export function BodegaPage() {
         });
         addToast({ title: "Inventario ajustado", color: "success" });
         setView("list");
-      } catch (error) {
-        console.error(error);
+      } catch {
         addToast({ title: "Error", description: "No se pudo ajustar el inventario", color: "danger" });
       }
     },
@@ -320,7 +355,7 @@ export function BodegaPage() {
         description: `La entrada ${item.folio || "seleccionada"} se marcó como completa.`,
         color: "success"
       });
-    } catch (error) {
+    } catch {
       addToast({ title: "Error", description: "No se pudo actualizar el estado", color: "danger" });
     }
   }, [updateReceptionStatus]);

@@ -22,9 +22,29 @@ import { useRoles } from "@/shared/hooks";
 import {
   cargaBodegaSchema,
   type CargaBodegaFormValues,
-  getBodegaStatusOptionsByTipo,
 } from "@/shared/schemas";
 import type { SalidaRow } from "@/shared/mocks";
+
+const DELIVERY_FLOW = ["Creado", "Surtido", "Revisado", "Empacado", "En Tarima", "Completado", "Enviado", "Entregado"] as const;
+const PICKUP_FLOW = ["Creado", "Surtido", "Revisado", "Empacado", "En Tarima", "Completado", "Entregado"] as const;
+const RETAIL_FLOW = ["Creado", "Entregado"] as const;
+
+function parseMoneyLike(value: unknown): number {
+  if (typeof value === "number") {
+    return Number.isFinite(value) ? value : 0;
+  }
+  if (typeof value !== "string") return 0;
+  const parsed = Number(value.replace(/[$,\s]/g, ""));
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function getPreviewPrice(sourceValue: unknown) {
+  const price = parseMoneyLike(sourceValue);
+  return {
+    price,
+    pricingSource: price > 0 ? "legacy_lista1" : "fallback_zero",
+  };
+}
 
 type BodegaSalidaFormProps = {
   salida?: SalidaRow | any | null;
@@ -39,7 +59,7 @@ type BodegaSalidaFormProps = {
 const defaultValues: CargaBodegaFormValues = {
   numeroCarga: "Se genera al guardar",
   fecha: new Date().toISOString().split("T")[0],
-  status: "Listo para surtir",
+  status: "Creado",
   responsable: "",
   tipoEntrega: "sucursal",
   shippingMode: "pickup",
@@ -68,23 +88,45 @@ type TargetOption = {
   client?: any;
 };
 
+function getStatusOptionsForRecipient(targetType: TargetOption["type"] | null, shippingMode: "delivery" | "pickup") {
+  if (targetType === "retail") return RETAIL_FLOW;
+  if (shippingMode === "delivery") return DELIVERY_FLOW;
+  return PICKUP_FLOW;
+}
+
+function getStatusOptionsForForm(
+  targetType: TargetOption["type"] | null,
+  shippingMode: "delivery" | "pickup",
+  currentStatus?: string
+) {
+  const allowed: string[] = [...getStatusOptionsForRecipient(targetType, shippingMode)];
+  const normalizedCurrent = String(currentStatus || "").trim();
+  if (normalizedCurrent && !allowed.includes(normalizedCurrent)) {
+    allowed.push(normalizedCurrent);
+  }
+  return allowed;
+}
+
 function mapSalidaToFormValues(salida: any, productsById: Map<string, any>): CargaBodegaFormValues {
+  const recipientType = salida?.recipientType || undefined;
+  const shippingMode = salida?.shippingMode || ((salida?.tipoEntrega || "sucursal") === "pedido" ? "delivery" : "pickup");
+
   return {
     numeroCarga: salida?.numeroSalida || salida?.numeroCarga || "Se genera al guardar",
     fecha: salida?.fecha || new Date().toISOString().split("T")[0],
-    status: salida?.status || "Listo para surtir",
+    status: String(salida?.status || "Creado").trim() || "Creado",
     responsable: salida?.responsable || "",
     tipoEntrega: salida?.tipoEntrega || "sucursal",
-    shippingMode: salida?.shippingMode || ((salida?.tipoEntrega || "sucursal") === "pedido" ? "delivery" : "pickup"),
+    shippingMode,
     clientId: salida?.clientId || "",
-    recipientType: salida?.recipientType || undefined,
+    recipientType,
     productos: (salida?.productos || salida?.items || []).map((prod: any) => {
       const productId = String(prod.productId || prod.id || "");
       const product = productsById.get(productId);
       const cantidad = Number(prod.cantidad || prod.quantity || 1);
-      const unitPrice = Number(prod.precio ?? prod.price ?? prod.finalPrice ?? 0);
-      const subtotal = Number(prod.subtotal ?? unitPrice * cantidad);
-      const basePrice = Number(prod.basePrice ?? unitPrice);
+      const unitPrice = parseMoneyLike(prod.precio ?? prod.price ?? prod.finalPrice ?? 0);
+      const subtotal = parseMoneyLike(prod.subtotal ?? unitPrice * cantidad);
+      const basePrice = parseMoneyLike(prod.basePrice ?? unitPrice);
       return {
         id: prod.id || prod.productId,
         productId: prod.productId || prod.id,
@@ -96,11 +138,11 @@ function mapSalidaToFormValues(salida: any, productsById: Map<string, any>): Car
         precio: unitPrice,
         subtotal,
         basePrice,
-        zoneMargin: Number(prod.zoneMargin ?? 0),
-        discountPct: Number(prod.discountPct ?? 0),
-        finalPrice: Number(prod.finalPrice ?? unitPrice),
-        pricingSource: prod.pricingSource || "",
-        pricingRuleVersion: Number(prod.pricingRuleVersion ?? 0),
+        zoneMargin: parseMoneyLike(prod.zoneMargin ?? 0),
+        discountPct: parseMoneyLike(prod.discountPct ?? 0),
+        finalPrice: parseMoneyLike(prod.finalPrice ?? unitPrice),
+        pricingSource: prod.pricingSource || (unitPrice > 0 ? "legacy_lista1" : "fallback_zero"),
+        pricingRuleVersion: parseMoneyLike(prod.pricingRuleVersion ?? 0),
         nombre: prod.nombre,
         categoria: prod.categoria || product?.categoria || "General",
         subcategoria: prod.subcategoria || "Sin Categoría",
@@ -211,12 +253,11 @@ export function BodegaSalidaForm({
     defaultValues,
   });
 
-  const tipoEntrega = useWatch({ control, name: "tipoEntrega", defaultValue: "sucursal" });
   const shippingMode = useWatch({ control, name: "shippingMode", defaultValue: "pickup" });
   const selectedRouteName = useWatch({ control, name: "ruta", defaultValue: "" });
-  const statusOptions = useMemo(() => getBodegaStatusOptionsByTipo(tipoEntrega), [tipoEntrega]);
   const formItems = watch("productos") || [];
   const selectedClientId = useWatch({ control, name: "clientId", defaultValue: "" });
+  const currentStatus = useWatch({ control, name: "status", defaultValue: "Creado" });
   const selectedClient = useMemo(
     () => clients.find((client: any) => String(client._id) === String(selectedClientId)) || null,
     [clients, selectedClientId]
@@ -238,6 +279,10 @@ export function BodegaSalidaForm({
   const isWholesalerTarget = targetType === "wholesaler";
   const isRetailTarget = targetType === "retail";
   const isRouteTarget = targetType === "route";
+  const statusOptions = useMemo(
+    () => getStatusOptionsForForm(targetType, shippingMode, currentStatus),
+    [currentStatus, shippingMode, targetType]
+  );
   const showPricingColumns = isWholesalerTarget;
   const totalLabel = isWholesalerTarget ? "Total Cotización" : "Cantidad Total";
   const showShippingSelector = isRouteTarget || isWholesalerTarget;
@@ -275,6 +320,7 @@ export function BodegaSalidaForm({
       ...defaultValues,
       numeroCarga: reservedFolio || "Se genera al guardar",
       almacen: selectedWarehouseName,
+      status: "Creado",
     });
     setValue("bodegaId", selectedWarehouseId);
   }, [isEdit, reset, reservedFolio, selectedWarehouseId, selectedWarehouseName, setValue]);
@@ -286,20 +332,13 @@ export function BodegaSalidaForm({
   }, [canAssignResponsible, setValue]);
 
   useEffect(() => {
-    const currentStatus = watch("status");
-    if (statusOptions.length > 0 && !statusOptions.includes(currentStatus)) {
-      setValue("status", statusOptions[0]);
-    }
-  }, [setValue, statusOptions, watch]);
-
-  useEffect(() => {
     setTimeout(() => {
       productInputRef.current?.focus();
     }, 100);
   }, []);
 
   const montoTotalValue = useMemo(() => {
-    return formItems.reduce((acc: number, p: any) => acc + Number(p.precio || 0) * Number(p.cantidad || 0), 0);
+    return formItems.reduce((acc: number, p: any) => acc + parseMoneyLike(p.precio || p.finalPrice || 0) * Number(p.cantidad || 0), 0);
   }, [formItems]);
   const cantidadTotal = useMemo(() => {
     return formItems.reduce((acc: number, p: any) => acc + Number(p.cantidad || 0), 0);
@@ -315,14 +354,14 @@ export function BodegaSalidaForm({
     const nextType = target.type;
     const normalizedItems = formItems.map((item: any) => {
       const product = productsById.get(String(item.productId || item.id || ""));
-      const nextPrice = nextType === "wholesaler" ? Number(product?.lista1 || 0) : 0;
+      const preview = nextType === "wholesaler" ? getPreviewPrice(product?.lista1) : { price: 0, pricingSource: "fallback_zero" as const };
       return {
         ...item,
-        precio: nextPrice,
-        basePrice: nextPrice,
-        finalPrice: nextPrice,
-        subtotal: Number(item.cantidad || 0) * nextPrice,
-        pricingSource: nextType === "wholesaler" ? "legacy_lista1" : "",
+        precio: preview.price,
+        basePrice: preview.price,
+        finalPrice: preview.price,
+        subtotal: Number(item.cantidad || 0) * preview.price,
+        pricingSource: preview.pricingSource,
         pricingRuleVersion: 0,
       };
     });
@@ -376,7 +415,7 @@ export function BodegaSalidaForm({
     if (!selectedProduct) return;
 
     const qty = Math.max(1, parseInt(addQty || "1", 10) || 1);
-    const price = isWholesalerTarget ? Number(selectedProduct.lista1 || 0) : 0;
+    const preview = isWholesalerTarget ? getPreviewPrice(selectedProduct.lista1) : { price: 0, pricingSource: "fallback_zero" as const };
     const existingIndex = formItems.findIndex((i: any) => i.productId === selectedProduct._id || i.id === selectedProduct._id);
 
     if (existingIndex >= 0) {
@@ -384,6 +423,12 @@ export function BodegaSalidaForm({
       next[existingIndex] = {
         ...next[existingIndex],
         cantidad: Number(next[existingIndex].cantidad || 0) + qty,
+        precio: preview.price,
+        basePrice: preview.price,
+        finalPrice: preview.price,
+        subtotal: (Number(next[existingIndex].cantidad || 0) + qty) * preview.price,
+        pricingSource: preview.pricingSource,
+        pricingRuleVersion: 0,
       };
       setValue("productos", next);
     } else {
@@ -397,13 +442,13 @@ export function BodegaSalidaForm({
           stock: selectedProduct.stock,
           sinStock: selectedProduct.stock <= 0,
           cantidad: qty,
-          precio: price,
-          subtotal: qty * price,
-          basePrice: price,
+          precio: preview.price,
+          subtotal: qty * preview.price,
+          basePrice: preview.price,
           zoneMargin: 0,
           discountPct: 0,
-          finalPrice: price,
-          pricingSource: isWholesalerTarget ? "legacy_lista1" : "",
+          finalPrice: preview.price,
+          pricingSource: preview.pricingSource,
           pricingRuleVersion: 0,
         },
       ]);
@@ -448,8 +493,8 @@ export function BodegaSalidaForm({
         totalAmount: montoTotalValue,
         productos: formItems,
         targetType,
-        recipientType: targetType,
-        shippingMode,
+        recipientType: targetType ?? (salida?.recipientType || undefined),
+        shippingMode: targetType ? shippingMode : (salida?.shippingMode || undefined),
       },
       salida?._id ?? salida?.id
     );
@@ -599,23 +644,6 @@ export function BodegaSalidaForm({
               </Select>
             )}
           />
-          <Controller
-            name="tipoEntrega"
-            control={control}
-            render={({ field }) => (
-              <Select
-                label="Tipo"
-                variant="bordered"
-                size="sm"
-                selectedKeys={field.value ? [field.value] : []}
-                onSelectionChange={(keys) => field.onChange(Array.from(keys)[0])}
-                classNames={{ trigger: "min-h-10 rounded-xl border-default-200 bg-default-50/60" }}
-              >
-                <SelectItem key="sucursal">Sucursal</SelectItem>
-                <SelectItem key="pedido">Pedido</SelectItem>
-              </Select>
-            )}
-          />
           {showShippingSelector ? (
             <Controller
               name="shippingMode"
@@ -642,6 +670,7 @@ export function BodegaSalidaForm({
             <div className="rounded-xl border border-default-200 bg-default-50/60 px-3 py-2">
               <p className="text-[10px] font-bold uppercase text-default-400">Envío</p>
               <p className="mt-1 text-sm font-semibold text-default-700">No aplica</p>
+              <p className="text-[11px] text-default-400">Minorista se entrega sin flujo de envío.</p>
             </div>
           )}
           <Controller
@@ -732,7 +761,7 @@ export function BodegaSalidaForm({
                         </span>
                         {showPricingColumns ? (
                           <span className={`font-bold ${index === activeIndex ? "text-white" : "text-primary"}`}>
-                            ${Number(prod.lista1 || 0).toFixed(2)}
+                            ${parseMoneyLike(prod.lista1).toFixed(2)}
                           </span>
                         ) : null}
                       </div>
@@ -798,22 +827,24 @@ export function BodegaSalidaForm({
                       value={String(prod.cantidad || 1)}
                       onValueChange={(value) => {
                         const next = [...formItems];
+                        const price = parseMoneyLike(next[idx].precio ?? next[idx].finalPrice ?? 0);
                         next[idx] = { ...next[idx], cantidad: Math.max(1, parseInt(value || "1", 10) || 1) };
+                        next[idx].subtotal = Number(next[idx].cantidad || 0) * price;
                         setValue("productos", next);
                       }}
                     />
                   </td>
                   {showPricingColumns ? (
-                    <td className="px-4 py-3 text-right font-mono">${Number(prod.precio ?? prod.finalPrice ?? 0).toFixed(2)}</td>
+                    <td className="px-4 py-3 text-right font-mono">${parseMoneyLike(prod.precio ?? prod.finalPrice ?? 0).toFixed(2)}</td>
                   ) : null}
                   {showPricingColumns ? (
                     <td className="px-4 py-3 text-right font-mono font-bold text-primary">
-                      ${Number(prod.subtotal ?? Number(prod.precio ?? prod.finalPrice ?? 0) * Number(prod.cantidad || 0)).toFixed(2)}
+                      ${parseMoneyLike(prod.subtotal ?? parseMoneyLike(prod.precio ?? prod.finalPrice ?? 0) * Number(prod.cantidad || 0)).toFixed(2)}
                     </td>
                   ) : null}
                   {showPricingColumns ? (
                     <td className="px-4 py-3 text-right text-xs text-default-500">
-                      {prod.pricingSource || (Number(prod.pricingRuleVersion || 0) > 0 ? "dynamic" : "legacy")}
+                      {prod.pricingSource || (Number(prod.pricingRuleVersion || 0) > 0 ? "dynamic" : "fallback_zero")}
                     </td>
                   ) : null}
                   <td className="px-4 py-3 text-right">

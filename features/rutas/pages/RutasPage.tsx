@@ -18,7 +18,7 @@ function routeDestinationLabel(route: Route) {
 }
 
 function routeTabLabel(route: Route) {
-  return route.name?.trim() || route.destination?.trim() || "Ruta";
+  return route.destination?.trim() || route.name?.trim() || "Ruta";
 }
 
 function routeCode(route: Route) {
@@ -64,7 +64,7 @@ export function RutasPage() {
   }, [selectedRuta]);
 
   const handleSubmitRuta = useCallback(
-    async (_row: unknown, _editId?: string) => {
+    async () => {
       // Por ahora mantenemos esta lógica simple o la conectamos a useRoutes
       // Para efectos del requerimiento "que salgan las reales", ya estamos usando convexRoutes arriba.
       setModalOpen(false);

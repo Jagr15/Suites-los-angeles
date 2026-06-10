@@ -46,6 +46,14 @@ async function resolveNextVersion(
   return maxVersion + 1;
 }
 
+function compactDefinedFields<T extends Record<string, unknown>>(value: T) {
+  return Object.fromEntries(
+    Object.entries(value).filter(([, fieldValue]) => fieldValue !== undefined)
+  ) as {
+    [K in keyof T as undefined extends T[K] ? never : K]: Exclude<T[K], undefined>;
+  };
+}
+
 function normalizeFixedMonthlyLimit(value: unknown): number | undefined {
   const parsed = normalizeOptionalNumber(value);
   return typeof parsed === "number" ? parsed : undefined;
@@ -173,7 +181,7 @@ export const upsertProductTier = mutation({
     });
 
     const ruleVersion = await resolveNextVersion(ctx, "pricingProductTiers", args.ruleVersion);
-    const payload = {
+    const payload = compactDefinedFields({
       productId: args.productId,
       minQty,
       maxQty,
@@ -183,7 +191,7 @@ export const upsertProductTier = mutation({
       effectiveFrom: args.effectiveFrom,
       effectiveTo: args.effectiveTo,
       notes: args.notes,
-    };
+    });
 
     if (args.id) {
       await ctx.db.patch(args.id, payload);
@@ -253,7 +261,7 @@ export const syncProductPriceRanges = mutation({
     let lowerBound = 0;
     for (const range of normalizedRanges) {
       const existing = range.id ? existingById.get(range.id) : null;
-      const payload = {
+      const payload = compactDefinedFields({
         productId: args.productId,
         minQty: lowerBound,
         maxQty: range.upperLimit,
@@ -263,7 +271,7 @@ export const syncProductPriceRanges = mutation({
         effectiveFrom: existing?.effectiveFrom,
         effectiveTo: existing?.effectiveTo,
         notes: range.notes ?? existing?.notes,
-      };
+      });
 
       if (existing) {
         await ctx.db.patch(existing._id, payload);

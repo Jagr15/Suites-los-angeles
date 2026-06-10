@@ -1,2 +1,2 @@
-export { DashboardLayout, DashboardStats, DashboardQuickActions, DashboardRecentActivity } from "./components";
+export { DashboardLayout, DashboardStats, DashboardQuickActions, DashboardTable, DashboardRecentEntries } from "./components";
 export { DashboardPage } from "./pages";

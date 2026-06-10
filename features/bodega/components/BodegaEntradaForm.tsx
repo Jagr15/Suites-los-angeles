@@ -102,8 +102,10 @@ export function BodegaEntradaForm({
     const isEdit = !!entrada;
     
     // Convex Data
-    const rawProducts = useQuery(api.products.queries.list) || [];
-    const suppliers = useQuery(api.suppliers.queries.list) || [];
+    const rawProductsQuery = useQuery(api.products.queries.list);
+    const suppliersQuery = useQuery(api.suppliers.queries.list);
+    const rawProducts = useMemo(() => rawProductsQuery || [], [rawProductsQuery]);
+    const suppliers = useMemo(() => suppliersQuery || [], [suppliersQuery]);
     const products = useMemo(() => {
         return rawProducts.map((raw) => {
             const p = raw as Record<string, unknown>;
@@ -127,7 +129,6 @@ export function BodegaEntradaForm({
         handleSubmit,
         reset,
         setValue,
-        watch,
     } = useForm<BodegaEntradaFormValues>({
         defaultValues: entrada ? { ...entrada } : defaultValues,
     });
@@ -140,14 +141,9 @@ export function BodegaEntradaForm({
             : "skip"
     );
 
-    const formItems = watch("items") || [];
-    const montoTotalValue = useMemo(() => {
-        return formItems.reduce((acc: number, p) => acc + (p.totalCost || 0), 0);
-    }, [formItems]);
-
-    const montoTotalFormatted = useMemo(() => {
-        return montoTotalValue.toLocaleString("en-US", { minimumFractionDigits: 2 });
-    }, [montoTotalValue]);
+    const formItems = useWatch({ control, name: "items" }) || [];
+    const montoTotalValue = formItems.reduce((acc: number, p) => acc + (p.totalCost || 0), 0);
+    const montoTotalFormatted = montoTotalValue.toLocaleString("en-US", { minimumFractionDigits: 2 });
 
     useEffect(() => {
         if (entrada) {
@@ -196,13 +192,9 @@ export function BodegaEntradaForm({
         }, 100);
     }, []);
 
-    useEffect(() => {
-        if (filteredProducts.length > 0) {
-            setActiveIndex(0);
-        } else {
-            setActiveIndex(-1);
-        }
-    }, [filteredProducts]);
+    const currentActiveIndex = filteredProducts.length > 0
+        ? Math.min(Math.max(activeIndex, 0), filteredProducts.length - 1)
+        : -1;
 
     const handleKeyDown = (e: React.KeyboardEvent) => {
         if (filteredProducts.length === 0) return;
@@ -214,9 +206,9 @@ export function BodegaEntradaForm({
             e.preventDefault();
             setActiveIndex(prev => (prev > 0 ? prev - 1 : prev));
         } else if (e.key === "Enter") {
-            if (activeIndex >= 0 && activeIndex < filteredProducts.length) {
+            if (currentActiveIndex >= 0 && currentActiveIndex < filteredProducts.length) {
                 e.preventDefault();
-                const p = filteredProducts[activeIndex];
+                const p = filteredProducts[currentActiveIndex];
                 setSelectedProduct(p);
                 setProductInput(p.producto);
                 setAddCost(p.lista1 || "0");

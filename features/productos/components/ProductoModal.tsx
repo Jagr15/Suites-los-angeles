@@ -217,8 +217,8 @@ function ProductTierEditor({ productId, initialRows, isReadOnly }: ProductTierEd
   };
 
   return (
-    <div className="mt-6 flex flex-col gap-4">
-      <div className="flex items-center justify-between gap-3 px-1">
+    <div className="mt-6 flex flex-col gap-4 rounded-2xl border border-default-200 bg-content1 p-4 shadow-sm md:p-5">
+      <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
         <div className="flex flex-col gap-1">
           <p className="text-sm font-bold uppercase tracking-wider text-primary">Rangos por cantidad</p>
           <p className="text-xs text-default-500 font-medium">
@@ -240,7 +240,7 @@ function ProductTierEditor({ productId, initialRows, isReadOnly }: ProductTierEd
         </div>
       ) : (
         <div className="space-y-3">
-          <div className="grid grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_auto] gap-3 px-1 text-xs font-semibold uppercase tracking-wide text-default-500">
+          <div className="grid grid-cols-1 gap-2 px-1 text-xs font-semibold uppercase tracking-wide text-default-500 md:grid-cols-[minmax(0,1.45fr)_minmax(0,1fr)_auto] md:gap-3">
             <span>Rango</span>
             <span>Precio</span>
             <span className="text-right">Acciones</span>
@@ -256,14 +256,14 @@ function ProductTierEditor({ productId, initialRows, isReadOnly }: ProductTierEd
               return (
                 <div
                   key={row.id || `draft-${index}`}
-                  className="grid grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_auto] gap-3 rounded-xl border border-default-200 bg-content1 p-3"
+                  className="grid grid-cols-1 gap-4 rounded-2xl border border-default-200 bg-default-50/70 p-4 md:grid-cols-[minmax(0,1.45fr)_minmax(0,1fr)_auto] md:items-end md:p-5"
                 >
-                  <div className="space-y-2">
+                  <div className="space-y-2 min-w-0">
                     <p className="text-xs font-medium text-default-500">
                       {index === 0 ? `0 a ${row.upperLimit || "..."}` : `Más de ${previousUpperLimit} a ${row.upperLimit || "..."}`}
                     </p>
                     <Input
-                      label="Hasta"
+                      label="Rango máximo"
                       placeholder="Ej. 10 o 0.5"
                       type="number"
                       step="0.01"
@@ -271,6 +271,12 @@ function ProductTierEditor({ productId, initialRows, isReadOnly }: ProductTierEd
                       value={row.upperLimit}
                       onValueChange={(value) => handleTierChange(index, "upperLimit", value)}
                       isReadOnly={isReadOnly}
+                      variant="bordered"
+                      classNames={{
+                        base: "w-full",
+                        inputWrapper: "min-h-12 h-12 px-4",
+                        input: "text-base font-medium tabular-nums",
+                      }}
                     />
                   </div>
                   <Input
@@ -283,8 +289,14 @@ function ProductTierEditor({ productId, initialRows, isReadOnly }: ProductTierEd
                     onValueChange={(value) => handleTierChange(index, "basePrice", value)}
                     startContent={<span className="text-default-400 font-medium">$</span>}
                     isReadOnly={isReadOnly}
+                    variant="bordered"
+                    classNames={{
+                      base: "w-full",
+                      inputWrapper: "min-h-12 h-12 px-4",
+                      input: "text-right text-base font-medium tabular-nums",
+                    }}
                   />
-                  <div className="flex items-end justify-end">
+                  <div className="flex items-start justify-end md:items-end">
                     {!isReadOnly && (
                       <Button
                         isIconOnly
@@ -394,11 +406,11 @@ export function ProductoModal({ isOpen, onClose, producto, onSubmit, isReadOnly 
   const title = isReadOnly ? "Detalles del producto" : isEdit ? "Editar producto" : "Crear producto";
 
   return (
-    <Modal isOpen={isOpen} onOpenChange={(open) => !open && handleClose()} size="3xl" scrollBehavior="inside">
+    <Modal isOpen={isOpen} onOpenChange={(open) => !open && handleClose()} size="4xl" scrollBehavior="inside">
       <ModalContent className="overflow-hidden">
         <form onSubmit={handleSubmit(onFormSubmit)} className="flex min-h-0 flex-col">
           <ModalHeader className="shrink-0">{title}</ModalHeader>
-          <ModalBody className="max-h-[70vh] shrink overflow-y-auto">
+          <ModalBody className="max-h-[75vh] shrink overflow-y-auto">
             <div className="grid gap-4 sm:grid-cols-2">
               <Controller
                 name="sku"
@@ -568,59 +580,67 @@ export function ProductoModal({ isOpen, onClose, producto, onSubmit, isReadOnly 
                 }}
               >
                 <Tab key="costo" title="Costo">
-                  <div className="grid gap-4 pt-4 sm:grid-cols-2">
-                    <Controller
-                      name={COST_KEY}
-                      control={control}
-                      render={({ field }) => (
-                        <Input
-                          label="Costo"
-                          placeholder="0.00"
-                          type="number"
-                          step="0.01"
-                          min="0"
-                          value={field.value ?? ""}
-                          onValueChange={field.onChange}
-                          onBlur={field.onBlur}
-                          variant="bordered"
-                          classNames={{
-                            base: "w-full min-w-0",
-                            inputWrapper: "min-h-10 h-10",
-                            input: "text-end text-sm tabular-nums",
-                          }}
-                          startContent={<span className="text-default-400 font-medium">$</span>}
-                          isReadOnly={isReadOnly}
+                  <div className="pt-4">
+                    <div className="max-w-2xl">
+                      <div className="rounded-2xl border border-default-200 bg-default-50/70 p-4 md:p-5">
+                        <Controller
+                          name={COST_KEY}
+                          control={control}
+                          render={({ field }) => (
+                            <Input
+                              label="Costo"
+                              placeholder="0.00"
+                              type="number"
+                              step="0.01"
+                              min="0"
+                              value={field.value ?? ""}
+                              onValueChange={field.onChange}
+                              onBlur={field.onBlur}
+                              variant="bordered"
+                              classNames={{
+                                base: "w-full min-w-0",
+                                inputWrapper: "min-h-12 h-12 px-4",
+                                input: "text-end text-base font-medium tabular-nums",
+                              }}
+                              startContent={<span className="text-default-400 font-medium">$</span>}
+                              isReadOnly={isReadOnly}
+                            />
+                          )}
                         />
-                      )}
-                    />
+                      </div>
+                    </div>
                   </div>
                 </Tab>
                 <Tab key="venta" title="Venta">
-                  <div className="grid gap-4 pt-4 sm:grid-cols-2">
-                    <Controller
-                      name={SALE_KEY}
-                      control={control}
-                      render={({ field }) => (
-                        <Input
-                          label="Venta"
-                          placeholder="0.00"
-                          type="number"
-                          step="0.01"
-                          min="0"
-                          value={field.value ?? ""}
-                          onValueChange={field.onChange}
-                          onBlur={field.onBlur}
-                          variant="bordered"
-                          classNames={{
-                            base: "w-full min-w-0",
-                            inputWrapper: "min-h-10 h-10",
-                            input: "text-end text-sm tabular-nums",
-                          }}
-                          startContent={<span className="text-default-400 font-medium">$</span>}
-                          isReadOnly={isReadOnly}
+                  <div className="pt-4">
+                    <div className="max-w-2xl">
+                      <div className="rounded-2xl border border-default-200 bg-default-50/70 p-4 md:p-5">
+                        <Controller
+                          name={SALE_KEY}
+                          control={control}
+                          render={({ field }) => (
+                            <Input
+                              label="Venta"
+                              placeholder="0.00"
+                              type="number"
+                              step="0.01"
+                              min="0"
+                              value={field.value ?? ""}
+                              onValueChange={field.onChange}
+                              onBlur={field.onBlur}
+                              variant="bordered"
+                              classNames={{
+                                base: "w-full min-w-0",
+                                inputWrapper: "min-h-12 h-12 px-4",
+                                input: "text-end text-base font-medium tabular-nums",
+                              }}
+                              startContent={<span className="text-default-400 font-medium">$</span>}
+                              isReadOnly={isReadOnly}
+                            />
+                          )}
                         />
-                      )}
-                    />
+                      </div>
+                    </div>
                   </div>
                 </Tab>
               </Tabs>

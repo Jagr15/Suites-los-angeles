@@ -11,10 +11,8 @@ type RutasCardGridProps = {
   onSelect?: (item: Route) => void;
 };
 
-/** Extrae código numérico de la ruta (ej. "Ruta 101" -> "101", "001" -> "001"). */
-function getCodigo(ruta: string): string {
-  const match = ruta.replace(/\s/g, "").match(/(\d+)$/);
-  return match ? match[1].padStart(3, "0") : ruta;
+function routeDisplayLabel(item: Route) {
+  return item.destination?.trim() || item.name?.trim() || "Ruta";
 }
 
 export function RutasCardGrid({ items, onEditar, onBorrar, onSelect }: RutasCardGridProps) {
@@ -28,13 +26,15 @@ export function RutasCardGrid({ items, onEditar, onBorrar, onSelect }: RutasCard
         >
           <div className="flex justify-between items-start">
             <div>
-              <h3 className="text-sm font-bold leading-tight text-default-800">{item.name}</h3>
+              <h3 className="text-sm font-bold leading-tight text-default-800">{routeDisplayLabel(item)}</h3>
               <p className="mt-0.5 text-xs font-semibold text-default-500">
                 {item.assignedProfileName || "Sin responsable"}
               </p>
-              <p className="mt-1 text-[10px] font-bold uppercase tracking-tight text-default-400">
-                {item.destination || item.name}
-              </p>
+              {item.destination?.trim() && item.name?.trim() && item.destination.trim() !== item.name.trim() ? (
+                <p className="mt-1 text-[10px] font-bold uppercase tracking-tight text-default-400">
+                  {item.name}
+                </p>
+              ) : null}
             </div>
             <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
               <Tooltip content="Editar">
