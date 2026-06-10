@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import type { SVGProps } from "react";
 import { Card, CardBody, Button, Chip } from "@heroui/react";
 import { 
     MapPinIcon, 
@@ -40,12 +41,22 @@ const COORDS: Record<string, [number, number]> = {
 
 declare global {
     interface Window {
-        L: any;
+        L: LeafletNamespace;
     }
 }
 
+type LeafletMarkerLike = { addTo(map: LeafletMapLike): LeafletMarkerLike; bindPopup(content: string): LeafletMarkerLike };
+type LeafletMapLike = { remove(): void };
+type LeafletNamespace = {
+    map(container: HTMLDivElement): { setView(coords: [number, number], zoom: number): LeafletMapLike };
+    tileLayer(url: string, options: { attribution: string }): { addTo(map: LeafletMapLike): void };
+    divIcon(options: { className: string; html: string; iconSize: [number, number]; iconAnchor: [number, number] }): unknown;
+    marker(coords: [number, number], options: { icon: unknown }): LeafletMarkerLike;
+    polyline(coords: [number, number][], options: { color: string; weight: number; opacity: number; dashArray: string; lineJoin: "round" }): { addTo(map: LeafletMapLike): void };
+};
+
 export function RutasMapa({ selectedRuta }: { selectedRuta: Route }) {
-    const mapRef = useRef<any>(null);
+    const mapRef = useRef<LeafletMapLike | null>(null);
     const containerRef = useRef<HTMLDivElement>(null);
     const cityCoords = COORDS[selectedRuta.destination] || [19.24, -103.73];
 
@@ -196,7 +207,7 @@ export function RutasMapa({ selectedRuta }: { selectedRuta: Route }) {
     );
 }
 
-function BuildingStorefrontIcon(props: any) {
+function BuildingStorefrontIcon(props: SVGProps<SVGSVGElement>) {
     return (
         <svg fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" {...props}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 21V10.5m0 10.5h9m-9 0H4.5m1.5 0v-10.5L12 3l6 4.5v10.5m-6-10.5v10.5" />

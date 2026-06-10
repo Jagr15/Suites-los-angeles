@@ -18,6 +18,32 @@ interface StopPoint {
   lng: number;
 }
 
+type RouteLeafletMap = {
+  remove(): void;
+  on(event: "click", handler: (e: { latlng: { lat: number; lng: number } }) => void): void;
+  invalidateSize(): void;
+};
+
+type RouteLeafletMarker = {
+  remove(): void;
+  addTo(map: RouteLeafletMap): RouteLeafletMarker;
+  bindPopup(content: string): RouteLeafletMarker;
+  setLatLng(coords: [number, number]): void;
+};
+
+type RouteLeafletPolyline = {
+  remove(): void;
+  addTo(map: RouteLeafletMap): RouteLeafletPolyline;
+};
+
+type RouteLeafletNamespace = {
+  map(container: HTMLDivElement, options?: Record<string, unknown>): { setView(coords: [number, number], zoom: number): RouteLeafletMap };
+  tileLayer(url: string, options?: Record<string, unknown>): { addTo(map: RouteLeafletMap): void };
+  divIcon(options: { className: string; html: string; iconSize: [number, number]; iconAnchor: [number, number] }): unknown;
+  marker(coords: [number, number], options: { icon: unknown; zIndexOffset?: number }): RouteLeafletMarker;
+  polyline(points: [number, number][], options: { color: string; weight: number; opacity?: number; dashArray?: string; lineJoin?: "round" }): RouteLeafletPolyline;
+};
+
 interface RouteLocationPickerProps {
   lat?: number;
   lng?: number;
@@ -45,12 +71,12 @@ export function RouteLocationPicker({
   onStopsChange,
   height = "450px",
 }: RouteLocationPickerProps) {
-  const mapRef = useRef<any>(null);
+  const mapRef = useRef<RouteLeafletMap | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  const startMarkerRef = useRef<any>(null);
-  const clientMarkersRef = useRef<any[]>([]);
-  const stopMarkersRef = useRef<any[]>([]);
-  const polylineRef = useRef<any>(null);
+  const startMarkerRef = useRef<RouteLeafletMarker | null>(null);
+  const clientMarkersRef = useRef<RouteLeafletMarker[]>([]);
+  const stopMarkersRef = useRef<RouteLeafletMarker[]>([]);
+  const polylineRef = useRef<RouteLeafletPolyline | null>(null);
   
   // Modos de interacción
   const [mode, setMode] = React.useState<'none' | 'add_stop' | 'move_start'>('none');
@@ -72,7 +98,7 @@ export function RouteLocationPicker({
   useEffect(() => {
     if (typeof window === "undefined" || !window.L || !containerRef.current || mapRef.current) return;
 
-    const L = window.L;
+    const L = window.L as unknown as RouteLeafletNamespace;
     const initialLat = lat || 19.24;
     const initialLng = lng || -103.73;
 
@@ -84,7 +110,7 @@ export function RouteLocationPicker({
 
     L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png').addTo(mapRef.current);
 
-    mapRef.current.on('click', (e: any) => {
+    mapRef.current.on('click', (e) => {
       const { lat: newLat, lng: newLng } = e.latlng;
       const currentProps = propsRef.current;
       
@@ -131,10 +157,11 @@ export function RouteLocationPicker({
       }
     });
 
-    (window as any).assignClientToRoute = (id: string, assign: boolean) => {
+    const routeWindow = window as Window & typeof globalThis & { assignClientToRoute?: (id: string, assign: boolean) => void; removeStop?: (idx: number) => void };
+    routeWindow.assignClientToRoute = (id: string, assign: boolean) => {
       propsRef.current.onAssignClient?.(id, assign);
     };
-    (window as any).removeStop = (idx: number) => {
+    routeWindow.removeStop = (idx: number) => {
       const newStops = [...propsRef.current.stops];
       newStops.splice(idx, 1);
       propsRef.current.onStopsChange?.(newStops);
@@ -162,7 +189,7 @@ export function RouteLocationPicker({
       const response = await fetch(`https://router.project-osrm.org/route/v1/driving/${coords}?overview=full&geometries=geojson`);
       const data = await response.json();
       if (data.code === 'Ok' && data.routes.length > 0) {
-        return data.routes[0].geometry.coordinates.map((c: any) => [c[1], c[0]]);
+        return data.routes[0].geometry.coordinates.map((c: [number, number]) => [c[1], c[0]]);
       }
     } catch (error) {
       console.error("OSRM Error:", error);
@@ -175,7 +202,8 @@ export function RouteLocationPicker({
   // Actualización de Capas
   useEffect(() => {
     if (!mapRef.current || !window.L) return;
-    const L = window.L;
+    const map = mapRef.current;
+    const L = window.L as unknown as RouteLeafletNamespace;
     
     const currentLat = lat || 19.24;
     const currentLng = lng || -103.73;
@@ -198,7 +226,7 @@ export function RouteLocationPicker({
       startMarkerRef.current = L.marker([currentLat, currentLng], { 
         icon: startIcon,
         zIndexOffset: 2000 
-      }).addTo(mapRef.current);
+      }).addTo(map);
     }
 
     // 2. Limpiar dinámicos
@@ -226,7 +254,7 @@ export function RouteLocationPicker({
 
       const marker = L.marker([client.lat, client.lng], { 
         icon: L.divIcon({ className: 'custom-div-icon', html, iconSize: isAssigned ? [32, 32] : [24, 24], iconAnchor: isAssigned ? [16, 16] : [12, 12] })
-      }).addTo(mapRef.current).bindPopup(`
+      }).addTo(map).bindPopup(`
         <div style="padding: 10px; min-width: 160px; font-family: 'Inter', sans-serif;">
           <p style="margin: 0 0 8px 0; font-weight: 800; color: #1f2937;">${client.name}</p>
           <button onclick="window.assignClientToRoute('${client.id}', ${!isAssigned})" style="width: 100%; border: none; padding: 8px; border-radius: 10px; cursor: pointer; font-weight: 700; font-size: 12px; background: ${isAssigned ? '#fee2e2' : '#e0f2fe'}; color: ${isAssigned ? '#ef4444' : '#0ea5e9'}; transition: all 0.2s;">
@@ -249,7 +277,7 @@ export function RouteLocationPicker({
       });
 
       const marker = L.marker([stop.lat, stop.lng], { icon: stopIcon })
-        .addTo(mapRef.current)
+        .addTo(map)
         .bindPopup(`<div style="padding: 10px; font-family: 'Inter', sans-serif;"><p style="margin: 0 0 8px 0; font-weight: 800;">${stop.name}</p><button onclick="window.removeStop(${idx})" style="width: 100%; border: none; padding: 8px; border-radius: 10px; background: #fee2e2; color: #ef4444; font-weight: 700; font-size: 12px;">Eliminar</button></div>`);
       stopMarkersRef.current.push(marker);
     });
@@ -265,17 +293,17 @@ export function RouteLocationPicker({
         const roadPoints = await fetchStreetRoute(waypoints);
         if (roadPoints && mapRef.current) {
           polylineRef.current = L.polyline(roadPoints, {
-            color: '#006FEE', weight: 5, opacity: 0.8, lineJoin: 'round'
-          }).addTo(mapRef.current);
+            color: '#006FEE', weight: 5, opacity: 0.8, lineJoin: 'round', dashArray: '10, 10'
+          }).addTo(map);
         }
       }
     };
     
     updatePolyline();
     setTimeout(() => {
-      if (mapRef.current) {
-        mapRef.current.invalidateSize();
-      }
+        if (map) {
+          map.invalidateSize();
+        }
     }, 500);
 
   }, [lat, lng, clients, allClients, stops, currentRouteId]);

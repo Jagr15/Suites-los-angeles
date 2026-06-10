@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import {
   Modal,
   ModalContent,
@@ -32,13 +32,6 @@ export function SubcategoryModal({ isOpen, onOpenChange, categoryId, onSuccess }
   const categories = useQuery(api.product_categories.functions.listCategories);
   const createSubcategory = useMutation(api.product_categories.functions.createSubcategory);
 
-  useEffect(() => {
-    if (isOpen) {
-      setName("");
-      setSelectedCatId(categoryId || "");
-    }
-  }, [isOpen, categoryId]);
-
   const handleSubmit = async () => {
     if (!name.trim() || !selectedCatId) return;
     setIsLoading(true);
@@ -66,7 +59,7 @@ export function SubcategoryModal({ isOpen, onOpenChange, categoryId, onSuccess }
 
   return (
     <Modal isOpen={isOpen} onOpenChange={onOpenChange}>
-      <ModalContent>
+      <ModalContent key={isOpen ? `subcategory-open-${categoryId || "new"}` : "subcategory-closed"}>
         <ModalHeader>Nueva Subcategoría</ModalHeader>
         <ModalBody className="gap-4">
           <Select

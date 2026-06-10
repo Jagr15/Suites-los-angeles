@@ -109,7 +109,7 @@ export function BodegaTable({ items, onEdit, onDelete, canDelete = true, isLoadi
           </div>
         );
       default:
-        return (bodega as any)[key]?.toString() || "";
+        return String(((bodega as unknown) as Record<string, unknown>)[key] ?? "");
     }
   };
 

@@ -2,12 +2,20 @@
 
 import { useEffect, useRef } from "react";
 
-export function ClientesGeographicAnalysis() {
-    type LeafletMapLike = { remove: () => void };
+type GeoLeafletMap = { remove: () => void; invalidateSize?: () => void };
+type GeoLeafletCircleOptions = { color: string; fillColor: string; fillOpacity: number; radius: number };
+type GeoLeafletPolylineOptions = { color: string; weight: number; opacity?: number; dashArray?: string; lineJoin?: "round" };
+type GeoLeafletNamespace = {
+  map(container: HTMLDivElement, options?: Record<string, unknown>): { setView(center: [number, number], zoom: number): GeoLeafletMap };
+  tileLayer(url: string, options: { attribution: string }): { addTo(map: GeoLeafletMap): void };
+  circle(center: [number, number], options: GeoLeafletCircleOptions): { addTo(map: GeoLeafletMap): { bindPopup(label: string): void } };
+  polyline(points: [number, number][], options: GeoLeafletPolylineOptions): { addTo(map: GeoLeafletMap): void };
+};
 
-    const mapRef = useRef<LeafletMapLike | null>(null);
-    const miniMap1Ref = useRef<LeafletMapLike | null>(null);
-    const miniMap2Ref = useRef<LeafletMapLike | null>(null);
+export function ClientesGeographicAnalysis() {
+    const mapRef = useRef<GeoLeafletMap | null>(null);
+    const miniMap1Ref = useRef<GeoLeafletMap | null>(null);
+    const miniMap2Ref = useRef<GeoLeafletMap | null>(null);
     
     const containerRef = useRef<HTMLDivElement>(null);
     const miniMap1ContainerRef = useRef<HTMLDivElement>(null);
@@ -16,7 +24,7 @@ export function ClientesGeographicAnalysis() {
     useEffect(() => {
         if (typeof window === "undefined" || !window.L || !containerRef.current) return;
 
-        const L = window.L;
+        const L = window.L as unknown as GeoLeafletNamespace;
 
         const initMap = (container: HTMLDivElement, center: [number, number], zoom: number, isMini: boolean = false) => {
             const myMap = L.map(container, {
@@ -40,6 +48,7 @@ export function ClientesGeographicAnalysis() {
         // Main Map
         if (mapRef.current) mapRef.current.remove();
         mapRef.current = initMap(containerRef.current, [19.24, -103.73], 12);
+        const mainMap = mapRef.current;
 
         const zones = [
             { pos: [19.24, -103.73], color: "#ef4444", radius: 500, label: "Zona Crítica" },
@@ -53,21 +62,23 @@ export function ClientesGeographicAnalysis() {
                 fillColor: z.color,
                 fillOpacity: 0.4,
                 radius: z.radius
-            }).addTo(mapRef.current).bindPopup(z.label);
+            }).addTo(mainMap!).bindPopup(z.label);
         });
 
         // Mini Map 1
         if (miniMap1ContainerRef.current) {
             if (miniMap1Ref.current) miniMap1Ref.current.remove();
             miniMap1Ref.current = initMap(miniMap1ContainerRef.current, [19.22, -103.75], 14, true);
-            L.polyline([[19.21, -103.76], [19.22, -103.75], [19.23, -103.74]], { color: '#ef4444', weight: 4 }).addTo(miniMap1Ref.current);
+            const map1 = miniMap1Ref.current;
+            L.polyline([[19.21, -103.76], [19.22, -103.75], [19.23, -103.74]], { color: '#ef4444', weight: 4 }).addTo(map1!);
         }
 
         // Mini Map 2
         if (miniMap2ContainerRef.current) {
             if (miniMap2Ref.current) miniMap2Ref.current.remove();
             miniMap2Ref.current = initMap(miniMap2ContainerRef.current, [19.23, -103.74], 14, true);
-            L.polyline([[19.22, -103.75], [19.23, -103.74], [19.24, -103.73]], { color: '#3b82f6', weight: 4 }).addTo(miniMap2Ref.current);
+            const map2 = miniMap2Ref.current;
+            L.polyline([[19.22, -103.75], [19.23, -103.74], [19.24, -103.73]], { color: '#3b82f6', weight: 4 }).addTo(map2!);
         }
 
     }, []);

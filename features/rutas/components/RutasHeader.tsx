@@ -1,6 +1,7 @@
 "use client";
 
 import { Tabs, Tab } from "@heroui/react";
+import type { Key } from "react";
 
 const tabs = [
   { key: "cargas", label: "Cargas" },
@@ -13,7 +14,7 @@ const tabs = [
 
 interface RutasHeaderProps {
   selectedKey?: string;
-  onSelectionChange?: (key: any) => void;
+  onSelectionChange?: (key: Key) => void;
   showTitle?: boolean;
 }
 

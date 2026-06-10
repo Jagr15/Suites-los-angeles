@@ -15,6 +15,7 @@ import { ClientTable } from "./ClientTable";
 import { ClientModal } from "./ClientModal";
 import { ConfirmModal } from "@/shared/components";
 import { useClients } from "./use-clients";
+import type { ClientFormValues } from "@/shared/schemas";
 
 export function ClientsManagementCard() {
   const { isOpen, onOpen, onOpenChange } = useDisclosure();
@@ -33,13 +34,13 @@ export function ClientsManagementCard() {
     onOpen();
   };
 
-  const handleSave = async (data: any) => {
+  const handleSave = async (data: ClientFormValues) => {
     setIsSaving(true);
     try {
       if (selectedClient) {
-        await updateClient(selectedClient.id, data);
+        await updateClient(selectedClient.id, data as never);
       } else {
-        await addClient(data);
+        await addClient(data as never);
       }
 
       addToast({

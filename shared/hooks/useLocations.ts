@@ -2,6 +2,11 @@ import { useQuery, UseQueryResult } from '@tanstack/react-query';
 import { locationService } from '../services/locationService';
 import { StatesResponse, CitiesResponse, MunicipalitiesResponse } from '../types/location';
 
+export type Locality = {
+  id: number;
+  name: string;
+};
+
 export const useStates = (): UseQueryResult<StatesResponse, Error> => {
   return useQuery({
     queryKey: ['states'],
@@ -19,7 +24,7 @@ export const useMunicipalities = (stateId: string | null): UseQueryResult<Munici
   });
 };
 
-export const useLocalities = (stateId: string | null, municipalityId: string | null): UseQueryResult<any[] | null, Error> => {
+export const useLocalities = (stateId: string | null, municipalityId: string | null): UseQueryResult<Locality[] | null, Error> => {
   return useQuery({
     queryKey: ['localities', stateId, municipalityId],
     queryFn: () => (stateId && municipalityId) ? locationService.getLocalitiesByMunicipality(stateId, municipalityId) : null,

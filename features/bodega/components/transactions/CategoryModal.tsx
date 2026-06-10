@@ -36,15 +36,6 @@ export function CategoryModal({
   const updateCategory = useMutation(api.bodega_transactions.mutations.updateCategory);
   const removeCategory = useMutation(api.bodega_transactions.mutations.removeCategory);
 
-  // Sync name when categoryToEdit changes
-  React.useEffect(() => {
-    if (categoryToEdit) {
-      setName(categoryToEdit.name);
-    } else {
-      setName("");
-    }
-  }, [categoryToEdit]);
-
   const handleSave = async () => {
     if (!name.trim()) return;
 
@@ -98,7 +89,7 @@ export function CategoryModal({
 
   return (
     <Modal isOpen={isOpen} onOpenChange={onOpenChange}>
-      <ModalContent>
+      <ModalContent key={categoryToEdit ? `edit-${categoryToEdit._id}` : "new-category"}>
         {(onClose) => (
           <>
             <ModalHeader>

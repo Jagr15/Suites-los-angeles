@@ -24,6 +24,7 @@ import {
 } from "@heroicons/react/24/outline";
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
+import type { Id } from "@/convex/_generated/dataModel";
 import { BodegaIngresoForm } from "./BodegaIngresoForm";
 
 const ROWS_PER_PAGE = 10;
@@ -35,6 +36,18 @@ type BodegaIngresosProps = {
     selectedWarehouseId?: string;
 };
 
+type IngresoRow = {
+    _id: string;
+    responsibleName: string;
+    responsibleGroup?: string;
+    categoryName: string;
+    subcategoryName?: string;
+    clientName?: string;
+    date: string;
+    amount: number;
+    isTotal?: boolean;
+};
+
 export function BodegaIngresos({ canShowDailyTotals = true, canDelete = true, canCreate = true, selectedWarehouseId }: BodegaIngresosProps) {
     const [view, setView] = useState<"list" | "add">("list");
     const [page, setPage] = useState(1);
@@ -43,8 +56,8 @@ export function BodegaIngresos({ canShowDailyTotals = true, canDelete = true, ca
     // Convex Data
     const items = useQuery(
       api.bodega_transactions.queries.listIngresos,
-      selectedWarehouseId ? { bodegaId: selectedWarehouseId as any } : {}
-    );
+      selectedWarehouseId ? { bodegaId: selectedWarehouseId as Id<"bodegas"> } : {}
+    ) as IngresoRow[] | undefined;
 
     const filteredItems = useMemo(() => {
         if (!items) return [];
@@ -62,12 +75,12 @@ export function BodegaIngresos({ canShowDailyTotals = true, canDelete = true, ca
         if (rows.length > 0 && canShowDailyTotals) {
             return [
                 ...rows,
-                {
-                    _id: "total-row",
-                    responsibleName: "Total Ingresos",
-                    isTotal: true,
-                } as any,
-            ];
+                    {
+                        _id: "total-row",
+                        responsibleName: "Total Ingresos",
+                        isTotal: true,
+                    } as IngresoRow,
+                ];
         }
         return rows;
     }, [canShowDailyTotals, filteredItems, page]);
@@ -137,7 +150,7 @@ export function BodegaIngresos({ canShowDailyTotals = true, canDelete = true, ca
                         items={paginatedRows} 
                         emptyContent={items === undefined ? <Spinner color="success" /> : "No se encontraron ingresos."}
                     >
-                        {(item: any) => (
+                        {(item: IngresoRow) => (
                             <TableRow
                                 key={item._id}
                                 className={

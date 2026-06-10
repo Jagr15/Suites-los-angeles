@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useForm, Controller, useWatch } from "react-hook-form";
+import { useForm, Controller, useWatch, type Resolver } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
   Modal,
@@ -126,6 +126,45 @@ type BodegaModalProps = {
   onSubmit?: (data: BodegaRow, editId?: string) => void;
 };
 
+type FormProduct = {
+  id: string;
+  sku: string;
+  descripcion: string;
+  stock: number;
+  sinStock: boolean;
+  cantidad: number;
+  precio: number;
+  nombre?: string;
+  categoria: string;
+  subcategoria: string;
+  critico: number;
+  bajo: number;
+  optimo: number;
+  etiqueta: string;
+};
+
+type BodegaModalFormValues = {
+  numeroCarga: string;
+  fecha: string;
+  status: string;
+  responsable: string;
+  tipoEntrega: BodegaTipoEntrega;
+  productos: FormProduct[];
+  clienteDireccion?: string;
+  agente?: string;
+  almacen?: string;
+  bodegaId?: string;
+  clientId?: string;
+  recipientType?: "route" | "wholesaler" | "retail";
+  shippingMode?: "delivery" | "pickup";
+  ruta?: string;
+  destino?: string;
+  serie?: string;
+  clienteCodigo?: string;
+  clienteNombre?: string;
+  numeroDocumento?: string;
+};
+
 export function BodegaModal({ isOpen, onClose, bodega, onSubmit }: BodegaModalProps) {
   const isEdit = !!bodega;
   const {
@@ -134,15 +173,15 @@ export function BodegaModal({ isOpen, onClose, bodega, onSubmit }: BodegaModalPr
     reset,
     setValue,
     formState: { errors },
-  } = useForm<any>({
-    resolver: zodResolver(cargaBodegaSchema) as any,
+  } = useForm<BodegaModalFormValues>({
+    resolver: zodResolver(cargaBodegaSchema) as unknown as Resolver<BodegaModalFormValues>,
     defaultValues,
   });
 
   const tipoEntrega = useWatch({
     control,
     name: "tipoEntrega",
-    defaultValue: "sucursal",
+    defaultValue: "sucursal" as BodegaTipoEntrega,
   });
 
   const statusOptions = useMemo(() => {
@@ -150,12 +189,22 @@ export function BodegaModal({ isOpen, onClose, bodega, onSubmit }: BodegaModalPr
   }, [tipoEntrega]);
 
   // Si cambiamos el tipo de entrega y el estado actual no existe en el nuevo tipo, lo reseteamos
+  const currentStatus = useWatch({
+    control,
+    name: "status",
+    defaultValue: defaultValues.status,
+  }) || defaultValues.status;
+  const watchedProducts = useWatch({
+    control,
+    name: "productos",
+    defaultValue: [] as FormProduct[],
+  });
+
   useEffect(() => {
-    const currentStatus = control._formValues.status;
     if (statusOptions.length > 0 && !statusOptions.includes(currentStatus)) {
       setValue("status", statusOptions[0]);
     }
-  }, [tipoEntrega, statusOptions, setValue, control]);
+  }, [currentStatus, setValue, statusOptions]);
 
   // No longer using statusOptions based on tipoEntrega for now based on new requirements
 
@@ -186,8 +235,8 @@ export function BodegaModal({ isOpen, onClose, bodega, onSubmit }: BodegaModalPr
 
   // Cleanup: removed old status options sync logic
 
-  const onFormSubmit = (data: any) => {
-    const row = toBodegaRow(data as CargaBodegaFormValues, bodega?.id ?? "");
+  const onFormSubmit = (data: BodegaModalFormValues) => {
+    const row = toBodegaRow(data, bodega?.id ?? "");
     onSubmit?.(row, bodega?.id);
     reset(defaultValues);
     onClose();
@@ -210,7 +259,7 @@ export function BodegaModal({ isOpen, onClose, bodega, onSubmit }: BodegaModalPr
               <Controller
                 name="tipoEntrega"
                 control={control}
-                render={({ field }) => (
+                  render={({ field }) => (
                   <Select
                     label="Tipo de Entrega"
                     selectedKeys={field.value ? [field.value] : []}
@@ -228,11 +277,11 @@ export function BodegaModal({ isOpen, onClose, bodega, onSubmit }: BodegaModalPr
               <Controller
                 name="numeroCarga"
                 control={control}
-                render={({ field }) => (
+                  render={({ field }) => (
                   <Input
                     label="Código de Carga"
                     placeholder="Ej. CG-1001"
-                    value={field.value}
+                    value={field.value || ""}
                     onValueChange={field.onChange}
                     isInvalid={!!errors.numeroCarga}
                     errorMessage={errors.numeroCarga?.message?.toString()}
@@ -242,11 +291,11 @@ export function BodegaModal({ isOpen, onClose, bodega, onSubmit }: BodegaModalPr
               <Controller
                 name="fecha"
                 control={control}
-                render={({ field }) => (
+                  render={({ field }) => (
                   <Input
                     label="Fecha"
                     type="date"
-                    value={field.value}
+                    value={field.value || ""}
                     onValueChange={field.onChange}
                     isInvalid={!!errors.fecha}
                     errorMessage={errors.fecha?.message?.toString()}
@@ -256,7 +305,7 @@ export function BodegaModal({ isOpen, onClose, bodega, onSubmit }: BodegaModalPr
               <Controller
                 name="status"
                 control={control}
-                render={({ field }) => (
+                  render={({ field }) => (
                   <Select
                     label="Estado"
                     selectedKeys={field.value ? [field.value] : []}
@@ -271,7 +320,7 @@ export function BodegaModal({ isOpen, onClose, bodega, onSubmit }: BodegaModalPr
               <Controller
                 name="responsable"
                 control={control}
-                render={({ field }) => (
+                  render={({ field }) => (
                   <Autocomplete
                     label="Vendedor"
                     placeholder="Seleccionar vendedor..."
@@ -292,11 +341,11 @@ export function BodegaModal({ isOpen, onClose, bodega, onSubmit }: BodegaModalPr
               <Controller
                 name="clienteDireccion"
                 control={control}
-                render={({ field }) => (
+                  render={({ field }) => (
                   <Input
                     label="Dirección"
                     placeholder="Calle, Número, Colonia"
-                    value={field.value}
+                    value={field.value || ""}
                     onValueChange={field.onChange}
                     className="sm:col-span-2"
                   />
@@ -305,7 +354,7 @@ export function BodegaModal({ isOpen, onClose, bodega, onSubmit }: BodegaModalPr
               <Controller
                 name="agente"
                 control={control}
-                render={({ field }) => (
+                  render={({ field }) => (
                   <Autocomplete
                     label="Agente"
                     placeholder="Seleccionar agente..."
@@ -326,11 +375,11 @@ export function BodegaModal({ isOpen, onClose, bodega, onSubmit }: BodegaModalPr
               <Controller
                 name="almacen"
                 control={control}
-                render={({ field }) => (
+                  render={({ field }) => (
                   <Input
                     label="Almacén"
                     placeholder="Ej. Almacén Central"
-                    value={field.value}
+                    value={field.value || ""}
                     onValueChange={field.onChange}
                     isInvalid={!!errors.almacen}
                     errorMessage={errors.almacen?.message?.toString()}
@@ -361,17 +410,27 @@ export function BodegaModal({ isOpen, onClose, bodega, onSubmit }: BodegaModalPr
                       key={prod.id}
                       type="button"
                       onClick={() => {
-                        const currentProducts = control._formValues.productos || [];
-                        const exists = currentProducts.find((p: any) => p.id === prod.id);
+                        const currentProducts = watchedProducts || [];
+                        const exists = currentProducts.find((p) => p.id === prod.id);
                         if (exists) {
-                          setValue("productos", currentProducts.map((p: any) =>
+                          setValue("productos", currentProducts.map((p) =>
                             p.id === prod.id ? { ...p, cantidad: p.cantidad + 1 } : p
                           ));
                         } else {
                           setValue("productos", [...currentProducts, {
-                            ...prod,
+                            id: prod.id,
+                            sku: prod.sku,
+                            descripcion: prod.descripcion,
+                            stock: prod.stock,
+                            sinStock: prod.stock === 0,
                             cantidad: 1,
-                            sinStock: prod.stock === 0
+                            precio: prod.precio,
+                            categoria: "General",
+                            subcategoria: "Sin Categoría",
+                            critico: 10,
+                            bajo: 30,
+                            optimo: 50,
+                            etiqueta: "Transparente",
                           }]);
                         }
                         setProductoSearch("");
@@ -400,10 +459,11 @@ export function BodegaModal({ isOpen, onClose, bodega, onSubmit }: BodegaModalPr
                 name="productos"
                 control={control}
                 render={({ field }) => {
-                  const prodsConStock = field.value.filter((p: any) => !p.sinStock);
-                  const prodsSinStock = field.value.filter((p: any) => p.sinStock);
+                  const products = field.value || [];
+                  const prodsConStock = products.filter((p) => !p.sinStock);
+                  const prodsSinStock = products.filter((p) => p.sinStock);
 
-                  const renderTable = (items: any[], title: string, emptyMsg: string, isDanger?: boolean) => (
+                  const renderTable = (items: FormProduct[], title: string, emptyMsg: string, isDanger?: boolean) => (
                     <div className="space-y-2">
                       <div className={`flex items-center gap-2 border-b pb-1 ${isDanger ? "border-danger-200" : "border-default-200"}`}>
                         <p className={`text-sm font-bold ${isDanger ? "text-danger-600" : "text-default-700"}`}>{title}</p>
@@ -422,8 +482,8 @@ export function BodegaModal({ isOpen, onClose, bodega, onSubmit }: BodegaModalPr
                             </tr>
                           </thead>
                           <tbody className="divide-y divide-default-100">
-                            {items.map((prod: any) => {
-                              const globalIdx = field.value.findIndex((p: any) => p.id === prod.id);
+                            {items.map((prod) => {
+                              const globalIdx = products.findIndex((p) => p.id === prod.id);
                               return (
                                 <tr key={prod.id} className="hover:bg-default-50">
                                   <td className="px-4 py-2 font-mono text-xs">{prod.id}</td>
@@ -434,7 +494,7 @@ export function BodegaModal({ isOpen, onClose, bodega, onSubmit }: BodegaModalPr
                                         type="button"
                                         className="size-5 rounded bg-default-200 flex items-center justify-center hover:bg-default-300 text-xs"
                                         onClick={() => {
-                                          const newProds = [...field.value];
+                                          const newProds = [...products];
                                           if (newProds[globalIdx].cantidad > 1) {
                                             newProds[globalIdx].cantidad -= 1;
                                             field.onChange(newProds);
@@ -448,7 +508,7 @@ export function BodegaModal({ isOpen, onClose, bodega, onSubmit }: BodegaModalPr
                                         type="button"
                                         className="size-5 rounded bg-default-200 flex items-center justify-center hover:bg-default-300 text-xs"
                                         onClick={() => {
-                                          const newProds = [...field.value];
+                                          const newProds = [...products];
                                           newProds[globalIdx].cantidad += 1;
                                           field.onChange(newProds);
                                         }}
@@ -465,7 +525,7 @@ export function BodegaModal({ isOpen, onClose, bodega, onSubmit }: BodegaModalPr
                                       size="sm"
                                       variant="light"
                                       color="danger"
-                                      onClick={() => field.onChange(field.value.filter((p: any) => p.id !== prod.id))}
+                                      onClick={() => field.onChange(products.filter((p) => p.id !== prod.id))}
                                     >
                                       <TrashIcon className="size-4" />
                                     </Button>

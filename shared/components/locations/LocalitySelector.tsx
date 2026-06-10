@@ -33,7 +33,7 @@ export const LocalitySelector = ({
       selectedKeys={selectedKey ? [selectedKey] : []}
       onSelectionChange={(keys) => {
         const id = Array.from(keys)[0] as string;
-        const loc = localities?.find(l => l.id === id);
+        const loc = localities?.find(l => String(l.id) === id);
         if (id && loc) {
           onSelectionChange(id, loc.name);
         }
@@ -41,7 +41,7 @@ export const LocalitySelector = ({
       className={className}
     >
       {(localities || []).map((loc) => (
-        <SelectItem key={loc.id} textValue={loc.name}>
+        <SelectItem key={String(loc.id)} textValue={loc.name}>
           {loc.name}
         </SelectItem>
       ))}

@@ -4,13 +4,14 @@ import { Card, CardBody, CardHeader, Divider, Button, Tabs, Tab } from "@heroui/
 import dynamic from "next/dynamic";
 import { useMemo } from "react";
 import { ChevronRightIcon, CalendarDaysIcon } from "@heroicons/react/24/outline";
+import type { ApexOptions } from "apexcharts";
 
 // dynamic import for apexcharts to avoid SSR window is not defined error
 const ReactApexChart = dynamic(() => import("react-apexcharts"), { ssr: false });
 
 export function RutasCreditos({ selectedRutaName }: { selectedRutaName: string }) {
     const pieSeries = [21, 6, 2];
-    const pieOptions: any = {
+    const pieOptions: ApexOptions = {
         chart: {
             type: 'pie',
             foreColor: '#888',
@@ -18,7 +19,6 @@ export function RutasCreditos({ selectedRutaName }: { selectedRutaName: string }
             background: 'transparent',
             animations: {
                 enabled: true,
-                easing: 'easeinout',
                 speed: 800,
             }
         },

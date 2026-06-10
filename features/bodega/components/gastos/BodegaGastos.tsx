@@ -24,6 +24,7 @@ import {
 } from "@heroicons/react/24/outline";
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
+import type { Id } from "@/convex/_generated/dataModel";
 import { BodegaGastoForm } from "./BodegaGastoForm";
 
 const ROWS_PER_PAGE = 10;
@@ -35,6 +36,17 @@ type BodegaGastosProps = {
     selectedWarehouseId?: string;
 };
 
+type GastoRow = {
+    _id: string;
+    responsibleName: string;
+    responsibleGroup?: string;
+    categoryName: string;
+    subcategoryName?: string;
+    date: string;
+    amount: number;
+    isTotal?: boolean;
+};
+
 export function BodegaGastos({ canShowDailyTotals = true, canDelete = true, canCreate = true, selectedWarehouseId }: BodegaGastosProps) {
     const [view, setView] = useState<"list" | "add">("list");
     const [page, setPage] = useState(1);
@@ -43,8 +55,8 @@ export function BodegaGastos({ canShowDailyTotals = true, canDelete = true, canC
     // Convex Data
     const items = useQuery(
       api.bodega_transactions.queries.listEgresos,
-      selectedWarehouseId ? { bodegaId: selectedWarehouseId as any } : {}
-    );
+      selectedWarehouseId ? { bodegaId: selectedWarehouseId as Id<"bodegas"> } : {}
+    ) as GastoRow[] | undefined;
 
     const filteredItems = useMemo(() => {
         if (!items) return [];
@@ -62,12 +74,12 @@ export function BodegaGastos({ canShowDailyTotals = true, canDelete = true, canC
         if (rows.length > 0 && canShowDailyTotals) {
             return [
                 ...rows,
-                {
-                    _id: "total-row",
-                    responsibleName: "Total Egresos",
-                    isTotal: true,
-                } as any,
-            ];
+                    {
+                        _id: "total-row",
+                        responsibleName: "Total Egresos",
+                        isTotal: true,
+                    } as GastoRow,
+                ];
         }
         return rows;
     }, [canShowDailyTotals, filteredItems, page]);
@@ -137,7 +149,7 @@ export function BodegaGastos({ canShowDailyTotals = true, canDelete = true, canC
                         items={paginatedRows} 
                         emptyContent={items === undefined ? <Spinner color="primary" /> : "No se encontraron egresos."}
                     >
-                        {(item: any) => (
+                        {(item: GastoRow) => (
                             <TableRow
                                 key={item._id}
                                 className={

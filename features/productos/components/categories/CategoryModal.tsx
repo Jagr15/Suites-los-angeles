@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import {
   Modal,
   ModalContent,
@@ -24,10 +24,6 @@ export function CategoryModal({ isOpen, onOpenChange, onSuccess }: CategoryModal
   const [name, setName] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const createCategory = useMutation(api.product_categories.functions.createCategory);
-
-  useEffect(() => {
-    if (isOpen) setName("");
-  }, [isOpen]);
 
   const handleSubmit = async () => {
     if (!name.trim()) return;
@@ -53,7 +49,7 @@ export function CategoryModal({ isOpen, onOpenChange, onSuccess }: CategoryModal
 
   return (
     <Modal isOpen={isOpen} onOpenChange={onOpenChange}>
-      <ModalContent>
+      <ModalContent key={isOpen ? "category-open" : "category-closed"}>
         <ModalHeader>Nueva Categoría</ModalHeader>
         <ModalBody>
           <Input

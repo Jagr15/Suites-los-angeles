@@ -42,20 +42,20 @@ export function useProducts() {
   })) as Product[];
 
   const addProduct = useCallback(async (product: Omit<Product, "id">) => {
-    return await createMutation(product as any);
+    return await createMutation(product);
   }, [createMutation]);
 
   const updateProduct = useCallback(async (id: string, product: Partial<Product>) => {
     const { id: _, ...fields } = product;
-    return await updateMutation({ id: id as Id<"products">, ...fields } as any);
+    return await updateMutation({ id: id as Id<"products">, ...fields });
   }, [updateMutation]);
 
   const deleteProduct = useCallback(async (id: string) => {
     return await deleteMutation({ id: id as Id<"products"> });
   }, [deleteMutation]);
 
-  const bulkUpsert = useCallback(async (items: any[]) => {
-    return await bulkUpsertMutation({ items });
+  const bulkUpsert = useCallback(async (items: Array<Record<string, unknown>>) => {
+    return await bulkUpsertMutation({ items: items as never });
   }, [bulkUpsertMutation]);
 
   return {

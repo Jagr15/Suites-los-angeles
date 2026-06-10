@@ -24,6 +24,19 @@ import type { BodegaRow } from "@/shared/mocks";
 
 const ROWS_PER_PAGE = 10;
 
+type InventoryItem = BodegaRow["productos"][number] & {
+    id: string;
+    sku: string;
+    descripcion: string;
+    categoria?: string;
+    subcategoria?: string;
+    stock: number;
+    critico: number;
+    bajo: number;
+    optimo: number;
+    etiqueta: string;
+};
+
 type BodegaInventoryProps = {
     items: BodegaRow[];
     selectedCarga: BodegaRow | null;
@@ -37,10 +50,10 @@ export function BodegaInventory({ items, selectedCarga, onClearSelection, onNuev
     const [page, setPage] = useState(1);
     const [search, setSearch] = useState("");
 
-    const allInventoryItems = useMemo(() => {
-        // Buscar la carga actualizada en la lista de items para evitar datos viejos
+    const allInventoryItems = useMemo<InventoryItem[]>(() => {
         const currentCarga = selectedCarga ? items.find((i) => i.id === selectedCarga.id) : null;
-        return currentCarga ? (currentCarga.productos as any[]) : (items.flatMap((i) => i.productos) as any[]);
+        const source = currentCarga ? currentCarga.productos : items.flatMap((i) => i.productos);
+        return source as InventoryItem[];
     }, [selectedCarga, items]);
 
     const filteredItems = useMemo(() => {
@@ -152,8 +165,8 @@ export function BodegaInventory({ items, selectedCarga, onClearSelection, onNuev
                         <TableColumn className="bg-default-50 text-default-500 font-semibold uppercase tracking-wider h-11 text-xs text-center">Etiqueta</TableColumn>
                     </TableHeader>
                     <TableBody items={paginatedInventory} emptyContent="No hay productos para mostrar.">
-                        {(prod: any) => (
-                            <TableRow key={`${prod.id}-${prod.sku}-${Math.random()}`} className="border-b border-default-50 last:border-0 hover:bg-default-50/50 transition-colors h-12">
+                        {(prod: InventoryItem) => (
+                            <TableRow key={`${prod.id}-${prod.sku}`} className="border-b border-default-50 last:border-0 hover:bg-default-50/50 transition-colors h-12">
                                 <TableCell className="text-xs font-mono text-default-400">{prod.id}</TableCell>
                                 <TableCell className="text-xs font-mono font-bold text-default-500">{prod.sku}</TableCell>
                                 <TableCell className="text-sm font-medium text-default-700 min-w-[200px]">{prod.descripcion}</TableCell>
