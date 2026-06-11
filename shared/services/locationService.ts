@@ -3,14 +3,14 @@ import { StatesResponse, MunicipalitiesResponse, State, Municipality } from '../
 import type { Locality } from '../hooks/useLocations';
 
 type LocationApiItem = {
-  id: number;
+  id: string;
   name: string;
 };
 
 const isLocationApiItem = (value: unknown): value is LocationApiItem => {
   if (typeof value !== "object" || value === null) return false;
   const candidate = value as Record<string, unknown>;
-  return typeof candidate.id === "number" && typeof candidate.name === "string";
+  return (typeof candidate.id === "string" || typeof candidate.id === "number") && typeof candidate.name === "string";
 };
 
 export const locationService = {
@@ -23,7 +23,7 @@ export const locationService = {
     
     return {
       states: states.map((s): State => ({
-        id: s.id,
+        id: String(s.id),
         name: s.name,
         cities_count: 0
       })),
@@ -47,11 +47,11 @@ export const locationService = {
     
     return {
       municipalities: municipalities.map((m): Municipality => ({
-        id: m.id,
+        id: String(m.id),
         name: m.name,
         municipality_key: String(m.id),
         zip_code: "",
-        state_id: 0
+        state_id: String(stateId)
       })),
       meta: {
         pagination: {
@@ -70,7 +70,15 @@ export const locationService = {
     });
     return Array.isArray(response.data)
       ? response.data
-          .filter((item): item is Locality => typeof item?.id === "number" && typeof item?.name === "string")
+          .filter((item): item is { id: string | number; name: string } => {
+            return (
+              typeof item === "object" &&
+              item !== null &&
+              (typeof (item as Record<string, unknown>).id === "string" || typeof (item as Record<string, unknown>).id === "number") &&
+              typeof (item as Record<string, unknown>).name === "string"
+            );
+          })
+          .map((item) => ({ id: String(item.id), name: item.name }))
       : [];
   },
 };

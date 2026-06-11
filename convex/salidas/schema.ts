@@ -22,6 +22,8 @@ export const salidaFields = {
   clienteNombre: v.optional(v.string()),
   numeroDocumento: v.optional(v.string()),
   ruta: v.optional(v.string()),
+  rutaId: v.optional(v.id("routes")),
+  routeId: v.optional(v.id("routes")),
   destino: v.optional(v.string()),
   recipientType: v.optional(v.string()),
   shippingMode: v.optional(v.string()),
@@ -48,6 +50,8 @@ export const salidaFields = {
 export const salidasTable = defineTable(salidaFields)
   .index("by_numeroSalida", ["numeroSalida"])
   .index("by_bodegaId", ["bodegaId"])
+  .index("by_bodegaId_fecha", ["bodegaId", "fecha"])
+  .index("by_fecha", ["fecha"])
   .index("by_clientId", ["clientId"])
   .index("by_clientId_fecha", ["clientId", "fecha"])
   .index("by_status", ["status"])

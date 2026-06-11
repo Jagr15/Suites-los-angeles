@@ -9,18 +9,31 @@ import { DashboardSidebar } from "./DashboardSidebar";
 import { SidebarProvider, useSidebarContext } from "./layout/layout-context";
 import { useRoles } from "@/shared/hooks";
 import { useAuthActions } from "@convex-dev/auth/react";
-import { useQuery } from "convex/react";
-import { api } from "@/convex/_generated/api";
 import { ChevronDownIcon } from "@heroicons/react/24/outline";
 
 const SIDEBAR_WIDTH = 272;
 const SIDEBAR_WIDTH_COLLAPSED = 80;
 
-function DashboardLayoutInner({ children, isBodega }: { children: React.ReactNode; isBodega: boolean }) {
+function DashboardLayoutInner({
+  children,
+  isBodega,
+  isAdmin,
+  isVendedor,
+  role,
+  user,
+}: {
+  children: React.ReactNode;
+  isBodega: boolean;
+  isAdmin: boolean;
+  isVendedor: boolean;
+  role: string;
+  user?: {
+    name?: string | null;
+  } | null;
+}) {
   const { collapsed } = useSidebarContext();
   const { signOut } = useAuthActions();
   const router = useRouter();
-  const user = useQuery(api.users.queries.current);
   const marginLeft = isBodega ? 0 : collapsed ? SIDEBAR_WIDTH_COLLAPSED : SIDEBAR_WIDTH;
 
   const handleLogout = async () => {
@@ -30,7 +43,7 @@ function DashboardLayoutInner({ children, isBodega }: { children: React.ReactNod
 
   return (
     <div className="flex min-h-screen bg-default-100">
-      {!isBodega && <DashboardSidebar />}
+      {!isBodega && <DashboardSidebar user={user} isAdmin={isAdmin} isVendedor={isVendedor} role={role} />}
       <div
         className="flex min-w-0 flex-1 flex-col transition-[margin] duration-300"
         style={{ marginLeft }}
@@ -62,12 +75,13 @@ function DashboardLayoutInner({ children, isBodega }: { children: React.ReactNod
 
 export function DashboardLayout({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, isLoading: isAuthLoading } = useConvexAuth();
-  const { isActive, isBodega, isVendedor, isLoading: isRolesLoading, canAccessPath } = useRoles();
+  const { isActive, isBodega, isVendedor, isLoading: isRolesLoading, canAccessPath, isAdmin, role, user } = useRoles();
   const { signOut } = useAuthActions();
   const router = useRouter();
   const pathname = usePathname();
 
   const isLoading = isAuthLoading || isRolesLoading;
+  const hasPathAccess = canAccessPath(pathname);
 
   useEffect(() => {
     // Solo redirigimos si ya terminó de cargar Y estamos seguros de que NO hay sesión
@@ -77,10 +91,10 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
   }, [isLoading, isAuthenticated, router]);
 
   useEffect(() => {
-    if (!isLoading && isAuthenticated && !canAccessPath(pathname)) {
+    if (!isLoading && isAuthenticated && !hasPathAccess) {
       router.replace(isBodega ? "/dashboard/bodega" : "/dashboard");
     }
-  }, [isLoading, isAuthenticated, canAccessPath, pathname, isBodega, router]);
+  }, [isLoading, isAuthenticated, hasPathAccess, isBodega, router]);
 
   useEffect(() => {
     if (!isLoading && isAuthenticated && isVendedor) {
@@ -105,7 +119,7 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
     return null;
   }
 
-  if (!canAccessPath(pathname)) {
+  if (!hasPathAccess) {
     return null;
   }
 
@@ -143,7 +157,9 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
   // Si llegamos aquí, es que estamos autenticados
   return (
     <SidebarProvider>
-      <DashboardLayoutInner isBodega={isBodega}>{children}</DashboardLayoutInner>
+      <DashboardLayoutInner isBodega={isBodega} isAdmin={isAdmin} isVendedor={isVendedor} role={role} user={user}>
+        {children}
+      </DashboardLayoutInner>
     </SidebarProvider>
   );
 }

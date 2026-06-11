@@ -21,26 +21,26 @@ import {
   SidebarItem,
   SidebarMenu,
 } from "./sidebar";
-
-import { useQuery } from "convex/react";
-import { api } from "@/convex/_generated/api";
 import { useAuthActions } from "@convex-dev/auth/react";
-import { useRoles } from "@/shared/hooks";
 
 const SIDEBAR_WIDTH = 272;
 const SIDEBAR_WIDTH_COLLAPSED = 80;
 
-export function DashboardSidebar() {
+type DashboardSidebarProps = {
+  user?: {
+    name?: string | null;
+    image?: string | null;
+  } | null;
+  isAdmin: boolean;
+  isVendedor: boolean;
+  role: string;
+};
+
+export function DashboardSidebar({ user, isAdmin, isVendedor, role }: DashboardSidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
   const { collapsed, setCollapsed } = useSidebarContext();
   const { signOut } = useAuthActions();
-  const user = useQuery(api.users.queries.current);
-  const { 
-    isAdmin, 
-    isVendedor,
-    role,
-  } = useRoles();
 
   const handleLogout = async () => {
     try {

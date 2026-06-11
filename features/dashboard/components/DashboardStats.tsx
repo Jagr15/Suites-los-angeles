@@ -1,13 +1,8 @@
 "use client";
 
-import { useMemo } from "react";
 import { useQuery } from "convex/react";
 import { Card, CardBody, Chip } from "@heroui/react";
-import {
-  CurrencyDollarIcon,
-  ShoppingCartIcon,
-  CalculatorIcon,
-} from "@heroicons/react/24/outline";
+import { CurrencyDollarIcon, ShoppingCartIcon, CalculatorIcon } from "@heroicons/react/24/outline";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { useWarehouse } from "@/shared/context/warehouse-context";
@@ -19,26 +14,18 @@ const moneyFormatter = new Intl.NumberFormat("es-MX", {
   maximumFractionDigits: 2,
 });
 
-function getLocalDateKey(date = new Date()) {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
-}
-
-function getMonthKey(date = new Date()) {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  return `${year}-${month}`;
-}
-
 function formatMoney(value: number) {
   return moneyFormatter.format(Number.isFinite(value) ? value : 0);
 }
 
-type SalidaSummary = {
-  fecha?: string;
-  totalAmount?: number;
+type DashboardSummary = {
+  todayTotal: number;
+  todayCount: number;
+  monthTotal: number;
+  monthCount: number;
+  averageTicket: number;
+  hasTodayData: boolean;
+  hasMonthData: boolean;
 };
 
 function MetricSkeleton() {
@@ -61,37 +48,12 @@ function MetricSkeleton() {
 
 export function DashboardStats() {
   const { selectedWarehouseId } = useWarehouse();
-  const salidas = useQuery(
-    api.salidas.queries.list,
+  const summary = useQuery(
+    api.salidas.queries.summary,
     selectedWarehouseId ? { bodegaId: selectedWarehouseId as Id<"bodegas"> } : {}
-  ) as SalidaSummary[] | undefined;
+  ) as DashboardSummary | undefined;
 
-  const metrics = useMemo(() => {
-    const rows = salidas ?? [];
-    const todayKey = getLocalDateKey();
-    const monthKey = getMonthKey();
-
-    const todayRows = rows.filter((row) => String(row.fecha || "").startsWith(todayKey));
-    const monthRows = rows.filter((row) => String(row.fecha || "").startsWith(monthKey));
-
-    const todayTotal = todayRows.reduce((acc: number, row) => acc + Number(row.totalAmount || 0), 0);
-    const monthTotal = monthRows.reduce((acc: number, row) => acc + Number(row.totalAmount || 0), 0);
-    const todayCount = todayRows.length;
-    const monthCount = monthRows.length;
-    const averageTicket = monthCount > 0 ? monthTotal / monthCount : 0;
-
-    return {
-      todayTotal,
-      todayCount,
-      monthTotal,
-      monthCount,
-      averageTicket,
-      hasTodayData: todayCount > 0,
-      hasMonthData: monthCount > 0,
-    };
-  }, [salidas]);
-
-  if (salidas === undefined) {
+  if (summary === undefined) {
     return (
       <div>
         <h2 className="mb-4 text-lg font-semibold text-foreground">Resumen operativo</h2>
@@ -107,25 +69,25 @@ export function DashboardStats() {
   const cards = [
     {
       title: "Salidas hoy",
-      subtitle: metrics.hasTodayData ? `${metrics.todayCount} operaciones del día` : "No hay salidas registradas hoy",
-      value: formatMoney(metrics.todayTotal),
-      helper: `Total real del día`,
+      subtitle: summary.hasTodayData ? `${summary.todayCount} operaciones del día` : "No hay salidas registradas hoy",
+      value: formatMoney(summary.todayTotal),
+      helper: "Total real del día",
       icon: CurrencyDollarIcon,
       tone: "primary" as const,
     },
     {
       title: "Salidas del mes",
-      subtitle: metrics.hasMonthData ? `${metrics.monthCount} operaciones del mes` : "Sin movimientos en el mes",
-      value: formatMoney(metrics.monthTotal),
-      helper: `Consolidado mensual`,
+      subtitle: summary.hasMonthData ? `${summary.monthCount} operaciones del mes` : "Sin movimientos en el mes",
+      value: formatMoney(summary.monthTotal),
+      helper: "Consolidado mensual",
       icon: ShoppingCartIcon,
       tone: "default" as const,
     },
     {
       title: "Ticket promedio",
-      subtitle: metrics.hasMonthData ? "Promedio sobre operaciones del mes" : "Sin operaciones para calcular promedio",
-      value: formatMoney(metrics.averageTicket),
-      helper: `${metrics.monthCount} movimientos base`,
+      subtitle: summary.hasMonthData ? "Promedio sobre operaciones del mes" : "Sin operaciones para calcular promedio",
+      value: formatMoney(summary.averageTicket),
+      helper: `${summary.monthCount} movimientos base`,
       icon: CalculatorIcon,
       tone: "success" as const,
     },

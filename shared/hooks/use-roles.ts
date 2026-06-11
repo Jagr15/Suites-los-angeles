@@ -1,3 +1,4 @@
+import { useCallback } from "react";
 import { useQuery } from "convex/react";
 import { useConvexAuth } from "convex/react";
 import { api } from "@/convex/_generated/api";
@@ -27,63 +28,72 @@ export function useRoles() {
   const userPermissions = user?.effectivePermissions || user?.roleData?.permissions || [];
   const hasAllPermissions = userPermissions.includes("all");
 
-  const hasPermission = (permission: string) => {
-    if (isAdmin) return true;
-    if (hasAllPermissions) return true;
-    return userPermissions.includes(permission);
-  };
+  const hasPermission = useCallback(
+    (permission: string) => {
+      if (isAdmin) return true;
+      if (hasAllPermissions) return true;
+      return userPermissions.includes(permission);
+    },
+    [hasAllPermissions, isAdmin, userPermissions]
+  );
 
-  const canAccessPath = (pathname: string) => {
-    if (!pathname.startsWith("/dashboard")) return true;
-    if (isAdmin) return true;
+  const canAccessPath = useCallback(
+    (pathname: string) => {
+      if (!pathname.startsWith("/dashboard")) return true;
+      if (isAdmin) return true;
 
-    // Bodeguero: acceso exclusivo a Bodega y Mi Cuenta.
-    if (isBodega) {
-      return pathname.startsWith("/dashboard/bodega") || pathname.startsWith("/dashboard/cuenta");
-    }
+      // Bodeguero: acceso exclusivo a Bodega y Mi Cuenta.
+      if (isBodega) {
+        return pathname.startsWith("/dashboard/bodega") || pathname.startsWith("/dashboard/cuenta");
+      }
 
-    if (pathname.startsWith("/dashboard/configuracion")) {
-      return hasPermission("settings:view") || hasPermission("settings:manage") || hasPermission("users:view") || hasPermission("users:manage");
-    }
-    if (pathname.startsWith("/dashboard/finanzas")) {
-      return hasPermission("finance:view") || hasPermission("finance:manage");
-    }
-    if (pathname.startsWith("/dashboard/proveedores")) {
-      return hasPermission("suppliers:view") || hasPermission("suppliers:manage");
-    }
-    if (pathname.startsWith("/dashboard/rutas")) {
-      return hasPermission("routes:view") || hasPermission("routes:manage");
-    }
-    if (pathname.startsWith("/dashboard/clientes")) {
-      return hasPermission("clients:view") || hasPermission("clients:manage");
-    }
-    if (pathname.startsWith("/dashboard/bodega")) {
-      return hasPermission("warehouse:view") || hasPermission("warehouse:manage");
-    }
-    if (pathname.startsWith("/dashboard/productos")) {
-      return hasPermission("catalogo:view") || hasPermission("products:view") || hasPermission("products:manage");
-    }
-    if (pathname.startsWith("/dashboard/cuenta")) return true;
+      if (pathname.startsWith("/dashboard/configuracion")) {
+        return hasPermission("settings:view") || hasPermission("settings:manage") || hasPermission("users:view") || hasPermission("users:manage");
+      }
+      if (pathname.startsWith("/dashboard/finanzas")) {
+        return hasPermission("finance:view") || hasPermission("finance:manage");
+      }
+      if (pathname.startsWith("/dashboard/proveedores")) {
+        return hasPermission("suppliers:view") || hasPermission("suppliers:manage");
+      }
+      if (pathname.startsWith("/dashboard/rutas")) {
+        return hasPermission("routes:view") || hasPermission("routes:manage");
+      }
+      if (pathname.startsWith("/dashboard/clientes")) {
+        return hasPermission("clients:view") || hasPermission("clients:manage");
+      }
+      if (pathname.startsWith("/dashboard/bodega")) {
+        return hasPermission("warehouse:view") || hasPermission("warehouse:manage");
+      }
+      if (pathname.startsWith("/dashboard/productos")) {
+        return hasPermission("catalogo:view") || hasPermission("products:view") || hasPermission("products:manage");
+      }
+      if (pathname.startsWith("/dashboard/cuenta")) return true;
 
-    if (isVendedor) {
-      return (
-        pathname === "/dashboard" ||
-        pathname.startsWith("/dashboard/rutas") ||
-        pathname.startsWith("/dashboard/clientes") ||
-        pathname.startsWith("/dashboard/cuenta")
-      );
-    }
+      if (isVendedor) {
+        return (
+          pathname === "/dashboard" ||
+          pathname.startsWith("/dashboard/rutas") ||
+          pathname.startsWith("/dashboard/clientes") ||
+          pathname.startsWith("/dashboard/cuenta")
+        );
+      }
 
-    return pathname.startsWith("/dashboard/cuenta");
-  };
+      return pathname.startsWith("/dashboard/cuenta");
+    },
+    [hasPermission, isAdmin, isBodega, isVendedor]
+  );
 
   /**
    * Verifica si el usuario tiene alguno de los roles permitidos.
    */
-  const hasRole = (roles: string[]) => {
-    if (isAdmin) return true;
-    return roles.some(r => r.toLowerCase() === normalizedRole);
-  };
+  const hasRole = useCallback(
+    (roles: string[]) => {
+      if (isAdmin) return true;
+      return roles.some((r) => r.toLowerCase() === normalizedRole);
+    },
+    [isAdmin, normalizedRole]
+  );
 
   return {
     user,

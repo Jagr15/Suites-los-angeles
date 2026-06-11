@@ -3,7 +3,7 @@ import { locationService } from '../services/locationService';
 import { StatesResponse, CitiesResponse, MunicipalitiesResponse } from '../types/location';
 
 export type Locality = {
-  id: number;
+  id: string;
   name: string;
 };
 

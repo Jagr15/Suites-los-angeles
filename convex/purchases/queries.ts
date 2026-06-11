@@ -1,7 +1,7 @@
 import { query } from "../_generated/server";
 import { v } from "convex/values";
 import type { QueryCtx } from "../_generated/server";
-import type { Doc } from "../_generated/dataModel";
+import type { Doc, Id } from "../_generated/dataModel";
 
 async function buildProductosForPurchase(ctx: QueryCtx, purchaseId: string, bodegaId: string) {
   const items = await ctx.db
@@ -39,6 +39,19 @@ async function buildProductosForPurchase(ctx: QueryCtx, purchaseId: string, bode
       };
     })
   );
+}
+
+async function loadSupplierLookup(ctx: QueryCtx, purchases: Array<Doc<"purchases">>) {
+  const supplierIds = Array.from(new Set(purchases.map((purchase) => String(purchase.supplierId))));
+  const suppliers = await Promise.all(supplierIds.map((id) => ctx.db.get(id as Id<"suppliers">)));
+
+  const supplierById = new Map<string, NonNullable<Doc<"suppliers">>>();
+  for (const supplier of suppliers) {
+    if (supplier) {
+      supplierById.set(String(supplier._id), supplier);
+    }
+  }
+  return supplierById;
 }
 
 /**
@@ -90,6 +103,33 @@ export const list = query({
         };
       })
     );
+  },
+});
+
+export const listRecent = query({
+  args: {
+    bodegaId: v.optional(v.id("bodegas")),
+    limit: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const limit = Math.max(1, Math.min(args.limit ?? 6, 25));
+    const purchases = args.bodegaId
+      ? await ctx.db
+          .query("purchases")
+          .withIndex("by_bodegaId_date", (q) => q.eq("bodegaId", args.bodegaId!))
+          .order("desc")
+          .take(limit)
+      : await ctx.db.query("purchases").withIndex("by_date", (q) => q.gte("date", "")).order("desc").take(limit);
+
+    const supplierById = await loadSupplierLookup(ctx, purchases);
+
+    return purchases.map((purchase) => {
+      const supplier = supplierById.get(String(purchase.supplierId));
+      return {
+        ...purchase,
+        supplierName: supplier?.businessName || "Proveedor desconocido",
+      };
+    });
   },
 });
 

@@ -1,6 +1,5 @@
 "use client";
 
-import { useMemo } from "react";
 import { useQuery } from "convex/react";
 import {
   Card,
@@ -65,56 +64,53 @@ type SalidaRecord = {
   fecha?: string;
   status?: string;
   totalAmount?: number;
-  clientId?: string;
-  rutaId?: string;
-  routeId?: string;
-  ruta?: string;
-  destino?: string;
-  recipientType?: string;
-  clienteNombre?: string;
+  destinatario?: string;
 };
 
-type ClientRecord = {
-  _id: string;
-  commercialName?: string;
-  buyerName?: string;
-  name?: string;
-};
-
-type RouteRecord = {
-  _id: string;
-  name?: string;
-};
-
-function resolveDestinatario(salida: SalidaRecord, clients: ClientRecord[], routes: RouteRecord[]) {
-  const client = clients.find((candidate) => String(candidate._id) === String(salida.clientId));
-  const route = routes.find((candidate) =>
-    String(candidate._id) === String(salida.rutaId || salida.routeId || "") ||
-    String(candidate.name || "").trim().toLowerCase() === String(salida.ruta || "").trim().toLowerCase()
+function TableSkeleton() {
+  return (
+    <Card className="h-full">
+      <CardHeader className="flex items-center justify-between gap-3 pb-0">
+        <div className="space-y-2">
+          <div className="h-5 w-40 rounded bg-default-200/80 animate-pulse" />
+          <div className="h-3 w-56 rounded bg-default-200/60 animate-pulse" />
+        </div>
+        <div className="h-7 w-24 rounded-full bg-default-200/70 animate-pulse" />
+      </CardHeader>
+      <CardBody className="pt-2">
+        <div className="overflow-hidden rounded-xl border border-default-200">
+          <div className="grid grid-cols-5 gap-3 border-b border-default-200 bg-default-100 px-4 py-3">
+            {columns.map((column) => (
+              <div key={column.key} className="h-3 rounded bg-default-200/80 animate-pulse" />
+            ))}
+          </div>
+          <div className="divide-y divide-default-200">
+            {Array.from({ length: 6 }).map((_, index) => (
+              <div key={index} className="grid grid-cols-5 gap-3 px-4 py-4">
+                {columns.map((column) => (
+                  <div key={column.key} className="h-4 rounded bg-default-200/60 animate-pulse" />
+                ))}
+              </div>
+            ))}
+          </div>
+        </div>
+      </CardBody>
+    </Card>
   );
-
-  if (String(salida.recipientType || "") === "route" || route) {
-    return route?.name || salida.ruta || salida.destino || "Ruta interna";
-  }
-
-  if (client) {
-    return client.commercialName || client.buyerName || client.name || "Cliente mayorista";
-  }
-
-  return salida.destino || salida.clienteNombre || "Destinatario no definido";
 }
 
 export function DashboardTable() {
   const { selectedWarehouseId } = useWarehouse();
   const salidas = useQuery(
-    api.salidas.queries.list,
-    selectedWarehouseId ? { bodegaId: selectedWarehouseId as Id<"bodegas"> } : {}
+    api.salidas.queries.listRecent,
+    selectedWarehouseId ? { bodegaId: selectedWarehouseId as Id<"bodegas">, limit: 6 } : { limit: 6 }
   ) as SalidaRecord[] | undefined;
-  const clients = (useQuery(api.clients.queries.list) || []) as ClientRecord[];
-  const routes = (useQuery(api.routes.queries.list) || []) as RouteRecord[];
 
-  const rows = useMemo(() => (salidas ?? []).slice(0, 6), [salidas]);
-  const isLoading = salidas === undefined;
+  if (salidas === undefined) {
+    return <TableSkeleton />;
+  }
+
+  const rows = salidas;
 
   return (
     <Card className="h-full">
@@ -145,10 +141,7 @@ export function DashboardTable() {
               </TableColumn>
             )}
           </TableHeader>
-          <TableBody
-            items={rows}
-            emptyContent={isLoading ? "Cargando movimientos..." : "No hay salidas recientes"}
-          >
+          <TableBody items={rows} emptyContent="No hay salidas recientes">
             {(item) => (
               <TableRow key={String(item._id)}>
                 {(columnKey) => {
@@ -156,11 +149,7 @@ export function DashboardTable() {
                     return <TableCell className="font-semibold text-primary">{item.numeroSalida || "Sin folio"}</TableCell>;
                   }
                   if (columnKey === "destinatario") {
-                    return (
-                      <TableCell className="font-medium text-foreground">
-                        {resolveDestinatario(item, clients, routes)}
-                      </TableCell>
-                    );
+                    return <TableCell className="font-medium text-foreground">{item.destinatario || "Destinatario no definido"}</TableCell>;
                   }
                   if (columnKey === "fecha") {
                     return <TableCell className="text-default-500">{formatDate(item.fecha)}</TableCell>;

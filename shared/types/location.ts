@@ -1,21 +1,21 @@
 export interface State {
-  id: number;
+  id: string;
   name: string;
   cities_count: number;
 }
 
 export interface City {
-  id: number;
+  id: string;
   name: string;
-  state_id: number;
+  state_id: string;
 }
 
 export interface Municipality {
-  id: number;
+  id: string;
   name: string;
   municipality_key: string;
   zip_code: string;
-  state_id: number;
+  state_id: string;
 }
 
 export interface PaginationLinks {
