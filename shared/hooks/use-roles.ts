@@ -27,6 +27,16 @@ export function useRoles() {
   const isVendedor = normalizedRole === "vendedor";
   const userPermissions = user?.effectivePermissions || user?.roleData?.permissions || [];
   const hasAllPermissions = userPermissions.includes("all");
+  const hasSellerWebAccess =
+    isAdmin ||
+    (isVendedor &&
+      [
+        "routes:view",
+        "clients:view",
+        "sales:view",
+        "sales:create",
+        "customers:allow_create",
+      ].some((permission) => userPermissions.includes(permission)));
 
   const hasPermission = useCallback(
     (permission: string) => {
@@ -108,5 +118,6 @@ export function useRoles() {
     hasPermission,
     hasRole,
     canAccessPath,
+    hasSellerWebAccess,
   };
 }

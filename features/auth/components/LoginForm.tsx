@@ -36,7 +36,6 @@ function getFriendlyLoginError(error: unknown) {
 
   if (
     normalized.includes("invalidsecret") ||
-    normalized.includes("invalidsecret") ||
     normalized.includes("invalid credentials") ||
     normalized.includes("invalid account id") ||
     normalized.includes("invalidpassword") ||
@@ -48,13 +47,14 @@ function getFriendlyLoginError(error: unknown) {
   }
 
   if (
+    normalized.includes("invalid account id") ||
     normalized.includes("no account") ||
     normalized.includes("no user") ||
     normalized.includes("not found") ||
     normalized.includes("unknown email") ||
     normalized.includes("no existe")
   ) {
-    return "No existe una cuenta con este correo.";
+    return "No se pudo validar esta cuenta. Contacta a un administrador.";
   }
 
   if (

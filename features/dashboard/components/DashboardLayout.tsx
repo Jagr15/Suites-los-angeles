@@ -10,6 +10,7 @@ import { SidebarProvider, useSidebarContext } from "./layout/layout-context";
 import { useRoles } from "@/shared/hooks";
 import { useAuthActions } from "@convex-dev/auth/react";
 import { ChevronDownIcon } from "@heroicons/react/24/outline";
+import { VendorWebLimitedPage } from "@/features/auth/pages/VendorWebLimitedPage";
 
 const SIDEBAR_WIDTH = 272;
 const SIDEBAR_WIDTH_COLLAPSED = 80;
@@ -75,8 +76,18 @@ function DashboardLayoutInner({
 
 export function DashboardLayout({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, isLoading: isAuthLoading } = useConvexAuth();
-  const { isActive, isBodega, isVendedor, isLoading: isRolesLoading, canAccessPath, isAdmin, role, user } = useRoles();
   const { signOut } = useAuthActions();
+  const {
+    isActive,
+    isBodega,
+    isVendedor,
+    isLoading: isRolesLoading,
+    canAccessPath,
+    isAdmin,
+    role,
+    user,
+    hasSellerWebAccess,
+  } = useRoles();
   const router = useRouter();
   const pathname = usePathname();
 
@@ -92,17 +103,9 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (!isLoading && isAuthenticated && !hasPathAccess) {
-      router.replace(isBodega ? "/dashboard/bodega" : "/dashboard");
+      router.replace(isBodega ? "/dashboard/bodega" : isVendedor && !hasSellerWebAccess ? "/app-only" : "/dashboard");
     }
-  }, [isLoading, isAuthenticated, hasPathAccess, isBodega, router]);
-
-  useEffect(() => {
-    if (!isLoading && isAuthenticated && isVendedor) {
-      signOut().finally(() => {
-        router.replace("/login");
-      });
-    }
-  }, [isLoading, isAuthenticated, isVendedor, signOut, router]);
+  }, [hasSellerWebAccess, isLoading, isAuthenticated, hasPathAccess, isBodega, isVendedor, router]);
 
   // Pantalla de carga mientras verificamos la identidad
   if (isLoading) {
@@ -149,9 +152,8 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
     );
   }
 
-  // Restricción para Vendedores en esta aplicación web
-  if (isVendedor) {
-    return null;
+  if (isVendedor && !hasSellerWebAccess) {
+    return <VendorWebLimitedPage />;
   }
 
   // Si llegamos aquí, es que estamos autenticados

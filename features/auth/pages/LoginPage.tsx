@@ -5,18 +5,21 @@ import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Link, Divider, Spinner } from "@heroui/react";
 import { LoginForm } from "../components/LoginForm";
+import { useRoles } from "@/shared/hooks";
 
 export function LoginPage() {
   const { isAuthenticated, isLoading } = useConvexAuth();
+  const { isLoading: isRolesLoading, isVendedor, hasSellerWebAccess } = useRoles();
   const router = useRouter();
+  const loading = isLoading || isRolesLoading;
 
   useEffect(() => {
-    if (!isLoading && isAuthenticated) {
-      router.replace("/dashboard");
+    if (!loading && isAuthenticated) {
+      router.replace(isVendedor && !hasSellerWebAccess ? "/app-only" : "/dashboard");
     }
-  }, [isAuthenticated, isLoading, router]);
+  }, [hasSellerWebAccess, isAuthenticated, isVendedor, loading, router]);
 
-  if (isLoading || isAuthenticated) {
+  if (loading || isAuthenticated) {
     return (
       <div className="flex h-screen w-full items-center justify-center bg-black">
         <Spinner size="lg" color="primary" />

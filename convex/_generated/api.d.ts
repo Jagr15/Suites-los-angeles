@@ -18,6 +18,7 @@ import type * as bodegas_mutations from "../bodegas/mutations.js";
 import type * as bodegas_queries from "../bodegas/queries.js";
 import type * as clients_mutations from "../clients/mutations.js";
 import type * as clients_queries from "../clients/queries.js";
+import type * as common_authAccounts from "../common/authAccounts.js";
 import type * as common_hashing from "../common/hashing.js";
 import type * as common_mutations from "../common/mutations.js";
 import type * as common_utils from "../common/utils.js";
@@ -81,6 +82,7 @@ declare const fullApi: ApiFromModules<{
   "bodegas/queries": typeof bodegas_queries;
   "clients/mutations": typeof clients_mutations;
   "clients/queries": typeof clients_queries;
+  "common/authAccounts": typeof common_authAccounts;
   "common/hashing": typeof common_hashing;
   "common/mutations": typeof common_mutations;
   "common/utils": typeof common_utils;

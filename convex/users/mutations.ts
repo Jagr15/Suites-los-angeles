@@ -1,10 +1,11 @@
 import { mutation } from "../_generated/server";
 import { v } from "convex/values";
 import { requireAdmin, requireAdminOrDevMigration } from "../common/utils";
-import { hashPassword, verifyPassword } from "../common/hashing";
+import { verifyPassword } from "../common/hashing";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { Id } from "../_generated/dataModel";
 import { getEffectivePermissions, normalizePermissions, PERMISSION_KEYS } from "../../shared/security/permissions";
+import { ensurePasswordAccountForUser, listPasswordAccountsByEmail } from "../common/authAccounts";
 
 const OPERATIONAL_ROLE_NAMES = new Set(["SuperAdmin", "Admin", "Bodeguero", "Vendedor"]);
 
@@ -202,33 +203,23 @@ export const upsertUser = mutation({
     // Sincronizamos la cuenta password cuando exista o cuando se defina una nueva contraseña.
     if (email && userId) {
       try {
-        const existingAccounts = await ctx.db.query("authAccounts").collect();
+        const existingAccounts = await listPasswordAccountsByEmail(ctx, email);
         const accountForUser = existingAccounts.find(
-          (account) => account.provider === "password" && String(account.userId) === String(userId)
+          (account) => String(account.userId) === String(userId)
         );
-        const accountForEmail = existingAccounts.find(
-          (account) => account.provider === "password" && account.providerAccountId === email
-        );
+        const accountForEmail = existingAccounts.find((account) => account.providerAccountId === email);
         const account = accountForUser || accountForEmail;
 
-        if (account) {
+        if (password) {
+          await ensurePasswordAccountForUser(ctx, { userId, email, password });
+          authConfigured = true;
+        } else if (account) {
           const patch: Record<string, unknown> = {};
           if (String(account.userId) !== String(userId)) patch.userId = userId;
           if (account.providerAccountId !== email) patch.providerAccountId = email;
-          if (password) {
-            patch.secret = await hashPassword(password);
-          }
           if (Object.keys(patch).length > 0) {
             await ctx.db.patch(account._id, patch as any);
           }
-          authConfigured = true;
-        } else if (password) {
-          await ctx.db.insert("authAccounts", {
-            userId,
-            provider: "password",
-            providerAccountId: email,
-            secret: await hashPassword(password),
-          });
           authConfigured = true;
         }
       } catch (error) {
@@ -533,9 +524,11 @@ export const updateMe = mutation({
         throw new Error("La contraseña actual es incorrecta");
       }
 
-      // Si es correcta, preparamos el nuevo hash
-      const hashedSecret = await hashPassword(password);
-      await ctx.db.patch(account._id, { secret: hashedSecret });
+      await ensurePasswordAccountForUser(ctx, {
+        userId,
+        email: user.email!,
+        password,
+      });
     }
 
     // 2. Actualizar datos del perfil
