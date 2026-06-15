@@ -19,6 +19,7 @@ export interface User {
   effectivePermissions?: string[];
   extraPermissions?: string[];
   disabledPermissions?: string[];
+  allowedWarehouseIds?: string[];
 }
 
 export const INITIAL_USERS: User[] = [

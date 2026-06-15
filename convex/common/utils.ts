@@ -18,6 +18,11 @@ function isSuperAdminRoleName(role?: string | null) {
   return normalized === "superadmin" || normalized === "super admin";
 }
 
+function isBodegueroRoleName(role?: string | null) {
+  const normalized = (role || "").trim().toLowerCase();
+  return normalized === "bodeguero" || normalized === "bodega";
+}
+
 /**
  * Verifica si el usuario actual tiene rol de administrador.
  */
@@ -176,6 +181,15 @@ export async function getAccessibleWarehouseIds(ctx: QueryCtx | MutationCtx) {
   }
   const current = await getCurrentUserWithRole(ctx);
   if (!current) return [] as Id<"bodegas">[];
+  if (!isBodegueroRoleName(current.user.role) && !isBodegueroRoleName(current.roleData?.name)) {
+    return [] as Id<"bodegas">[];
+  }
+
+  const directAssignments = (current.user.allowedWarehouseIds || []).filter(Boolean);
+  if (directAssignments.length > 0) {
+    return directAssignments;
+  }
+
   const userId = current.user._id;
   const bodegas = await ctx.db.query("bodegas").collect();
   return bodegas
@@ -191,8 +205,13 @@ export async function requireWarehouseAccess(
   if (await isAdmin(ctx)) return;
   const current = await getCurrentUserWithRole(ctx);
   if (!current) throw new Error(message);
+  if (!isBodegueroRoleName(current.user.role) && !isBodegueroRoleName(current.roleData?.name)) {
+    throw new Error(message);
+  }
   const bodega = await ctx.db.get(bodegaId);
   if (!bodega) throw new Error("Bodega no encontrada.");
-  const allowed = (bodega.allowedUserIds || []).some((id) => String(id) === String(current.user._id));
+  const allowedByUser = (current.user.allowedWarehouseIds || []).some((id) => String(id) === String(bodegaId));
+  const allowedByLegacy = (bodega.allowedUserIds || []).some((id) => String(id) === String(current.user._id));
+  const allowed = allowedByUser || allowedByLegacy;
   if (!allowed) throw new Error(message);
 }

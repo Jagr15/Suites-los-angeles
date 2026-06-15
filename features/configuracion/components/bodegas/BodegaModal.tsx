@@ -13,13 +13,8 @@ import {
   Input,
   Textarea,
   Switch,
-  Checkbox,
-  Select,
-  SelectItem,
 } from "@heroui/react";
 import { almacenSchema, type AlmacenFormValues, type Almacen } from "@/shared/schemas";
-import { useQuery } from "convex/react";
-import { api } from "@/convex/_generated/api";
 
 interface BodegaModalProps {
   isOpen: boolean;
@@ -27,7 +22,6 @@ interface BodegaModalProps {
   bodega: Almacen | null;
   onSubmit: (values: AlmacenFormValues) => Promise<void>;
   isLoading?: boolean;
-  bodegueroUsers?: Array<{ _id: string; name?: string; email?: string }>;
 }
 
 export function BodegaModal({
@@ -36,14 +30,11 @@ export function BodegaModal({
   bodega,
   onSubmit,
   isLoading,
-  bodegueroUsers = [],
 }: BodegaModalProps) {
   const {
     control,
     handleSubmit,
     reset,
-    setValue,
-    setError,
     formState: { errors },
   } = useForm<AlmacenFormValues>({
     resolver: zodResolver(almacenSchema) as any,
@@ -52,10 +43,8 @@ export function BodegaModal({
       description: "",
       address: "",
       isActive: true,
-      allowedUserIds: [],
     },
   });
-  const profiles = useQuery(api.profiles.queries.listForSelection) || [];
 
   useEffect(() => {
     if (isOpen) {
@@ -64,34 +53,22 @@ export function BodegaModal({
           name: bodega.name,
           description: bodega.description || "",
           address: bodega.address || "",
-          manager: bodega.manager || "",
-          managerProfileId: (bodega as any).managerProfileId || "",
-          managerUserId: (bodega as any).managerUserId || "",
           phone: bodega.phone || "",
           isActive: bodega.isActive,
-          allowedUserIds: (bodega as any).allowedUserIds || [],
         });
       } else {
         reset({
           name: "",
           description: "",
           address: "",
-          manager: "",
-          managerProfileId: "",
-          managerUserId: "",
           phone: "",
           isActive: true,
-          allowedUserIds: [],
         });
       }
     }
   }, [isOpen, bodega, reset]);
 
   const onFormSubmit = async (values: AlmacenFormValues) => {
-    if (!values.managerProfileId) {
-      setError("managerProfileId", { type: "manual", message: "Selecciona un perfil encargado" });
-      return;
-    }
     await onSubmit(values);
     onClose();
   };
@@ -119,49 +96,19 @@ export function BodegaModal({
                 />
               )}
             />
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <Controller
-                name="managerProfileId"
-                control={control}
-                render={({ field }) => (
-                  <Select
-                    label="Encargado"
-                    placeholder="Selecciona un perfil..."
-                    labelPlacement="outside"
-                    selectedKeys={field.value ? [field.value] : []}
-                    onSelectionChange={(keys) => {
-                      const selectedId = String(Array.from(keys)[0] || "");
-                      const selectedProfile = profiles.find((p: any) => String(p._id) === selectedId);
-                      field.onChange(selectedId);
-                      if (selectedProfile) {
-                        setValue("manager", selectedProfile.fullName);
-                        setValue("managerUserId", selectedProfile.userId ? String(selectedProfile.userId) : "");
-                      }
-                    }}
-                    isInvalid={!!errors.managerProfileId}
-                    errorMessage={errors.managerProfileId?.message}
-                    disallowEmptySelection
-                  >
-                    {profiles.map((profile: any) => (
-                      <SelectItem key={String(profile._id)}>{profile.fullName}</SelectItem>
-                    ))}
-                  </Select>
-                )}
-              />
-              <Controller
-                name="phone"
-                control={control}
-                render={({ field }) => (
-                  <Input
-                    label="Teléfono"
-                    placeholder="Ej. 4441234567"
-                    labelPlacement="outside"
-                    value={field.value}
-                    onValueChange={field.onChange}
-                  />
-                )}
-              />
-            </div>
+            <Controller
+              name="phone"
+              control={control}
+              render={({ field }) => (
+                <Input
+                  label="Teléfono"
+                  placeholder="Ej. 4441234567"
+                  labelPlacement="outside"
+                  value={field.value}
+                  onValueChange={field.onChange}
+                />
+              )}
+            />
             <Controller
               name="address"
               control={control}
@@ -200,39 +147,6 @@ export function BodegaModal({
                     color="success"
                     size="sm"
                   />
-                )}
-              />
-            </div>
-            <div className="space-y-2">
-              <p className="text-small font-medium text-default-700">Usuarios con acceso</p>
-              <Controller
-                name="allowedUserIds"
-                control={control}
-                render={({ field }) => (
-                  <div className="max-h-40 overflow-auto rounded-lg border border-default-200 p-2 space-y-1">
-                    {bodegueroUsers.length === 0 ? (
-                      <p className="text-xs text-default-500">No hay usuarios bodegueros disponibles.</p>
-                    ) : (
-                      bodegueroUsers.map((user) => {
-                        const selected = (field.value || []).includes(user._id);
-                        return (
-                          <Checkbox
-                            key={user._id}
-                            isSelected={selected}
-                            onValueChange={(isSelected) => {
-                              const current = field.value || [];
-                              const next = isSelected
-                                ? [...current, user._id]
-                                : current.filter((id: string) => id !== user._id);
-                              field.onChange(next);
-                            }}
-                          >
-                            {(user.name || user.email || user._id).trim()}
-                          </Checkbox>
-                        );
-                      })
-                    )}
-                  </div>
                 )}
               />
             </div>

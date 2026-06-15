@@ -24,10 +24,69 @@ async function assertProdMaintenanceAccess(ctx: any) {
   );
 }
 
+async function assertSeedMaintenanceAccess(ctx: any) {
+  const deployment = (process.env.CONVEX_DEPLOYMENT || "").trim().toLowerCase();
+  if (deployment.startsWith("dev:")) {
+    const allowDev = (process.env.ALLOW_DEV_MIGRATIONS || "").trim().toLowerCase() === "true";
+    if (allowDev) return;
+    throw new Error("Dev maintenance is disabled. Set ALLOW_DEV_MIGRATIONS=true to enable.");
+  }
+
+  if (await isAdmin(ctx)) return;
+  const allowProd = (process.env.ALLOW_PROD_MAINTENANCE || "").trim().toLowerCase() === "true";
+  if (allowProd) return;
+  throw new Error(
+    "Acceso denegado: requiere admin o mantenimiento productivo habilitado por entorno."
+  );
+}
+
+async function ensurePasswordAccount(
+  ctx: any,
+  userId: Id<"users">,
+  email: string,
+  password: string
+) {
+  const secret = await hashPassword(password);
+  const allAccounts = await ctx.db.query("authAccounts").collect();
+  const matchingAccounts = allAccounts.filter(
+    (account: any) => account.provider === "password" && account.providerAccountId === email
+  );
+
+  if (matchingAccounts.length === 0) {
+    await ctx.db.insert("authAccounts", {
+      userId,
+      provider: "password",
+      providerAccountId: email,
+      secret,
+    });
+    return { action: "created", deleted: 0, patched: 0 };
+  }
+
+  const preferredAccount =
+    matchingAccounts.find((account: any) => String(account.userId) === String(userId)) || matchingAccounts[0];
+  let patched = 0;
+
+  for (const account of matchingAccounts) {
+    if (String(account._id) !== String(preferredAccount._id)) {
+      await ctx.db.delete(account._id);
+    } else {
+      const patch: Record<string, unknown> = {};
+      if (String(account.userId) !== String(userId)) patch.userId = userId;
+      if (account.secret !== secret) patch.secret = secret;
+      if (Object.keys(patch).length > 0) {
+        await ctx.db.patch(account._id, patch as any);
+        patched++;
+      }
+    }
+  }
+
+  return { action: "repaired", deleted: Math.max(matchingAccounts.length - 1, 0), patched };
+}
+
 export const syncCanonicalRolesAndDemoUsers = mutation({
   args: {},
   handler: async (ctx) => {
-    assertDevMaintenanceEnabled();
+    await assertSeedMaintenanceAccess(ctx);
 
     const canonicalRoles = [
       {
@@ -74,33 +133,99 @@ export const syncCanonicalRolesAndDemoUsers = mutation({
     const findRoleId = (name: string) => roleRecords.find((r) => r.name === name)?._id;
 
     const userTargets = [
-      { email: "admin@gmail.com", roleName: "Admin", roleString: "Admin" },
-      { email: "vendedor@gmail.com", roleName: "Vendedor", roleString: "Vendedor" },
-      { email: "bodeguero@gmail.com", roleName: "Bodeguero", roleString: "Bodeguero" },
+      { name: "Admin Demo 1", email: "admin1@gmail.com", password: "admin123", roleName: "Admin", roleString: "Admin", group: "Administración" as const },
+      { name: "Admin Demo 2", email: "admin2@gmail.com", password: "admin123", roleName: "Admin", roleString: "Admin", group: "Administración" as const },
+      { name: "Admin Demo 3", email: "admin3@gmail.com", password: "admin123", roleName: "Admin", roleString: "Admin", group: "Administración" as const },
+      { name: "Vendedor Demo 1", email: "vendedor1@gmail.com", password: "vendedor123", roleName: "Vendedor", roleString: "Vendedor", group: "Ventas" as const },
+      { name: "Vendedor Demo 2", email: "vendedor2@gmail.com", password: "vendedor123", roleName: "Vendedor", roleString: "Vendedor", group: "Ventas" as const },
+      { name: "Vendedor Demo 3", email: "vendedor3@gmail.com", password: "vendedor123", roleName: "Vendedor", roleString: "Vendedor", group: "Ventas" as const },
+      { name: "Bodeguero Demo 1", email: "bodeguero1@gmail.com", password: "bodeguero123", roleName: "Bodeguero", roleString: "Bodeguero", group: "Bodega" as const },
+      { name: "Bodeguero Demo 2", email: "bodeguero2@gmail.com", password: "bodeguero123", roleName: "Bodeguero", roleString: "Bodeguero", group: "Bodega" as const },
+      { name: "Bodeguero Demo 3", email: "bodeguero3@gmail.com", password: "bodeguero123", roleName: "Bodeguero", roleString: "Bodeguero", group: "Bodega" as const },
     ] as const;
+
+    const ensureProfileForUser = async (
+      userId: any,
+      fullName: string,
+      group: "Administración" | "Ventas" | "Bodega"
+    ) => {
+      const existingProfile = await ctx.db
+        .query("profiles")
+        .withIndex("by_userId", (q) => q.eq("userId", userId))
+        .first();
+
+      if (existingProfile) {
+        const patch: Record<string, unknown> = {};
+        if (existingProfile.fullName !== fullName) patch.fullName = fullName;
+        if (existingProfile.status !== "Activo") patch.status = "Activo";
+        if (existingProfile.isEmployee !== true) patch.isEmployee = true;
+        if (existingProfile.group !== group) patch.group = group;
+        if (Object.keys(patch).length > 0) {
+          await ctx.db.patch(existingProfile._id, patch as any);
+        }
+        return existingProfile._id;
+      }
+
+      return await ctx.db.insert("profiles", {
+        userId,
+        fullName,
+        status: "Activo",
+        isEmployee: true,
+        group,
+      });
+    };
 
     const updatedUsers: string[] = [];
     for (const target of userTargets) {
-      const user = await ctx.db
+      const roleId = findRoleId(target.roleName);
+      let user = await ctx.db
         .query("users")
         .withIndex("by_email", (q) => q.eq("email", target.email))
         .first();
-      if (!user) continue;
-      const roleId = findRoleId(target.roleName);
-      await ctx.db.patch(user._id, {
-        role: target.roleString,
-        roleId,
-        isActive: true,
-      });
-      updatedUsers.push(String(user._id));
 
-      const account = await ctx.db
-        .query("authAccounts")
-        .withIndex("providerAndAccountId", (q) =>
-          q.eq("provider", "password").eq("providerAccountId", target.email)
-        )
+      if (!user) {
+        const userId = await ctx.db.insert("users", {
+          name: target.name,
+          email: target.email,
+          role: target.roleString,
+          roleId,
+          isActive: true,
+          allowedWarehouseIds: target.roleName === "Bodeguero" ? [] : [],
+        });
+        user = await ctx.db.get(userId);
+      } else {
+        await ctx.db.patch(user._id, {
+          name: target.name,
+          role: target.roleString,
+          roleId,
+          isActive: true,
+          allowedWarehouseIds: target.roleName === "Bodeguero" ? (user.allowedWarehouseIds || []) : [],
+        });
+        user = await ctx.db.get(user._id);
+      }
+
+      if (!user) continue;
+
+      const profileId = await ensureProfileForUser(user._id, target.name, target.group);
+      if (String(user.profileId || "") !== String(profileId)) {
+        await ctx.db.patch(user._id, { profileId });
+      }
+
+      await ensurePasswordAccount(ctx, user._id, target.email, target.password);
+      updatedUsers.push(String(user._id));
+    }
+
+    const targetEmails = new Set<string>(userTargets.map((u) => u.email));
+    const passwordAccounts = (await ctx.db.query("authAccounts").collect()).filter((account) => account.provider === "password");
+    for (const account of passwordAccounts) {
+      if (!targetEmails.has(account.providerAccountId)) continue;
+      const matchedUser = userTargets.find((target) => target.email === account.providerAccountId);
+      if (!matchedUser) continue;
+      const user = await ctx.db
+        .query("users")
+        .withIndex("by_email", (q) => q.eq("email", matchedUser.email))
         .first();
-      if (account && account.userId !== user._id) {
+      if (user && String(account.userId) !== String(user._id)) {
         await ctx.db.patch(account._id, { userId: user._id });
       }
     }
@@ -109,6 +234,49 @@ export const syncCanonicalRolesAndDemoUsers = mutation({
       ok: true,
       rolesUpserted: canonicalRoles.map((r) => r.name),
       updatedUsers,
+    };
+  },
+});
+
+export const repairDemoUserPasswordAccounts = mutation({
+  args: {},
+  handler: async (ctx) => {
+    await assertSeedMaintenanceAccess(ctx);
+
+    const targets = [
+      { email: "admin1@gmail.com", password: "admin123" },
+      { email: "admin2@gmail.com", password: "admin123" },
+      { email: "admin3@gmail.com", password: "admin123" },
+      { email: "vendedor1@gmail.com", password: "vendedor123" },
+      { email: "vendedor2@gmail.com", password: "vendedor123" },
+      { email: "vendedor3@gmail.com", password: "vendedor123" },
+      { email: "bodeguero1@gmail.com", password: "bodeguero123" },
+      { email: "bodeguero2@gmail.com", password: "bodeguero123" },
+      { email: "bodeguero3@gmail.com", password: "bodeguero123" },
+    ] as const;
+
+    const results: Array<{
+      email: string;
+      status: "updated" | "created_user" | "missing_user";
+    }> = [];
+
+    for (const target of targets) {
+      const user = await ctx.db
+        .query("users")
+        .withIndex("by_email", (q) => q.eq("email", target.email))
+        .first();
+      if (!user) {
+        results.push({ email: target.email, status: "missing_user" });
+        continue;
+      }
+
+      await ensurePasswordAccount(ctx, user._id, target.email, target.password);
+      results.push({ email: target.email, status: "updated" });
+    }
+
+    return {
+      ok: true,
+      results,
     };
   },
 });

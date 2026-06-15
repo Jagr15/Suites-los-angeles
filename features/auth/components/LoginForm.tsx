@@ -29,6 +29,61 @@ const loginSchema = z.object({
 
 type LoginFormValues = z.infer<typeof loginSchema>;
 
+function getFriendlyLoginError(error: unknown) {
+  const rawMessage =
+    error instanceof Error ? error.message : typeof error === "string" ? error : "Error de autenticación";
+  const normalized = rawMessage.toLowerCase();
+
+  if (
+    normalized.includes("invalidsecret") ||
+    normalized.includes("invalidsecret") ||
+    normalized.includes("invalid credentials") ||
+    normalized.includes("invalid account id") ||
+    normalized.includes("invalidpassword") ||
+    normalized.includes("invalid password") ||
+    normalized.includes("account already exists") ||
+    normalized.includes("missing `password` param")
+  ) {
+    return "Correo o contraseña incorrectos.";
+  }
+
+  if (
+    normalized.includes("no account") ||
+    normalized.includes("no user") ||
+    normalized.includes("not found") ||
+    normalized.includes("unknown email") ||
+    normalized.includes("no existe")
+  ) {
+    return "No existe una cuenta con este correo.";
+  }
+
+  if (
+    normalized.includes("incorrect password") ||
+    normalized.includes("invalid password") ||
+    normalized.includes("wrong password") ||
+    normalized.includes("password incorrect") ||
+    normalized.includes("contraseña")
+  ) {
+    return "La contraseña es incorrecta.";
+  }
+
+  return "Correo o contraseña incorrectos.";
+}
+
+function shouldLogLoginError(error: unknown) {
+  const rawMessage =
+    error instanceof Error ? error.message : typeof error === "string" ? error : "Error de autenticación";
+  const normalized = rawMessage.toLowerCase();
+  return !(
+    normalized.includes("invalidsecret") ||
+    normalized.includes("invalid credentials") ||
+    normalized.includes("invalid account id") ||
+    normalized.includes("invalid password") ||
+    normalized.includes("account already exists") ||
+    normalized.includes("missing `password` param")
+  );
+}
+
 export function LoginForm() {
   const [isVisible, setIsVisible] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -85,12 +140,12 @@ export function LoginForm() {
         }
       }, 900);
     } catch (error) {
+      if (shouldLogLoginError(error)) {
+        console.error("Login failed:", error);
+      }
       addToast({
         title: "Error de acceso",
-        description:
-          error instanceof Error
-            ? error.message
-            : "Revisa tus credenciales e intenta de nuevo. Si eres nuevo, el administrador debe habilitar tu cuenta.",
+        description: getFriendlyLoginError(error),
         color: "danger",
       });
     } finally {

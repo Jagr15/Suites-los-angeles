@@ -1,7 +1,7 @@
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
-import { User as UserUI } from "./types";
 import { Id } from "@/convex/_generated/dataModel";
+import { User as UserUI } from "./types";
 
 const hasAnyPermission = (permissions: string[] | undefined, keys: string[]) => {
   if (!permissions) return false;
@@ -27,6 +27,7 @@ export function useUsers() {
     effectivePermissions: u.effectivePermissions || u.roleData?.permissions || [],
     extraPermissions: u.extraPermissions || [],
     disabledPermissions: u.disabledPermissions || [],
+    allowedWarehouseIds: (u.allowedWarehouseIds || []).map((id) => String(id)),
     permissions: {
       ventas: hasAnyPermission(u.effectivePermissions, ["sales:view", "sales:create", "sales:edit"]),
       inventario: hasAnyPermission(u.effectivePermissions, ["inventory:view", "inventory:edit", "warehouse:view"]),
@@ -44,7 +45,8 @@ export function useUsers() {
       isActive: data.isActive,
       extraPermissions: data.extraPermissions || [],
       disabledPermissions: data.disabledPermissions || [],
-      password: data.password, // Pasamos la contraseña al backend
+      allowedWarehouseIds: (data.allowedWarehouseIds || []).map((id) => id as Id<"bodegas">),
+      password: data.password?.trim() || undefined,
     };
     return await upsertUserMutation(payload);
   };
@@ -58,7 +60,8 @@ export function useUsers() {
       isActive: data.isActive,
       extraPermissions: data.extraPermissions || [],
       disabledPermissions: data.disabledPermissions || [],
-      password: data.password, // Pasamos la contraseña si se está cambiando
+      allowedWarehouseIds: (data.allowedWarehouseIds || []).map((id) => id as Id<"bodegas">),
+      password: data.password?.trim() || undefined,
     };
     return await upsertUserMutation(payload);
   };

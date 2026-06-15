@@ -26,14 +26,14 @@ export function UserManagementCard() {
   const [userToDelete, setUserToDelete] = useState<User | null>(null);
   
   // State for form fields
-  const [formState, setFormState] = useState<Partial<User & { roleId?: string }>>({});
+  const [formState, setFormState] = useState<Partial<User & { roleId?: string; password?: string }>>({});
   const [isSaving, setIsSaving] = useState(false);
 
   const handleEdit = (user: User) => {
     setSelectedUser(user);
     // Buscamos el roleId correspondiente al nombre del rol para el modal
     const roleId = rolesAll?.find(r => r.name === user.role)?._id;
-    setFormState({ ...user, roleId });
+    setFormState({ ...user, roleId, password: "" });
     onOpen();
   };
 
@@ -57,6 +57,8 @@ export function UserManagementCard() {
       profileId: "",
       extraPermissions: [],
       disabledPermissions: [],
+      allowedWarehouseIds: [],
+      password: "",
     });
     onOpen();
   };

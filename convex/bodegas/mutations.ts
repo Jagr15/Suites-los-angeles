@@ -4,18 +4,10 @@ import { bodegaFields } from "./schema";
 import { requireAdmin } from "../common/utils";
 import { numberToWarehouseCode } from "../common/warehouseFolios";
 
-async function validateManagerProfile(ctx: any, managerProfileId?: any) {
-  if (!managerProfileId) {
-    throw new Error("Debes seleccionar un perfil encargado para la bodega.");
-  }
-  const profile = await ctx.db.get(managerProfileId);
-  if (!profile) {
-    throw new Error("El perfil encargado seleccionado no existe.");
-  }
-  if (profile.status !== "Activo") {
-    throw new Error("El perfil encargado debe estar activo.");
-  }
-  return profile;
+function compactDefined<T extends Record<string, unknown>>(value: T) {
+  return Object.fromEntries(
+    Object.entries(value).filter(([, current]) => current !== undefined)
+  ) as Partial<T>;
 }
 
 async function resolveResponsible(ctx: any, profileId?: any, userId?: any) {
@@ -37,7 +29,7 @@ async function syncBodegaLinkedAccount(ctx: any, bodegaId: any, data: any) {
     )
     .first();
   const responsible = await resolveResponsible(ctx, data.managerProfileId, data.managerUserId);
-  const payload = {
+  const payload = compactDefined({
     alias: `Caja de ${data.name}`,
     type: "Caja Chica" as const,
     currency: "MXN",
@@ -46,7 +38,7 @@ async function syncBodegaLinkedAccount(ctx: any, bodegaId: any, data: any) {
     linkedEntityId: String(bodegaId),
     isSystemLinked: true,
     ...responsible,
-  };
+  });
   if (existing) {
     await ctx.db.patch(existing._id, payload);
     return;
@@ -65,10 +57,9 @@ export const create = mutation({
   args: bodegaFields,
   handler: async (ctx, args) => {
     await requireAdmin(ctx);
-    const managerProfile = await validateManagerProfile(ctx, args.managerProfileId);
     const allBodegas = await ctx.db.query("bodegas").collect();
     const code = args.code || numberToWarehouseCode(allBodegas.length + 1);
-    const id = await ctx.db.insert("bodegas", { ...args, code, manager: managerProfile.fullName });
+    const id = await ctx.db.insert("bodegas", compactDefined({ ...args, code }) as any);
     await syncBodegaLinkedAccount(ctx, id, args);
     return id;
   },
@@ -103,8 +94,7 @@ export const update = mutation({
   handler: async (ctx, args) => {
     await requireAdmin(ctx);
     const { id, ...data } = args;
-    const managerProfile = await validateManagerProfile(ctx, data.managerProfileId);
-    await ctx.db.patch(id, { ...data, manager: managerProfile.fullName });
+    await ctx.db.patch(id, compactDefined({ ...data }) as any);
     await syncBodegaLinkedAccount(ctx, id, data);
     return id;
   },

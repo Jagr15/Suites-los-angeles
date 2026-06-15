@@ -22,6 +22,49 @@ function normalizeLegacyRoleName(role?: string | null) {
   return null;
 }
 
+function uniqueWarehouseIds(ids?: Array<Id<"bodegas"> | string>) {
+  const seen = new Set<string>();
+  const next: Id<"bodegas">[] = [];
+  for (const id of ids || []) {
+    const value = String(id).trim();
+    if (!value || seen.has(value)) continue;
+    seen.add(value);
+    next.push(value as Id<"bodegas">);
+  }
+  return next;
+}
+
+async function syncWarehouseAssignments(ctx: any, userId: Id<"users">, nextWarehouseIds: Id<"bodegas">[]) {
+  const bodegas = await ctx.db.query("bodegas").collect();
+  const validWarehouseIds = nextWarehouseIds.filter((warehouseId) =>
+    bodegas.some((bodega: any) => String(bodega._id) === String(warehouseId))
+  );
+  const nextSet = new Set(validWarehouseIds.map((id) => String(id)));
+
+  for (const bodega of bodegas) {
+    const bodegaId = String(bodega._id);
+    const currentAllowed = new Set((bodega.allowedUserIds || []).map((id: Id<"users">) => String(id)));
+    const shouldAllow = nextSet.has(bodegaId);
+    const currentlyAllows = currentAllowed.has(String(userId));
+
+    if (shouldAllow === currentlyAllows) {
+      continue;
+    }
+
+    if (shouldAllow) {
+      currentAllowed.add(String(userId));
+    } else {
+      currentAllowed.delete(String(userId));
+    }
+
+    await ctx.db.patch(bodega._id, {
+      allowedUserIds: Array.from(currentAllowed).map((id) => id as Id<"users">),
+    });
+  }
+
+  await ctx.db.patch(userId, { allowedWarehouseIds: validWarehouseIds });
+}
+
 /**
  * Crea o actualiza un usuario manualmente por un administrador.
  */
@@ -37,11 +80,12 @@ export const upsertUser = mutation({
     isActive: v.optional(v.boolean()),
     extraPermissions: v.optional(v.array(v.string())),
     disabledPermissions: v.optional(v.array(v.string())),
+    allowedWarehouseIds: v.optional(v.array(v.id("bodegas"))),
     password: v.optional(v.string()), // Nueva contraseña opcional
   },
   handler: async (ctx, args) => {
     await requireAdmin(ctx);
-    const { id, email, password, roleId, ...userData } = args;
+    const { id, email, password, roleId, allowedWarehouseIds, ...userData } = args;
     const operation = id ? "update" : "create";
 
     if (!email) {
@@ -81,6 +125,7 @@ export const upsertUser = mutation({
       }
     }
     canonicalRole = roleDoc.name;
+    const selectedWarehouseIds = uniqueWarehouseIds(allowedWarehouseIds);
     const rolePermissions = normalizePermissions(roleDoc.permissions || []);
     const requestedExtraPermissions = Array.from(
       new Set((args.extraPermissions || []).filter((permission) => PERMISSION_KEYS.has(permission) && permission !== "all"))
@@ -111,6 +156,7 @@ export const upsertUser = mutation({
       profileId: args.profileId,
       extraPermissions: sanitizedExtraPermissions,
       disabledPermissions: sanitizedDisabledPermissions,
+      allowedWarehouseIds: canonicalRole === "Bodeguero" ? selectedWarehouseIds : [],
     };
     
     let userId: Id<"users"> | undefined = id;
@@ -142,35 +188,49 @@ export const upsertUser = mutation({
       });
     }
 
+    if (userId) {
+      if (canonicalRole === "Bodeguero") {
+        await syncWarehouseAssignments(ctx, userId, selectedWarehouseIds);
+      } else {
+        await syncWarehouseAssignments(ctx, userId, []);
+      }
+    }
+
     let authConfigured = false;
     let warning: string | undefined;
 
-    // SI hay password y email, vinculamos la cuenta de autenticación
-    if (password && email && userId) {
+    // Sincronizamos la cuenta password cuando exista o cuando se defina una nueva contraseña.
+    if (email && userId) {
       try {
-        const hashedSecret = await hashPassword(password);
-        
-        const existingAccount = await ctx.db
-          .query("authAccounts")
-          .withIndex("providerAndAccountId", q => 
-            q.eq("provider", "password").eq("providerAccountId", email)
-          )
-          .unique();
+        const existingAccounts = await ctx.db.query("authAccounts").collect();
+        const accountForUser = existingAccounts.find(
+          (account) => account.provider === "password" && String(account.userId) === String(userId)
+        );
+        const accountForEmail = existingAccounts.find(
+          (account) => account.provider === "password" && account.providerAccountId === email
+        );
+        const account = accountForUser || accountForEmail;
 
-        if (existingAccount) {
-          await ctx.db.patch(existingAccount._id, { 
-            secret: hashedSecret,
-            userId: userId // Aseguramos que esté vinculado al user correcto
-          });
-        } else {
+        if (account) {
+          const patch: Record<string, unknown> = {};
+          if (String(account.userId) !== String(userId)) patch.userId = userId;
+          if (account.providerAccountId !== email) patch.providerAccountId = email;
+          if (password) {
+            patch.secret = await hashPassword(password);
+          }
+          if (Object.keys(patch).length > 0) {
+            await ctx.db.patch(account._id, patch as any);
+          }
+          authConfigured = true;
+        } else if (password) {
           await ctx.db.insert("authAccounts", {
-            userId: userId,
+            userId,
             provider: "password",
             providerAccountId: email,
-            secret: hashedSecret,
+            secret: await hashPassword(password),
           });
+          authConfigured = true;
         }
-        authConfigured = true;
       } catch (error) {
         warning = error instanceof Error ? error.message : "No se pudo configurar autenticación.";
       }

@@ -1,6 +1,6 @@
 import { query } from "../_generated/server";
 import { v } from "convex/values";
-import { getAccessibleWarehouseIds, requireIdentity } from "../common/utils";
+import { getAccessibleWarehouseIds, requireAdmin, requireIdentity } from "../common/utils";
 
 /**
  * Lista todas las bodegas.
@@ -8,6 +8,7 @@ import { getAccessibleWarehouseIds, requireIdentity } from "../common/utils";
 export const list = query({
   args: {},
   handler: async (ctx) => {
+    await requireAdmin(ctx);
     const bodegas = await ctx.db.query("bodegas").collect();
     return await Promise.all(
       bodegas.map(async (bodega) => {

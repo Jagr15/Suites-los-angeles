@@ -9,6 +9,7 @@ import {
   Input,
   Select,
   SelectItem,
+  Checkbox,
   Switch,
   Divider,
 } from "@heroui/react";
@@ -77,14 +78,17 @@ export function UserModal({
 }: UserModalProps) {
   const rolesQuery = useQuery(api.roles.queries.listAll);
   const roles = rolesQuery || [];
+  const bodegasQuery = useQuery(api.bodegas.queries.list);
+  const bodegas = bodegasQuery || [];
   const [isVisible, setIsVisible] = useState(false);
   const toggleVisibility = () => setIsVisible(!isVisible);
   const hasProfiles = profiles.length > 0;
   const isEditingSuperAdmin =
     !!selectedUser && ["superadmin", "super admin"].includes(normalizeRoleKey(selectedUser.role));
   const selectedRole = roles.find((role) => role._id === formState.roleId);
-  const roleName = normalizeRoleKey(selectedRole?.name);
+  const roleName = normalizeRoleKey(selectedRole?.name || formState.role);
   const isAdminRole = ["administrador", "admin", "superadmin", "super admin"].includes(roleName);
+  const isBodegueroRole = roleName === "bodeguero" || roleName === "bodega";
   const scopedPermissions: PermissionDefinition[] =
     roleName === "vendedor"
       ? sellerPermissions
@@ -217,11 +221,11 @@ export function UserModal({
                     onValueChange={(v) => setFormState({ ...formState, email: v })}
                   />
                   <Input
-                    label="Contraseña"
+                    label={selectedUser ? "Nueva contraseña" : "Contraseña"}
                     variant="bordered"
                     labelPlacement="outside"
                     placeholder="••••••••"
-                    description="Mínimo 8 caracteres"
+                    description={selectedUser ? "Déjalo vacío para conservar la contraseña actual." : "Mínimo 8 caracteres"}
                     value={formState.password || ""}
                     onValueChange={(v) => setFormState({ ...formState, password: v })}
                     endContent={
@@ -266,6 +270,54 @@ export function UserModal({
                       )}
                     </div>
                   </div>
+
+                {isBodegueroRole && (
+                  <>
+                    <Divider />
+                    <div className="space-y-3">
+                      <div>
+                        <h4 className="text-small font-semibold">Acceso a bodegas</h4>
+                        <p className="text-tiny text-default-500">
+                          Marca una o varias bodegas para este usuario bodeguero.
+                        </p>
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-2 rounded-xl border border-default-200 bg-content2/70 p-3">
+                        {bodegas.length === 0 ? (
+                          <p className="text-tiny text-default-500 md:col-span-2">No hay bodegas registradas.</p>
+                        ) : (
+                          bodegas.map((bodega) => {
+                            const selected = (formState.allowedWarehouseIds || []).includes(String(bodega._id));
+                            return (
+                              <Checkbox
+                                key={String(bodega._id)}
+                                isSelected={selected}
+                                onValueChange={(isSelected) => {
+                                  const current = new Set(formState.allowedWarehouseIds || []);
+                                  if (isSelected) {
+                                    current.add(String(bodega._id));
+                                  } else {
+                                    current.delete(String(bodega._id));
+                                  }
+                                  setFormState({
+                                    ...formState,
+                                    allowedWarehouseIds: Array.from(current),
+                                  });
+                                }}
+                              >
+                                <div className="flex flex-col">
+                                  <span className="text-sm font-medium">{bodega.name}</span>
+                                  <span className="text-tiny text-default-500">
+                                    {bodega.address || bodega.description || "Sin detalle"}
+                                  </span>
+                                </div>
+                              </Checkbox>
+                            );
+                          })
+                        )}
+                      </div>
+                    </div>
+                  </>
+                )}
 
                 {!isAdminRole ? (
                   <>
