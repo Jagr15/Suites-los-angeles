@@ -41,51 +41,52 @@ function isAdminRoleName(role?: string | null) {
 }
 
 async function assertAdminPassword(ctx: any, adminPassword: string) {
-  if (!adminPassword.trim()) {
-    throw new Error("Contraseña de administrador incorrecta.");
-  }
-
-  const identity = await ctx.auth.getUserIdentity();
-  const email = identity?.email?.trim().toLowerCase() || "";
-  if (!email) {
-    throw new Error("No se pudo validar la contraseña de administrador.");
-  }
-
-  const candidates = await ctx.db
-    .query("users")
-    .withIndex("by_email", (q: any) => q.eq("email", email))
-    .collect();
-
-  let adminUser = null;
-  for (const candidate of candidates) {
-    const roleDoc = candidate.roleId ? await ctx.db.get(candidate.roleId) : null;
-    if (isAdminRoleName(candidate.role) || isAdminRoleName(roleDoc?.name)) {
-      adminUser = candidate;
-      break;
+  try {
+    if (!adminPassword.trim()) {
+      throw new Error("Contraseña de administrador incorrecta.");
     }
-  }
 
-  if (!adminUser) {
-    adminUser = candidates[0] || null;
-  }
+    const authUserId = await getAuthUserId(ctx);
+    if (!authUserId) {
+      throw new Error("No se pudo validar la contraseña de administrador.");
+    }
 
-  if (!adminUser) {
-    throw new Error("No se pudo validar la contraseña de administrador.");
-  }
+    const adminUser = await ctx.db.get(authUserId);
+    if (!adminUser) {
+      throw new Error("No se pudo validar la contraseña de administrador.");
+    }
 
-  const passwordAccounts = await listPasswordAccountsByEmail(ctx, email);
-  const account =
-    passwordAccounts.find((entry) => String(entry.userId) === String(adminUser._id)) ||
-    passwordAccounts[0] ||
-    null;
+    const roleDoc = adminUser.roleId ? await ctx.db.get(adminUser.roleId) : null;
+    if (!isAdminRoleName(adminUser.role) && !isAdminRoleName(roleDoc?.name)) {
+      throw new Error("No se pudo validar la contraseña de administrador.");
+    }
 
-  if (!account?.secret) {
-    throw new Error("No se pudo validar la contraseña de administrador.");
-  }
+    const passwordAccounts = await ctx.db
+      .query("authAccounts")
+      .withIndex("by_userId", (q: any) => q.eq("userId", adminUser._id))
+      .collect();
 
-  const isCorrect = await verifyPassword(adminPassword, account.secret);
-  if (!isCorrect) {
-    throw new Error("Contraseña de administrador incorrecta.");
+    const account = passwordAccounts.find((entry: any) => entry.provider === "password") || null;
+    if (!account?.secret) {
+      throw new Error("No se pudo validar la contraseña de administrador.");
+    }
+
+    const isCorrect = await verifyPassword(adminPassword, account.secret);
+    if (!isCorrect) {
+      throw new Error("Contraseña de administrador incorrecta.");
+    }
+  } catch (error) {
+    const safeMessage = error instanceof Error ? error.message : "No se pudo validar la contraseña de administrador.";
+    const isKnownAuthError =
+      safeMessage === "Contraseña de administrador incorrecta." ||
+      safeMessage === "No se pudo validar la contraseña de administrador.";
+
+    if (!isKnownAuthError) {
+      console.error("Error validating admin password for privileged user action:", error);
+      throw new Error("Error al validar la contraseña de administrador.");
+    }
+
+    throw new Error(safeMessage);
   }
 }
 
