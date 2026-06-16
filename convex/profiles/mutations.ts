@@ -1,6 +1,7 @@
 import { mutation } from "../_generated/server";
 import { v } from "convex/values";
 import { requireAdmin } from "../common/utils";
+import type { Id } from "../_generated/dataModel";
 
 const profileFields = {
   fullName: v.string(),
@@ -41,6 +42,30 @@ const profileFields = {
   image: v.optional(v.string()),
 };
 
+async function syncLinkedUserStatus(
+  ctx: any,
+  profileId: Id<"profiles">,
+  nextProfileStatus: "Activo" | "Inactivo"
+) {
+  const profile = await ctx.db.get(profileId);
+  if (!profile) return;
+
+  const users = await ctx.db.query("users").collect();
+  const linkedUsers = users.filter((user: any) =>
+    String(user.profileId || "") === String(profileId) ||
+    (profile.userId && String(user._id) === String(profile.userId))
+  );
+
+  if (linkedUsers.length === 0) return;
+
+  const nextIsActive = nextProfileStatus === "Activo";
+  for (const user of linkedUsers) {
+    if ((user.isActive ?? true) !== nextIsActive) {
+      await ctx.db.patch(user._id, { isActive: nextIsActive });
+    }
+  }
+}
+
 /**
  * Crea un nuevo perfil.
  */
@@ -58,14 +83,13 @@ export const create = mutation({
 export const update = mutation({
   args: {
     id: v.id("profiles"),
-    ...Object.fromEntries(
-      Object.entries(profileFields).map(([k, v]) => [k, v])
-    ),
+    ...profileFields,
   },
   handler: async (ctx, args) => {
     await requireAdmin(ctx);
     const { id, ...data } = args;
     await ctx.db.patch(id, data);
+    await syncLinkedUserStatus(ctx, id, args.status);
     return id;
   },
 });
@@ -78,5 +102,6 @@ export const remove = mutation({
   handler: async (ctx, args) => {
     await requireAdmin(ctx);
     await ctx.db.patch(args.id, { status: "Inactivo" });
+    await syncLinkedUserStatus(ctx, args.id, "Inactivo");
   },
 });

@@ -159,9 +159,13 @@ export function UserManagementCard() {
       });
       setUserToDelete(null);
     } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : "No se pudo eliminar el usuario.";
       addToast({
         title: "Error",
-        description: "No se pudo eliminar el usuario.",
+        description: message,
         color: "danger",
       });
     }

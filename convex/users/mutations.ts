@@ -35,6 +35,73 @@ function uniqueWarehouseIds(ids?: Array<Id<"bodegas"> | string>) {
   return next;
 }
 
+async function getUserDeletionBlockers(ctx: any, userId: Id<"users">) {
+  const user = await ctx.db.get(userId);
+  if (!user) {
+    return { blockers: [], linkedProfileIds: [] as string[] };
+  }
+
+  const linkedProfileIds = new Set<string>();
+  if (user.profileId) {
+    linkedProfileIds.add(String(user.profileId));
+  }
+
+  const profiles = await ctx.db.query("profiles").collect();
+  for (const profile of profiles) {
+    if (String(profile.userId || "") === String(userId)) {
+      linkedProfileIds.add(String(profile._id));
+    }
+  }
+
+  const blockers = new Set<string>();
+
+  for (const bodega of await ctx.db.query("bodegas").collect()) {
+    if (bodega.isActive === false) continue;
+
+    const isBlockedByUser =
+      String(bodega.managerUserId || "") === String(userId) ||
+      (bodega.allowedUserIds || []).some((id: Id<"users">) => String(id) === String(userId));
+    const isBlockedByProfile =
+      bodega.managerProfileId !== undefined &&
+      linkedProfileIds.has(String(bodega.managerProfileId));
+
+    if (isBlockedByUser || isBlockedByProfile) {
+      blockers.add(`bodega "${bodega.name}"`);
+    }
+  }
+
+  for (const route of await ctx.db.query("routes").collect()) {
+    if (route.isActive === false) continue;
+
+    const isBlockedByUser = String(route.assignedUserId || "") === String(userId);
+    const isBlockedByProfile =
+      route.assignedProfileId !== undefined &&
+      linkedProfileIds.has(String(route.assignedProfileId));
+
+    if (isBlockedByUser || isBlockedByProfile) {
+      blockers.add(`ruta "${route.name}"`);
+    }
+  }
+
+  for (const account of await ctx.db.query("finance_accounts").collect()) {
+    if (account.isActive === false) continue;
+
+    const isBlockedByUser = String(account.responsibleUserId || "") === String(userId);
+    const isBlockedByProfile =
+      account.responsibleProfileId !== undefined &&
+      linkedProfileIds.has(String(account.responsibleProfileId));
+
+    if (isBlockedByUser || isBlockedByProfile) {
+      blockers.add(`cuenta financiera "${account.alias}"`);
+    }
+  }
+
+  return {
+    blockers: Array.from(blockers),
+    linkedProfileIds: Array.from(linkedProfileIds),
+  };
+}
+
 async function syncWarehouseAssignments(ctx: any, userId: Id<"users">, nextWarehouseIds: Id<"bodegas">[]) {
   const bodegas = await ctx.db.query("bodegas").collect();
   const validWarehouseIds = nextWarehouseIds.filter((warehouseId) =>
@@ -470,6 +537,12 @@ export const removeUser = mutation({
   args: { id: v.id("users") },
   handler: async (ctx, args) => {
     await requireAdmin(ctx);
+    const { blockers } = await getUserDeletionBlockers(ctx, args.id);
+    if (blockers.length > 0) {
+      throw new Error(
+        `No se puede eliminar este usuario porque tiene asignaciones activas. Primero elimina o reasigna sus bodegas/rutas/responsabilidades. Detalles: ${blockers.join(", ")}.`
+      );
+    }
     await ctx.db.delete(args.id);
   },
 });

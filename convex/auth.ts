@@ -38,4 +38,20 @@ export const { auth, signIn, signOut, store } = convexAuth({
       },
     }),
   ],
+  callbacks: {
+    async beforeSessionCreation(ctx, { userId }) {
+      const user = await ctx.db.get(userId);
+      if (!user) {
+        throw new Error("Cuenta no encontrada.");
+      }
+
+      const profile = user.profileId ? await ctx.db.get(user.profileId) : null;
+      const userIsActive = user.isActive !== false;
+      const profileIsActive = profile ? profile.status === "Activo" : true;
+
+      if (!userIsActive || !profileIsActive) {
+        throw new Error("Cuenta inactiva. Contacta a un administrador.");
+      }
+    },
+  },
 });
