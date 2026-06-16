@@ -187,6 +187,7 @@ export function UserManagementCard() {
         description: message,
         color: "danger",
       });
+      throw error;
     } finally {
       setIsConfirmingAction(false);
     }
@@ -218,6 +219,7 @@ export function UserManagementCard() {
         description: message,
         color: "danger",
       });
+      throw error;
     } finally {
       setIsConfirmingAction(false);
     }
@@ -244,6 +246,7 @@ export function UserManagementCard() {
         description: message,
         color: "danger",
       });
+      throw error;
     } finally {
       setIsConfirmingAction(false);
     }
