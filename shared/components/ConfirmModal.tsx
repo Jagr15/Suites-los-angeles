@@ -6,6 +6,24 @@ import { useState } from "react";
 
 export type ConfirmModalVariant = "default" | "danger" | "warning";
 
+function getFriendlyErrorMessage(error: unknown) {
+  const rawMessage =
+    typeof error === "string"
+      ? error
+      : error instanceof Error
+        ? error.message
+        : "No se pudo completar la acción.";
+
+  const strippedMessage = rawMessage
+    .replace(/^\[CONVEX[^\]]*\]\s*Server Error\s*/i, "")
+    .replace(/^Uncaught Error:\s*/i, "")
+    .replace(/^Error:\s*/i, "")
+    .split(/\r?\n/)[0]
+    .trim();
+
+  return strippedMessage || "No se pudo completar la acción.";
+}
+
 type ConfirmModalProps = {
   isOpen: boolean;
   onClose: () => void;
@@ -47,8 +65,7 @@ export function ConfirmModal({
       await onConfirm(password);
       onClose();
     } catch (e: unknown) {
-      const message = e instanceof Error ? e.message : "No se pudo completar la acción.";
-      setError(message);
+      setError(getFriendlyErrorMessage(e));
     }
   };
 

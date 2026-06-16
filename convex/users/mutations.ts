@@ -1,5 +1,5 @@
 import { mutation } from "../_generated/server";
-import { v } from "convex/values";
+import { ConvexError, v } from "convex/values";
 import { requireAdmin, requireAdminOrDevMigration } from "../common/utils";
 import { verifyPassword } from "../common/hashing";
 import { getAuthUserId } from "@convex-dev/auth/server";
@@ -41,54 +41,77 @@ function isAdminRoleName(role?: string | null) {
 }
 
 async function assertAdminPassword(ctx: any, adminPassword: string) {
+  const debugContext = {
+    adminUserId: null as string | null,
+    provider: null as string | null,
+    hasSecret: false,
+    secretType: "missing" as string,
+  };
+
   try {
     if (!adminPassword.trim()) {
-      throw new Error("Contraseña de administrador incorrecta.");
+      throw new ConvexError("Contraseña de administrador incorrecta.");
     }
 
     const authUserId = await getAuthUserId(ctx);
+    debugContext.adminUserId = authUserId ? String(authUserId) : null;
     if (!authUserId) {
-      throw new Error("No se pudo validar la contraseña de administrador.");
+      throw new ConvexError("Error al validar la contraseña de administrador.");
     }
 
     const adminUser = await ctx.db.get(authUserId);
     if (!adminUser) {
-      throw new Error("No se pudo validar la contraseña de administrador.");
+      throw new ConvexError("Error al validar la contraseña de administrador.");
     }
 
     const roleDoc = adminUser.roleId ? await ctx.db.get(adminUser.roleId) : null;
     if (!isAdminRoleName(adminUser.role) && !isAdminRoleName(roleDoc?.name)) {
-      throw new Error("No se pudo validar la contraseña de administrador.");
+      throw new ConvexError("Error al validar la contraseña de administrador.");
     }
 
     // Validamos la contraseña contra la cuenta password del usuario autenticado,
     // no contra el usuario objetivo de la operación.
     const account = await ctx.db
       .query("authAccounts")
-      .filter((q: any) =>
-        q.eq(q.field("userId"), adminUser._id).eq(q.field("provider"), "password")
-      )
+      .filter((q: any) => q.and(q.eq(q.field("userId"), adminUser._id), q.eq(q.field("provider"), "password")))
       .first();
-    if (!account?.secret) {
-      throw new Error("No se pudo validar la contraseña de administrador.");
+    debugContext.provider = account?.provider ?? null;
+    debugContext.hasSecret = Boolean(account?.secret);
+    debugContext.secretType = typeof account?.secret;
+    console.info("Admin password validation context:", debugContext);
+
+    if (!account?.secret || typeof account.secret !== "string") {
+      throw new ConvexError("Error al validar la contraseña de administrador.");
     }
 
     const isCorrect = await verifyPassword(adminPassword, account.secret);
     if (!isCorrect) {
-      throw new Error("Contraseña de administrador incorrecta.");
+      throw new ConvexError("Contraseña de administrador incorrecta.");
     }
   } catch (error) {
-    const safeMessage = error instanceof Error ? error.message : "No se pudo validar la contraseña de administrador.";
+    const safeMessage = error instanceof Error ? error.message : "Error al validar la contraseña de administrador.";
     const isKnownAuthError =
       safeMessage === "Contraseña de administrador incorrecta." ||
-      safeMessage === "No se pudo validar la contraseña de administrador.";
+      safeMessage === "Error al validar la contraseña de administrador.";
 
     if (!isKnownAuthError) {
-      console.error("Error validating admin password for privileged user action:", error);
-      throw new Error("Error al validar la contraseña de administrador.");
+      console.error("Error validating admin password for privileged user action:", {
+        ...debugContext,
+        errorName: error instanceof Error ? error.name : typeof error,
+        errorMessage: error instanceof Error ? error.message : String(error),
+      });
+      throw new ConvexError("Error al validar la contraseña de administrador.");
     }
 
-    throw new Error(safeMessage);
+    if (safeMessage === "Error al validar la contraseña de administrador.") {
+      console.error("Error validating admin password for privileged user action:", {
+        ...debugContext,
+        errorName: error instanceof Error ? error.name : typeof error,
+        errorMessage: error instanceof Error ? error.message : String(error),
+      });
+    }
+
+    throw new ConvexError(safeMessage);
   }
 }
 
