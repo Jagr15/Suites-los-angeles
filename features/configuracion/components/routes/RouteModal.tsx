@@ -41,12 +41,15 @@ export function RouteModal({
   onClose,
 }: RouteModalProps) {
   const users = useQuery(api.users.queries.listAll);
+  const activeUsersQuery = useQuery(api.users.queries.listActiveForSelection);
+  const activeUsers = activeUsersQuery || [];
   const assets = useQuery(api.assets.queries.list);
   const { addRoute, updateRoute } = useRoutes();
   const [isSaving, setIsSaving] = React.useState(false);
   
   // Obtener todos los clientes para mostrar en el mapa
   const allClients = useQuery(api.clients.queries.list);
+  const activeClients = useQuery(api.clients.queries.listActiveForSelection) || [];
   
   // Obtener clientes asignados a esta ruta
   const routeClients = (allClients || []).filter(c => c.assignedRouteId === selectedRoute?.id);
@@ -62,6 +65,16 @@ export function RouteModal({
       .toLowerCase();
     return normalizedCategory.includes("transporte");
   });
+  const currentAssignedUser = selectedRoute?.assignedUserId
+    ? (users || []).find((user) => String(user._id) === String(selectedRoute.assignedUserId))
+    : null;
+  const userOptions = React.useMemo(() => {
+    const next = [...activeUsers];
+    if (currentAssignedUser && !next.some((user) => String(user._id) === String(currentAssignedUser._id))) {
+      next.push(currentAssignedUser as any);
+    }
+    return next;
+  }, [activeUsers, currentAssignedUser]);
 
   const { 
     isOpen: isVehicleModalOpen, 
@@ -248,7 +261,7 @@ export function RouteModal({
     assignedRouteId: c.assignedRouteId,
   })).filter(c => c.lat !== 0);
 
-  const mappedAllClients = (allClients || []).map(c => ({
+  const mappedAllClients = (activeClients || []).map(c => ({
     id: c._id,
     name: c.commercialName,
     lat: c.lat || 0,
@@ -354,14 +367,15 @@ export function RouteModal({
                                 const val = Array.from(keys)[0] as string;
                                 field.onChange(val);
                               }}
-                              isLoading={users === undefined}
+                              isLoading={activeUsersQuery === undefined}
                               isRequired
                               isInvalid={!!errors.assignedUserId}
                               errorMessage={errors.assignedUserId?.message}
                             >
-                              {(users || []).filter((u) => (u.isActive ?? true)).map((u) => (
+                              {userOptions.map((u) => (
                                 <SelectItem key={u._id} textValue={u.profileData?.fullName || u.name || u.email || "Sin nombre"}>
                                   {u.profileData?.fullName || u.name || u.email || "Sin nombre"}
+                                  {u.isActive === false ? " (Inactivo)" : ""}
                                 </SelectItem>
                               ))}
                             </Select>

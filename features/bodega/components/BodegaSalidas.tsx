@@ -107,7 +107,7 @@ export function BodegaSalidas({ items: initialItems, onAgregar, onEditar, onBorr
     const [editForm, setEditForm] = useState<Partial<SalidaRow>>({});
 
     const updateSalida = useMutation(api.salidas.mutations.update);
-    const clients = useQuery(api.clients.queries.list) || [];
+    const clients = useQuery(api.clients.queries.listActiveForSelection) || [];
     const routes = useQuery(api.routes.queries.list) || [];
 
     const resolveProcessConfig = useCallback((item: any) => {

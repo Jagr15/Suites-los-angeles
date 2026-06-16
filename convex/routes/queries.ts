@@ -61,6 +61,26 @@ export const list = query({
   },
 });
 
+export const listActiveForSelection = query({
+  args: {},
+  handler: async (ctx) => {
+    const routes = await ctx.db.query("routes").collect();
+    return Promise.all(
+      routes
+        .filter((route) => route.isActive !== false)
+        .map(async (route) => {
+          const asset = await safeGetAssetFromRoute(ctx, route);
+          return {
+            ...route,
+            routeType: route.routeType || "Interna",
+            assetId: route.assetId || asset?._id,
+            vehicleInfo: asset ? `${asset.name} (${asset.plate || "S/P"})` : "Sin transporte",
+          };
+        })
+    );
+  },
+});
+
 /**
  * Obtiene una ruta por su ID.
  */

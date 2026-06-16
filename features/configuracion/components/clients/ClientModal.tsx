@@ -90,6 +90,7 @@ export function ClientModal({
   isLoading,
 }: ClientModalProps) {
   const routesRaw = useQuery(api.routes.queries.list);
+  const activeRoutes = useQuery(api.routes.queries.listActiveForSelection) || [];
   const pricingLevelsRaw = useQuery(api.pricing.queries.listCustomerLevels);
   const routes = useMemo(() => routesRaw || [], [routesRaw]);
   const pricingLevels = useMemo(
@@ -177,6 +178,18 @@ export function ClientModal({
     }
     return "";
   }, [allowedCustomerLevelCodes, pricingCustomerLevelId, pricingLevelsByCode, pricingLevelsById]);
+  const selectedRouteId = useWatch({ control, name: "assignedRouteId" });
+  const selectedRouteFromAll = useMemo(
+    () => (selectedRouteId ? routes.find((route) => String(route._id) === String(selectedRouteId)) : null),
+    [routes, selectedRouteId]
+  );
+  const routeOptions = useMemo(() => {
+    const next = [...activeRoutes];
+    if (selectedRouteFromAll && !next.some((route) => String(route._id) === String(selectedRouteFromAll._id))) {
+      next.push(selectedRouteFromAll as any);
+    }
+    return next;
+  }, [activeRoutes, selectedRouteFromAll]);
   useEffect(() => {
     if (!pricingCustomerLevelId) return;
     const rawValue = String(pricingCustomerLevelId).trim();
@@ -718,14 +731,15 @@ export function ClientModal({
                               selectedKey={field.value || null}
                               onSelectionChange={(key) => {
                                 const id = key as string;
-                                const r = routes.find(route => route._id === id);
+                                const r = routeOptions.find(route => route._id === id);
                                 field.onChange(id || "");
                                 setValue("assignedRouteName", r?.name || "");
                               }}
                             >
-                              {routes.map((r) => (
+                              {routeOptions.map((r) => (
                                 <AutocompleteItem key={r._id} textValue={r.name}>
                                   {r.name}
+                                  {r.isActive === false ? " (Inactiva)" : ""}
                                 </AutocompleteItem>
                               ))}
                             </Autocomplete>

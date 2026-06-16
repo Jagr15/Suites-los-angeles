@@ -6,6 +6,7 @@ import { Id } from "@/convex/_generated/dataModel";
 export function useProfiles() {
   // Queries
   const rawProfiles = useQuery(api.profiles.queries.listAll);
+  const activeProfilesRaw = useQuery(api.profiles.queries.listActiveForSelection);
 
   // Mutations
   const createProfileMutation = useMutation(api.profiles.mutations.create);
@@ -37,6 +38,31 @@ export function useProfiles() {
     assignedBodegaId: p.assignedBodegaId,
     image: p.image,
   }));
+
+  const selectionProfiles = (activeProfilesRaw || []).map((p) => ({
+    id: p._id,
+    userId: p.userId ? String(p.userId) : undefined,
+    fullName: p.fullName,
+    rfc: undefined,
+    curp: undefined,
+    nss: undefined,
+    personalPhone: undefined,
+    emergencyPhone: undefined,
+    bloodType: undefined,
+    hireDate: undefined,
+    position: undefined,
+    baseSalary: undefined,
+    status: p.status,
+    isEmployee: true,
+    workStart: undefined,
+    workEnd: undefined,
+    workDays: undefined,
+    workSchedule: undefined,
+    group: p.group,
+    workplaceType: undefined,
+    assignedBodegaId: undefined,
+    image: undefined,
+  })) as Profile[];
 
   const addProfile = async (profile: Omit<Profile, "id">) => {
     return await createProfileMutation({
@@ -82,6 +108,7 @@ export function useProfiles() {
 
   return {
     profiles,
+    selectionProfiles,
     isLoading: rawProfiles === undefined,
     addProfile,
     updateProfile,

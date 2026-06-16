@@ -181,7 +181,7 @@ export function BodegaSalidaForm({
 
   const rawProducts = useQuery(api.products.queries.list) || [];
   const routes = useQuery(api.routes.queries.list) || [];
-  const rawClients = useQuery(api.clients.queries.list);
+  const rawClients = useQuery(api.clients.queries.listActiveForSelection);
   const clients = rawClients || [];
 
   const products = useMemo(() => {

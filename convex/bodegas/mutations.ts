@@ -10,10 +10,24 @@ function compactDefined<T extends Record<string, unknown>>(value: T) {
   ) as Partial<T>;
 }
 
-async function resolveResponsible(ctx: any, profileId?: any, userId?: any) {
+async function resolveResponsible(
+  ctx: any,
+  profileId?: any,
+  userId?: any,
+  existing?: { responsibleProfileId?: any; responsibleUserId?: any }
+) {
   const profile = profileId ? await ctx.db.get(profileId) : null;
   const user = userId ? await ctx.db.get(userId) : null;
   const userProfile = user?.profileId ? await ctx.db.get(user.profileId) : null;
+  if (profile && profile.status !== "Activo" && String(existing?.responsibleProfileId || "") !== String(profileId)) {
+    throw new Error("No se puede asignar un perfil inactivo.");
+  }
+  if (user && user.isActive === false && String(existing?.responsibleUserId || "") !== String(userId)) {
+    throw new Error("No se puede asignar un usuario inactivo.");
+  }
+  if (userProfile && userProfile.status !== "Activo" && String(existing?.responsibleProfileId || "") !== String(userProfile._id)) {
+    throw new Error("No se puede asignar un perfil inactivo.");
+  }
   return {
     responsibleProfileId: profile?._id || userProfile?._id,
     responsibleUserId: user?._id,
@@ -21,14 +35,29 @@ async function resolveResponsible(ctx: any, profileId?: any, userId?: any) {
   };
 }
 
-async function syncBodegaLinkedAccount(ctx: any, bodegaId: any, data: any) {
+async function syncBodegaLinkedAccount(ctx: any, bodegaId: any, data: any, currentBodega?: any) {
   const existing = await ctx.db
     .query("finance_accounts")
     .withIndex("by_linked_entity", (q: any) =>
       q.eq("linkedEntityType", "bodega").eq("linkedEntityId", String(bodegaId))
     )
     .first();
-  const responsible = await resolveResponsible(ctx, data.managerProfileId, data.managerUserId);
+  const responsible = await resolveResponsible(
+    ctx,
+    data.managerProfileId,
+    data.managerUserId,
+    existing
+      ? {
+          responsibleProfileId: existing.responsibleProfileId,
+          responsibleUserId: existing.responsibleUserId,
+        }
+      : currentBodega
+        ? {
+            responsibleProfileId: currentBodega.managerProfileId,
+            responsibleUserId: currentBodega.managerUserId,
+          }
+        : undefined
+  );
   const payload = compactDefined({
     alias: `Caja de ${data.name}`,
     type: "Caja Chica" as const,
@@ -93,9 +122,10 @@ export const update = mutation({
   },
   handler: async (ctx, args) => {
     await requireAdmin(ctx);
+    const current = await ctx.db.get(args.id);
     const { id, ...data } = args;
     await ctx.db.patch(id, compactDefined({ ...data }) as any);
-    await syncBodegaLinkedAccount(ctx, id, data);
+    await syncBodegaLinkedAccount(ctx, id, data, current);
     return id;
   },
 });

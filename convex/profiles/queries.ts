@@ -42,3 +42,23 @@ export const listForSelection = query({
       }));
   },
 });
+
+/**
+ * Lista perfiles activos para selectores operativos.
+ */
+export const listActiveForSelection = query({
+  args: {},
+  handler: async (ctx) => {
+    await requireIdentity(ctx);
+    const profiles = await ctx.db.query("profiles").collect();
+    return profiles
+      .filter((p) => p.status === "Activo")
+      .map((p) => ({
+        _id: p._id,
+        fullName: p.fullName,
+        userId: p.userId,
+        group: p.group,
+        status: p.status,
+      }));
+  },
+});

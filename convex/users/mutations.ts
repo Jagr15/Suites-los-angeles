@@ -278,6 +278,10 @@ export const upsertUser = mutation({
     if (!profile) {
       throw new Error("Perfil vinculado inválido");
     }
+    const existingUser = id ? await ctx.db.get(id) : null;
+    if (profile.status !== "Activo" && String(existingUser?.profileId || "") !== String(args.profileId)) {
+      throw new Error("No se puede vincular un perfil inactivo.");
+    }
 
     let canonicalRole: string | undefined = undefined;
     const roleDoc = await ctx.db.get(roleId);

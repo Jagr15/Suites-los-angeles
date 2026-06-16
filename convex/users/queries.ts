@@ -110,3 +110,30 @@ export const listAll = query({
     return usersWithRoles;
   },
 });
+
+export const listActiveForSelection = query({
+  args: {},
+  handler: async (ctx) => {
+    await requireAdmin(ctx);
+    const users = await ctx.db.query("users").collect();
+
+    const activeUsers = users.filter((user) => user.isActive !== false);
+    return Promise.all(
+      activeUsers.map(async (user) => {
+        const roleData = user.roleId ? await ctx.db.get(user.roleId) : null;
+        const profileData = user.profileId ? await ctx.db.get(user.profileId) : null;
+        const effectivePermissions = getEffectivePermissions({
+          rolePermissions: roleData?.permissions || [],
+          extraPermissions: user.extraPermissions || [],
+          disabledPermissions: user.disabledPermissions || [],
+        });
+        return {
+          ...user,
+          roleData,
+          profileData,
+          effectivePermissions,
+        };
+      })
+    );
+  },
+});

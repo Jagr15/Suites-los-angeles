@@ -3,10 +3,24 @@ import { v } from "convex/values";
 import { routeFields } from "./schema";
 import { requireAdmin } from "../common/utils";
 
-async function resolveResponsible(ctx: any, profileId?: any, userId?: any) {
+async function resolveResponsible(
+  ctx: any,
+  profileId?: any,
+  userId?: any,
+  existing?: { responsibleProfileId?: any; responsibleUserId?: any }
+) {
   const profile = profileId ? await ctx.db.get(profileId) : null;
   const user = userId ? await ctx.db.get(userId) : null;
   const userProfile = user?.profileId ? await ctx.db.get(user.profileId) : null;
+  if (profile && profile.status !== "Activo" && String(existing?.responsibleProfileId || "") !== String(profileId)) {
+    throw new Error("No se puede asignar un perfil inactivo.");
+  }
+  if (user && user.isActive === false && String(existing?.responsibleUserId || "") !== String(userId)) {
+    throw new Error("No se puede asignar un usuario inactivo.");
+  }
+  if (userProfile && userProfile.status !== "Activo" && String(existing?.responsibleProfileId || "") !== String(userProfile._id)) {
+    throw new Error("No se puede asignar un perfil inactivo.");
+  }
   return {
     responsibleProfileId: profile?._id || userProfile?._id,
     responsibleUserId: user?._id,
@@ -14,14 +28,29 @@ async function resolveResponsible(ctx: any, profileId?: any, userId?: any) {
   };
 }
 
-async function syncRouteLinkedAccount(ctx: any, routeId: any, data: any) {
+async function syncRouteLinkedAccount(ctx: any, routeId: any, data: any, currentRoute?: any) {
   const existing = await ctx.db
     .query("finance_accounts")
     .withIndex("by_linked_entity", (q: any) =>
       q.eq("linkedEntityType", "route").eq("linkedEntityId", String(routeId))
     )
     .first();
-  const responsible = await resolveResponsible(ctx, data.assignedProfileId, data.assignedUserId);
+  const responsible = await resolveResponsible(
+    ctx,
+    data.assignedProfileId,
+    data.assignedUserId,
+    existing
+      ? {
+          responsibleProfileId: existing.responsibleProfileId,
+          responsibleUserId: existing.responsibleUserId,
+        }
+      : currentRoute
+        ? {
+            responsibleProfileId: currentRoute.assignedProfileId,
+            responsibleUserId: currentRoute.assignedUserId,
+          }
+        : undefined
+  );
   const payload = {
     alias: `Caja de ${data.name}`,
     type: "Caja Chica" as const,
@@ -70,13 +99,14 @@ export const update = mutation({
   },
   handler: async (ctx, args) => {
     await requireAdmin(ctx);
+    const current = await ctx.db.get(args.id);
     const { id, ...data } = args;
     const payload = {
       ...data,
       routeType: data.routeType || "Interna",
     };
     await ctx.db.patch(id, payload);
-    await syncRouteLinkedAccount(ctx, id, payload);
+    await syncRouteLinkedAccount(ctx, id, payload, current);
     return id;
   },
 });

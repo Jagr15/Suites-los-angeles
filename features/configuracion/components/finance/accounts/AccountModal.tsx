@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect } from "react";
+import React, { useEffect, useMemo } from "react";
 import {
   Modal,
   ModalContent,
@@ -40,7 +40,31 @@ type AccountFormData = {
 export function AccountModal({ isOpen, onOpenChange, account }: AccountModalProps) {
   const createAccount = useMutation(api.finance_accounts.functions.create);
   const updateAccount = useMutation(api.finance_accounts.functions.update);
+  const users = useQuery(api.users.queries.listAll) || [];
   const profiles = useQuery(api.profiles.queries.listAll) || [];
+  const activeProfiles = useQuery(api.profiles.queries.listActiveForSelection) || [];
+  const selectedProfileId = account?.responsibleProfileId ? String((account as any).responsibleProfileId) : "";
+  const currentResponsibleUser = account?.responsibleUserId
+    ? users.find((user: any) => String(user._id) === String(account.responsibleUserId))
+    : null;
+  const currentProfile = selectedProfileId
+    ? profiles.find((profile: any) => String(profile._id) === selectedProfileId)
+    : currentResponsibleUser?.profileId
+      ? profiles.find((profile: any) => String(profile._id) === String(currentResponsibleUser.profileId))
+      : null;
+  const profileOptions = useMemo(() => {
+    const next = [...activeProfiles];
+    if (currentProfile && !next.some((profile: any) => String(profile._id) === selectedProfileId)) {
+      next.push({
+        _id: currentProfile._id,
+        fullName: currentProfile.fullName,
+        userId: currentProfile.userId,
+        group: currentProfile.group,
+        status: currentProfile.status || "Inactivo",
+      } as any);
+    }
+    return next;
+  }, [activeProfiles, currentProfile, selectedProfileId]);
 
   const { register, handleSubmit, reset, setValue, watch, control } = useForm<AccountFormData>({
     defaultValues: {
@@ -157,13 +181,16 @@ export function AccountModal({ isOpen, onOpenChange, account }: AccountModalProp
                   selectedKeys={watch("responsibleProfileId") ? [watch("responsibleProfileId") as string] : []}
                   onSelectionChange={(keys) => {
                     const nextId = String(Array.from(keys)[0] || "");
-                    const profile = profiles.find((p: any) => String(p._id) === nextId);
+                    const profile = profileOptions.find((p: any) => String(p._id) === nextId);
                     setValue("responsibleProfileId", nextId);
                     setValue("responsibleName", profile?.fullName || "");
                   }}
                 >
-                  {profiles.map((profile: any) => (
-                    <SelectItem key={String(profile._id)}>{profile.fullName}</SelectItem>
+                  {profileOptions.map((profile: any) => (
+                    <SelectItem key={String(profile._id)} textValue={profile.fullName}>
+                      {profile.fullName}
+                      {profile.status !== "Activo" ? " (Inactivo)" : ""}
+                    </SelectItem>
                   ))}
                 </Select>
                 <Input

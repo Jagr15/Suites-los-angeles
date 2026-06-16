@@ -62,7 +62,7 @@ interface UserModalProps {
   onSave: () => void;
   onClose: () => void;
   isLoading?: boolean;
-  profiles: Array<{ id: string; fullName: string }>;
+  profiles: Array<{ id: string; fullName: string; status?: string }>;
 }
 
 export function UserModal({
@@ -80,9 +80,26 @@ export function UserModal({
   const roles = rolesQuery || [];
   const bodegasQuery = useQuery(api.bodegas.queries.list);
   const bodegas = bodegasQuery || [];
+  const activeProfilesQuery = useQuery(api.profiles.queries.listActiveForSelection);
+  const activeProfiles = activeProfilesQuery || [];
   const [isVisible, setIsVisible] = useState(false);
   const toggleVisibility = () => setIsVisible(!isVisible);
-  const hasProfiles = profiles.length > 0;
+  const selectedProfileId = formState.profileId ? String(formState.profileId) : "";
+  const currentProfile = selectedProfileId ? profiles.find((profile) => profile.id === selectedProfileId) : null;
+  const profileOptions = React.useMemo(() => {
+    const next = [...activeProfiles];
+    if (currentProfile && !next.some((profile) => profile._id === currentProfile.id)) {
+      next.push({
+        _id: currentProfile.id as any,
+        fullName: currentProfile.fullName,
+        userId: undefined,
+        group: undefined,
+        status: (currentProfile.status as "Activo" | "Inactivo") || "Inactivo",
+      });
+    }
+    return next;
+  }, [activeProfiles, currentProfile]);
+  const hasProfiles = profileOptions.length > 0;
   const isEditingSuperAdmin =
     !!selectedUser && ["superadmin", "super admin"].includes(normalizeRoleKey(selectedUser.role));
   const selectedRole = roles.find((role) => role._id === formState.roleId);
@@ -197,13 +214,14 @@ export function UserModal({
                       const selectedKeys = keys === "all" ? [] : Array.from(keys);
                       const id = selectedKeys[0] as string | undefined;
                       if (!id) return;
-                      const profile = profiles?.find(p => p.id === id);
+                      const profile = profileOptions.find((p) => String(p._id) === id);
                       setFormState({ ...formState, profileId: id, profileName: profile?.fullName || "" });
                     }}
                   >
-                    {profiles.map((profile) => (
-                      <SelectItem key={profile.id} textValue={profile.fullName}>
+                    {profileOptions.map((profile) => (
+                      <SelectItem key={String(profile._id)} textValue={profile.fullName}>
                         {profile.fullName}
+                        {profile.status !== "Activo" ? " (Inactivo)" : ""}
                       </SelectItem>
                     ))}
                   </Select>

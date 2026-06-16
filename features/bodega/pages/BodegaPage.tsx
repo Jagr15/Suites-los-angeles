@@ -29,7 +29,7 @@ export function BodegaPage() {
   // Convex Data
   const { selectedWarehouseId, setSelectedWarehouseId } = useWarehouse();
   const accessibleBodegas = useQuery(api.bodegas.queries.listAccessible);
-  const clients = useQuery(api.clients.queries.list);
+  const clients = useQuery(api.clients.queries.listActiveForSelection);
   const purchases = useQuery(api.purchases.queries.list, selectedWarehouseId ? { bodegaId: selectedWarehouseId as any } : "skip");
   const salidas = useQuery(api.salidas.queries.list, selectedWarehouseId ? { bodegaId: selectedWarehouseId as any } : "skip");
   const createSalida = useMutation(api.salidas.mutations.create);

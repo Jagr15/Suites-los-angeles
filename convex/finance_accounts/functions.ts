@@ -3,10 +3,24 @@ import { mutation, query } from "../_generated/server";
 import { financeAccountFields } from "./schema";
 import { requireAdmin } from "../common/utils";
 
-async function resolveResponsible(ctx: any, profileId?: any, userId?: any) {
+async function resolveResponsible(
+  ctx: any,
+  profileId?: any,
+  userId?: any,
+  existing?: { responsibleProfileId?: any; responsibleUserId?: any }
+) {
   const profile = profileId ? await ctx.db.get(profileId) : null;
   const user = userId ? await ctx.db.get(userId) : null;
   const userProfile = user?.profileId ? await ctx.db.get(user.profileId) : null;
+  if (profile && profile.status !== "Activo" && String(existing?.responsibleProfileId || "") !== String(profileId)) {
+    throw new Error("No se puede asignar un perfil inactivo.");
+  }
+  if (user && user.isActive === false && String(existing?.responsibleUserId || "") !== String(userId)) {
+    throw new Error("No se puede asignar un usuario inactivo.");
+  }
+  if (userProfile && userProfile.status !== "Activo" && String(existing?.responsibleProfileId || "") !== String(userProfile._id)) {
+    throw new Error("No se puede asignar un perfil inactivo.");
+  }
   return {
     responsibleProfileId: profile?._id || userProfile?._id,
     responsibleUserId: user?._id,
@@ -23,6 +37,7 @@ async function upsertSystemLinkedAccount(
     responsibleProfileId?: any;
     responsibleUserId?: any;
     isActive?: boolean;
+    currentEntity?: { responsibleProfileId?: any; responsibleUserId?: any };
   }
 ) {
   const existing = await ctx.db
@@ -32,7 +47,22 @@ async function upsertSystemLinkedAccount(
     )
     .first();
 
-  const responsible = await resolveResponsible(ctx, args.responsibleProfileId, args.responsibleUserId);
+  const responsible = await resolveResponsible(
+    ctx,
+    args.responsibleProfileId,
+    args.responsibleUserId,
+    existing
+      ? {
+          responsibleProfileId: existing.responsibleProfileId,
+          responsibleUserId: existing.responsibleUserId,
+        }
+      : args.currentEntity
+        ? {
+            responsibleProfileId: args.currentEntity.responsibleProfileId,
+            responsibleUserId: args.currentEntity.responsibleUserId,
+          }
+        : undefined
+  );
   const payload = {
     alias: args.alias,
     type: "Caja Chica" as const,
@@ -114,6 +144,10 @@ export const ensureLinkedAccounts = mutation({
         responsibleProfileId: (bodega as any).managerProfileId,
         responsibleUserId: (bodega as any).managerUserId,
         isActive: bodega.isActive,
+        currentEntity: {
+          responsibleProfileId: (bodega as any).managerProfileId,
+          responsibleUserId: (bodega as any).managerUserId,
+        },
       });
       createdOrUpdated++;
     }
@@ -126,6 +160,10 @@ export const ensureLinkedAccounts = mutation({
         responsibleProfileId: route.assignedProfileId,
         responsibleUserId: route.assignedUserId,
         isActive: route.isActive,
+        currentEntity: {
+          responsibleProfileId: route.assignedProfileId,
+          responsibleUserId: route.assignedUserId,
+        },
       });
       createdOrUpdated++;
     }

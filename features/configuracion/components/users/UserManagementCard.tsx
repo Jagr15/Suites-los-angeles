@@ -31,7 +31,7 @@ export function UserManagementCard() {
     reactivateUser,
     deleteUser,
   } = useUsers();
-  const { profiles, isLoading: isProfilesLoading } = useProfiles();
+  const { profiles, selectionProfiles, isLoading: isProfilesLoading } = useProfiles();
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [userToDeactivate, setUserToDeactivate] = useState<User | null>(null);
   const [userToReactivate, setUserToReactivate] = useState<User | null>(null);
@@ -51,7 +51,7 @@ export function UserManagementCard() {
   };
 
   const handleAdd = () => {
-    if (!profiles || profiles.length === 0) {
+    if (!selectionProfiles || selectionProfiles.length === 0) {
       addToast({
         title: "Perfiles requeridos",
         description: "No hay perfiles disponibles. Crea primero un perfil de personal.",

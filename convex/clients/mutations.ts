@@ -110,7 +110,8 @@ type NormalizedClientPayload = {
 
 async function normalizeClientPayload(
   ctx: MutationCtx,
-  args: ClientMutationArgs
+  args: ClientMutationArgs,
+  existingAssignedRouteId?: Id<"routes">
 ): Promise<NormalizedClientPayload> {
   const clientType = args.clientType ?? "commercial";
   const isRetail = clientType === "retail";
@@ -153,6 +154,16 @@ async function normalizeClientPayload(
     if (!buyerName) throw new Error("El encargado es obligatorio.");
     if (!Number.isFinite(creditLimit)) throw new Error("El límite de crédito es inválido.");
     if (!Number.isFinite(creditDays)) throw new Error("Los días de crédito son inválidos.");
+  }
+
+  if (assignedRouteId) {
+    const route = await ctx.db.get(assignedRouteId);
+    if (!route) {
+      throw new Error("La ruta asignada no existe.");
+    }
+    if (route.isActive === false && String(existingAssignedRouteId || "") !== String(assignedRouteId)) {
+      throw new Error("No se puede asignar una ruta inactiva.");
+    }
   }
 
   await ensureFixedCustomerLevels(ctx);
@@ -307,7 +318,7 @@ export const update = mutation({
     const current = await ctx.db.get(args.id);
     if (!current) throw new Error("Cliente no encontrado");
     await assertCustomerOwnershipIfRestricted(ctx, current);
-    const data = await normalizeClientPayload(ctx, args);
+    const data = await normalizeClientPayload(ctx, args, current.assignedRouteId);
 
     if (!(await isAdmin(ctx)) && data.clientType !== "retail") {
       const gpsChanged =

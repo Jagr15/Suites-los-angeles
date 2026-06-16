@@ -52,6 +52,14 @@ export const list = query({
   },
 });
 
+export const listActiveForSelection = query({
+  args: {},
+  handler: async (ctx) => {
+    const clients = await ctx.db.query("clients").collect();
+    return clients.filter((client: any) => client.isActive !== false && client.status !== "Inactivo");
+  },
+});
+
 /**
  * Obtiene un cliente por su ID.
  */
