@@ -1,6 +1,7 @@
 "use client";
 
 import { Modal, ModalContent, ModalHeader, ModalBody, ModalFooter, Button, Input } from "@heroui/react";
+import { EyeIcon, EyeSlashIcon } from "@heroicons/react/24/outline";
 import { useState } from "react";
 
 export type ConfirmModalVariant = "default" | "danger" | "warning";
@@ -34,13 +35,14 @@ export function ConfirmModal({
 }: ConfirmModalProps) {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [isPasswordVisible, setIsPasswordVisible] = useState(false);
 
   const handleConfirm = async () => {
     if (requirePassword && !password.trim()) {
       setError("Ingresa la contraseña de administrador.");
       return;
     }
-    
+
     try {
       await onConfirm(password);
       onClose();
@@ -65,6 +67,7 @@ export function ConfirmModal({
         if (open) {
           setPassword("");
           setError(null);
+          setIsPasswordVisible(false);
           return;
         }
         onClose();
@@ -80,7 +83,7 @@ export function ConfirmModal({
               <Input
                 label="Contraseña de Administrador"
                 placeholder="Ingrese la contraseña"
-                type="password"
+                type={isPasswordVisible ? "text" : "password"}
                 variant="bordered"
                 value={password}
                 onValueChange={(v) => {
@@ -91,6 +94,24 @@ export function ConfirmModal({
                 errorMessage={error || ""}
                 onKeyDown={handleKeyDown}
                 autoFocus
+                endContent={
+                  <Button
+                    type="button"
+                    variant="light"
+                    isIconOnly
+                    size="sm"
+                    radius="full"
+                    className="min-w-0 h-8 w-8 text-default-400"
+                    onPress={() => setIsPasswordVisible((value) => !value)}
+                    aria-label={isPasswordVisible ? "Ocultar contraseña" : "Mostrar contraseña"}
+                  >
+                    {isPasswordVisible ? (
+                      <EyeSlashIcon className="size-4" />
+                    ) : (
+                      <EyeIcon className="size-4" />
+                    )}
+                  </Button>
+                }
               />
               <p className="text-[10px] text-default-400 italic font-medium">
                 Solo usuarios con rol de administrador pueden realizar esta acción.

@@ -168,8 +168,8 @@ export function UserManagementCard() {
 
   const handleConfirmReactivate = async (adminPassword?: string) => {
     if (!userToReactivate) return;
+    setIsConfirmingAction(true);
     try {
-      setIsConfirmingAction(true);
       await reactivateUser(userToReactivate.id, adminPassword || "");
       addToast({
         title: "Usuario Reactivado",
@@ -177,17 +177,6 @@ export function UserManagementCard() {
         color: "success",
       });
       setUserToReactivate(null);
-    } catch (error) {
-      const message =
-        error instanceof Error
-          ? error.message
-          : "No se pudo reactivar el usuario.";
-      addToast({
-        title: "Error",
-        description: message,
-        color: "danger",
-      });
-      throw error;
     } finally {
       setIsConfirmingAction(false);
     }
@@ -200,8 +189,8 @@ export function UserManagementCard() {
 
   const handleConfirmDeactivate = async (adminPassword?: string) => {
     if (!userToDeactivate) return;
+    setIsConfirmingAction(true);
     try {
-      setIsConfirmingAction(true);
       await deactivateUser(userToDeactivate.id, adminPassword || "");
       addToast({
         title: "Usuario dado de baja",
@@ -209,17 +198,6 @@ export function UserManagementCard() {
         color: "warning",
       });
       setUserToDeactivate(null);
-    } catch (error) {
-      const message =
-        error instanceof Error
-          ? error.message
-          : "No se pudo inactivar el usuario.";
-      addToast({
-        title: "Error",
-        description: message,
-        color: "danger",
-      });
-      throw error;
     } finally {
       setIsConfirmingAction(false);
     }
@@ -227,8 +205,8 @@ export function UserManagementCard() {
 
   const handleConfirmDelete = async (adminPassword?: string) => {
     if (!userToDelete) return;
+    setIsConfirmingAction(true);
     try {
-      setIsConfirmingAction(true);
       await deleteUser(userToDelete.id, adminPassword || "");
       addToast({
         title: "Usuario eliminado definitivamente",
@@ -236,17 +214,6 @@ export function UserManagementCard() {
         color: "danger",
       });
       setUserToDelete(null);
-    } catch (error) {
-      const message =
-        error instanceof Error
-          ? error.message
-          : "No se pudo eliminar el usuario.";
-      addToast({
-        title: "Error",
-        description: message,
-        color: "danger",
-      });
-      throw error;
     } finally {
       setIsConfirmingAction(false);
     }
