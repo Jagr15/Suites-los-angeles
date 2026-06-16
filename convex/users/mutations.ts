@@ -63,12 +63,12 @@ async function assertAdminPassword(ctx: any, adminPassword: string) {
 
     // Validamos la contraseña contra la cuenta password del usuario autenticado,
     // no contra el usuario objetivo de la operación.
-    const passwordAccounts = await ctx.db
+    const account = await ctx.db
       .query("authAccounts")
-      .withIndex("by_userId", (q: any) => q.eq("userId", adminUser._id))
-      .collect();
-
-    const account = passwordAccounts.find((entry: any) => entry.provider === "password") || null;
+      .filter((q: any) =>
+        q.eq(q.field("userId"), adminUser._id).eq(q.field("provider"), "password")
+      )
+      .first();
     if (!account?.secret) {
       throw new Error("No se pudo validar la contraseña de administrador.");
     }
