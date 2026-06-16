@@ -102,6 +102,34 @@ async function getUserDeletionBlockers(ctx: any, userId: Id<"users">) {
   };
 }
 
+async function syncLinkedProfileStatus(ctx: any, userId: Id<"users">, nextIsActive: boolean) {
+  const user = await ctx.db.get(userId);
+  if (!user) return;
+
+  const profileIds = new Set<string>();
+  if (user.profileId) {
+    profileIds.add(String(user.profileId));
+  }
+
+  const profiles = await ctx.db.query("profiles").collect();
+  for (const profile of profiles) {
+    if (String(profile.userId || "") === String(userId)) {
+      profileIds.add(String(profile._id));
+    }
+  }
+
+  if (profileIds.size === 0) return;
+
+  const nextProfileStatus = nextIsActive ? "Activo" : "Inactivo";
+  for (const profileId of profileIds) {
+    const profile = await ctx.db.get(profileId as Id<"profiles">);
+    if (!profile) continue;
+    if (profile.status !== nextProfileStatus) {
+      await ctx.db.patch(profile._id, { status: nextProfileStatus });
+    }
+  }
+}
+
 async function syncWarehouseAssignments(ctx: any, userId: Id<"users">, nextWarehouseIds: Id<"bodegas">[]) {
   const bodegas = await ctx.db.query("bodegas").collect();
   const validWarehouseIds = nextWarehouseIds.filter((warehouseId) =>
@@ -537,6 +565,13 @@ export const removeUser = mutation({
   args: { id: v.id("users") },
   handler: async (ctx, args) => {
     await requireAdmin(ctx);
+    const user = await ctx.db.get(args.id);
+    if (!user) {
+      throw new Error("Usuario no encontrado.");
+    }
+    if (user.isActive !== false) {
+      throw new Error("Primero debes inactivar este usuario antes de eliminarlo definitivamente.");
+    }
     const { blockers } = await getUserDeletionBlockers(ctx, args.id);
     if (blockers.length > 0) {
       throw new Error(
@@ -544,6 +579,46 @@ export const removeUser = mutation({
       );
     }
     await ctx.db.delete(args.id);
+  },
+});
+
+/**
+ * Inactiva lógicamente un usuario sin borrar el registro.
+ */
+export const deactivateUser = mutation({
+  args: { id: v.id("users") },
+  handler: async (ctx, args) => {
+    await requireAdmin(ctx);
+    const user = await ctx.db.get(args.id);
+    if (!user) {
+      throw new Error("Usuario no encontrado.");
+    }
+
+    if (user.isActive !== false) {
+      await ctx.db.patch(args.id, { isActive: false });
+    }
+    await syncLinkedProfileStatus(ctx, args.id, false);
+    return args.id;
+  },
+});
+
+/**
+ * Reactiva un usuario previamente inactivo.
+ */
+export const reactivateUser = mutation({
+  args: { id: v.id("users") },
+  handler: async (ctx, args) => {
+    await requireAdmin(ctx);
+    const user = await ctx.db.get(args.id);
+    if (!user) {
+      throw new Error("Usuario no encontrado.");
+    }
+
+    if (user.isActive !== true) {
+      await ctx.db.patch(args.id, { isActive: true });
+    }
+    await syncLinkedProfileStatus(ctx, args.id, true);
+    return args.id;
   },
 });
 

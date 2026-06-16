@@ -20,9 +20,20 @@ import { userSchema } from "../../schemas/user-schema";
 
 export function UserManagementCard() {
   const { isOpen, onOpen, onOpenChange } = useDisclosure();
-  const { users, roles, rolesAll, isLoading: isUsersLoading, addUser, updateUser, deleteUser } = useUsers();
+  const {
+    users,
+    roles,
+    rolesAll,
+    isLoading: isUsersLoading,
+    addUser,
+    updateUser,
+    deactivateUser,
+    reactivateUser,
+    deleteUser,
+  } = useUsers();
   const { profiles, isLoading: isProfilesLoading } = useProfiles();
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
+  const [userToDeactivate, setUserToDeactivate] = useState<User | null>(null);
   const [userToDelete, setUserToDelete] = useState<User | null>(null);
   
   // State for form fields
@@ -143,9 +154,60 @@ export function UserManagementCard() {
     }
   };
 
+  const handleDeactivateRequest = (id: string) => {
+    const user = users.find(u => u.id === id);
+    if (user) setUserToDeactivate(user);
+  };
+
+  const handleReactivateRequest = async (id: string) => {
+    const user = users.find(u => u.id === id);
+    if (!user) return;
+    try {
+      await reactivateUser(user.id);
+      addToast({
+        title: "Usuario Reactivado",
+        description: `${user.email} volvió a estar activo.`,
+        color: "success",
+      });
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : "No se pudo reactivar el usuario.";
+      addToast({
+        title: "Error",
+        description: message,
+        color: "danger",
+      });
+    }
+  };
+
   const handleDeleteRequest = (id: string) => {
     const user = users.find(u => u.id === id);
     if (user) setUserToDelete(user);
+  };
+
+  const handleConfirmDeactivate = async () => {
+    if (!userToDeactivate) return;
+    try {
+      await deactivateUser(userToDeactivate.id);
+      addToast({
+        title: "Usuario dado de baja",
+        description: `${userToDeactivate.email} quedó inactivo.`,
+        color: "warning",
+      });
+      setUserToDeactivate(null);
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : "No se pudo inactivar el usuario.";
+      addToast({
+        title: "Error",
+        description: message,
+        color: "danger",
+      });
+    }
   };
 
   const handleConfirmDelete = async () => {
@@ -153,7 +215,7 @@ export function UserManagementCard() {
     try {
       await deleteUser(userToDelete.id);
       addToast({
-        title: "Usuario Eliminado",
+        title: "Usuario eliminado definitivamente",
         description: `El acceso de ${userToDelete.email} ha sido borrado permanentemente.`,
         color: "danger",
       });
@@ -197,7 +259,9 @@ export function UserManagementCard() {
         <UserTable 
           items={users} 
           onEdit={handleEdit} 
-          onDelete={handleDeleteRequest} 
+          onDeactivate={handleDeactivateRequest}
+          onReactivate={handleReactivateRequest}
+          onDeletePermanent={handleDeleteRequest}
         />
 
         <UserModal
@@ -213,12 +277,23 @@ export function UserManagementCard() {
         />
 
         <ConfirmModal
+          isOpen={!!userToDeactivate}
+          onClose={() => setUserToDeactivate(null)}
+          onConfirm={handleConfirmDeactivate}
+          title="¿Dar de baja usuario?"
+          description={`El usuario "${userToDeactivate?.email}" quedará inactivo, sin borrar su registro.`}
+          confirmLabel="Dar de baja"
+          variant="warning"
+          requirePassword={true}
+        />
+
+        <ConfirmModal
           isOpen={!!userToDelete}
           onClose={() => setUserToDelete(null)}
           onConfirm={handleConfirmDelete}
           title="¿Eliminar usuario permanentemente?"
-          description={`Esta acción borrará el acceso de "${userToDelete?.email}". No se puede deshacer.`}
-          confirmLabel="Borrar Acceso"
+          description={`Esta acción eliminará definitivamente a "${userToDelete?.email}". Solo aplica a usuarios inactivos y no se puede deshacer.`}
+          confirmLabel="Eliminar definitivamente"
           variant="danger"
           requirePassword={true}
         />

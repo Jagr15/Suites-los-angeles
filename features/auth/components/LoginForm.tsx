@@ -67,6 +67,15 @@ function getFriendlyLoginError(error: unknown) {
     return "La contraseña es incorrecta.";
   }
 
+  if (
+    normalized.includes("cuenta inactiva") ||
+    normalized.includes("inactive") ||
+    normalized.includes("desactiv") ||
+    normalized.includes("suspend")
+  ) {
+    return "Tu cuenta está inactiva. Contacta a un administrador.";
+  }
+
   return "Correo o contraseña incorrectos.";
 }
 
@@ -80,7 +89,11 @@ function shouldLogLoginError(error: unknown) {
     normalized.includes("invalid account id") ||
     normalized.includes("invalid password") ||
     normalized.includes("account already exists") ||
-    normalized.includes("missing `password` param")
+    normalized.includes("missing `password` param") ||
+    normalized.includes("cuenta inactiva") ||
+    normalized.includes("inactive") ||
+    normalized.includes("desactiv") ||
+    normalized.includes("suspend")
   );
 }
 

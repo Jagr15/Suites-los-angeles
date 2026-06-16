@@ -12,6 +12,8 @@ import {
 } from "@heroui/react";
 import {
   PencilSquareIcon,
+  ArrowPathIcon,
+  NoSymbolIcon,
   TrashIcon,
 } from "@heroicons/react/24/outline";
 import { User } from "./types";
@@ -19,10 +21,12 @@ import { User } from "./types";
 interface UserTableProps {
   items: User[];
   onEdit: (user: User) => void;
-  onDelete: (id: string) => void;
+  onDeactivate: (id: string) => void;
+  onReactivate: (id: string) => void;
+  onDeletePermanent: (id: string) => void;
 }
 
-export function UserTable({ items, onEdit, onDelete }: UserTableProps) {
+export function UserTable({ items, onEdit, onDeactivate, onReactivate, onDeletePermanent }: UserTableProps) {
   const renderCell = (user: User, columnKey: React.Key) => {
     const cellValue = user[columnKey as keyof User];
 
@@ -55,7 +59,7 @@ export function UserTable({ items, onEdit, onDelete }: UserTableProps) {
             size="sm"
             variant="solid"
           >
-            {user.isActive ? "Activo" : "Suspendido"}
+            {user.isActive ? "Activo" : "Inactivo"}
           </Chip>
         );
       case "permissions":
@@ -80,16 +84,41 @@ export function UserTable({ items, onEdit, onDelete }: UserTableProps) {
                 <PencilSquareIcon className="size-5 text-default-400" />
               </Button>
             </Tooltip>
-            <Tooltip color="danger" content="Eliminar usuario">
-              <Button
-                isIconOnly
-                size="sm"
-                variant="light"
-                onPress={() => onDelete(user.id)}
-              >
-                <TrashIcon className="size-5 text-danger" />
-              </Button>
-            </Tooltip>
+            {user.isActive ? (
+              <Tooltip color="warning" content="Dar de baja usuario">
+                <Button
+                  isIconOnly
+                  size="sm"
+                  variant="light"
+                  onPress={() => onDeactivate(user.id)}
+                >
+                  <NoSymbolIcon className="size-5 text-warning" />
+                </Button>
+              </Tooltip>
+            ) : (
+              <>
+                <Tooltip color="success" content="Reactivar usuario">
+                  <Button
+                    isIconOnly
+                    size="sm"
+                    variant="light"
+                    onPress={() => onReactivate(user.id)}
+                  >
+                    <ArrowPathIcon className="size-5 text-success" />
+                  </Button>
+                </Tooltip>
+                <Tooltip color="danger" content="Eliminar definitivamente">
+                  <Button
+                    isIconOnly
+                    size="sm"
+                    variant="light"
+                    onPress={() => onDeletePermanent(user.id)}
+                  >
+                    <TrashIcon className="size-5 text-danger" />
+                  </Button>
+                </Tooltip>
+              </>
+            )}
           </div>
         );
       default:

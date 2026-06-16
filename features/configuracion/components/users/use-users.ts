@@ -14,6 +14,8 @@ export function useUsers() {
   const rolesAssignable = useQuery(api.roles.queries.listAssignable);
 
   const upsertUserMutation = useMutation(api.users.mutations.upsertUser);
+  const deactivateUserMutation = useMutation(api.users.mutations.deactivateUser);
+  const reactivateUserMutation = useMutation(api.users.mutations.reactivateUser);
   const removeUserMutation = useMutation(api.users.mutations.removeUser);
 
   const users: UserUI[] = (rawUsers || []).map((u) => ({
@@ -66,6 +68,14 @@ export function useUsers() {
     return await upsertUserMutation(payload);
   };
 
+  const deactivateUser = async (id: string) => {
+    return await deactivateUserMutation({ id: id as Id<"users"> });
+  };
+
+  const reactivateUser = async (id: string) => {
+    return await reactivateUserMutation({ id: id as Id<"users"> });
+  };
+
   const deleteUser = async (id: string) => {
     return await removeUserMutation({ id: id as Id<"users"> });
   };
@@ -77,6 +87,8 @@ export function useUsers() {
     isLoading: rawUsers === undefined || rolesAll === undefined || rolesAssignable === undefined,
     addUser,
     updateUser,
+    deactivateUser,
+    reactivateUser,
     deleteUser,
   };
 }
