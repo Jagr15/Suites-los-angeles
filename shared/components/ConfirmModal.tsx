@@ -8,7 +8,7 @@ export type ConfirmModalVariant = "default" | "danger" | "warning";
 type ConfirmModalProps = {
   isOpen: boolean;
   onClose: () => void;
-  onConfirm: () => void | Promise<void>;
+  onConfirm: (password?: string) => void | Promise<void>;
   title: string;
   description: string;
   confirmLabel?: string;
@@ -18,8 +18,6 @@ type ConfirmModalProps = {
   isConfirming?: boolean;
   /** Si true, requiere que el usuario ingrese la contraseña de administrador. */
   requirePassword?: boolean;
-  /** Contraseña de confirmación opcional; si no se define, no se valida por contraseña. */
-  adminPassword?: string;
 };
 
 export function ConfirmModal({
@@ -33,22 +31,22 @@ export function ConfirmModal({
   variant = "default",
   isConfirming = false,
   requirePassword = false,
-  adminPassword
 }: ConfirmModalProps) {
   const [password, setPassword] = useState("");
-  const [error, setError] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const handleConfirm = async () => {
-    if (requirePassword && adminPassword && password !== adminPassword) {
-      setError(true);
+    if (requirePassword && !password.trim()) {
+      setError("Ingresa la contraseña de administrador.");
       return;
     }
     
     try {
-      await onConfirm();
+      await onConfirm(password);
       onClose();
     } catch (e: unknown) {
-      console.error("Error in confirmation:", e);
+      const message = e instanceof Error ? e.message : "No se pudo completar la acción.";
+      setError(message);
     }
   };
 
@@ -66,7 +64,7 @@ export function ConfirmModal({
       onOpenChange={(open) => {
         if (open) {
           setPassword("");
-          setError(false);
+          setError(null);
           return;
         }
         onClose();
@@ -87,10 +85,10 @@ export function ConfirmModal({
                 value={password}
                 onValueChange={(v) => {
                   setPassword(v);
-                  if (error) setError(false);
+                  if (error) setError(null);
                 }}
-                isInvalid={error}
-                errorMessage={error ? "Contraseña incorrecta" : ""}
+                isInvalid={!!error}
+                errorMessage={error || ""}
                 onKeyDown={handleKeyDown}
                 autoFocus
               />

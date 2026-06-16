@@ -68,16 +68,16 @@ export function useUsers() {
     return await upsertUserMutation(payload);
   };
 
-  const deactivateUser = async (id: string) => {
-    return await deactivateUserMutation({ id: id as Id<"users"> });
+  const deactivateUser = async (id: string, adminPassword: string) => {
+    return await deactivateUserMutation({ id: id as Id<"users">, adminPassword });
   };
 
-  const reactivateUser = async (id: string) => {
-    return await reactivateUserMutation({ id: id as Id<"users"> });
+  const reactivateUser = async (id: string, adminPassword: string) => {
+    return await reactivateUserMutation({ id: id as Id<"users">, adminPassword });
   };
 
-  const deleteUser = async (id: string) => {
-    return await removeUserMutation({ id: id as Id<"users"> });
+  const deleteUser = async (id: string, adminPassword: string) => {
+    return await removeUserMutation({ id: id as Id<"users">, adminPassword });
   };
 
   return {

@@ -35,6 +35,60 @@ function uniqueWarehouseIds(ids?: Array<Id<"bodegas"> | string>) {
   return next;
 }
 
+function isAdminRoleName(role?: string | null) {
+  const normalized = (role || "").trim().toLowerCase();
+  return normalized === "admin" || normalized === "superadmin" || normalized === "super admin";
+}
+
+async function assertAdminPassword(ctx: any, adminPassword: string) {
+  if (!adminPassword.trim()) {
+    throw new Error("Contraseña de administrador incorrecta.");
+  }
+
+  const identity = await ctx.auth.getUserIdentity();
+  const email = identity?.email?.trim().toLowerCase() || "";
+  if (!email) {
+    throw new Error("No se pudo validar la contraseña de administrador.");
+  }
+
+  const candidates = await ctx.db
+    .query("users")
+    .withIndex("by_email", (q: any) => q.eq("email", email))
+    .collect();
+
+  let adminUser = null;
+  for (const candidate of candidates) {
+    const roleDoc = candidate.roleId ? await ctx.db.get(candidate.roleId) : null;
+    if (isAdminRoleName(candidate.role) || isAdminRoleName(roleDoc?.name)) {
+      adminUser = candidate;
+      break;
+    }
+  }
+
+  if (!adminUser) {
+    adminUser = candidates[0] || null;
+  }
+
+  if (!adminUser) {
+    throw new Error("No se pudo validar la contraseña de administrador.");
+  }
+
+  const passwordAccounts = await listPasswordAccountsByEmail(ctx, email);
+  const account =
+    passwordAccounts.find((entry) => String(entry.userId) === String(adminUser._id)) ||
+    passwordAccounts[0] ||
+    null;
+
+  if (!account?.secret) {
+    throw new Error("No se pudo validar la contraseña de administrador.");
+  }
+
+  const isCorrect = await verifyPassword(adminPassword, account.secret);
+  if (!isCorrect) {
+    throw new Error("Contraseña de administrador incorrecta.");
+  }
+}
+
 async function getUserDeletionBlockers(ctx: any, userId: Id<"users">) {
   const user = await ctx.db.get(userId);
   if (!user) {
@@ -562,9 +616,10 @@ export const normalizeUserProfiles = mutation({
  * Elimina un usuario (acción reservada).
  */
 export const removeUser = mutation({
-  args: { id: v.id("users") },
+  args: { id: v.id("users"), adminPassword: v.string() },
   handler: async (ctx, args) => {
     await requireAdmin(ctx);
+    await assertAdminPassword(ctx, args.adminPassword);
     const user = await ctx.db.get(args.id);
     if (!user) {
       throw new Error("Usuario no encontrado.");
@@ -586,9 +641,10 @@ export const removeUser = mutation({
  * Inactiva lógicamente un usuario sin borrar el registro.
  */
 export const deactivateUser = mutation({
-  args: { id: v.id("users") },
+  args: { id: v.id("users"), adminPassword: v.string() },
   handler: async (ctx, args) => {
     await requireAdmin(ctx);
+    await assertAdminPassword(ctx, args.adminPassword);
     const user = await ctx.db.get(args.id);
     if (!user) {
       throw new Error("Usuario no encontrado.");
@@ -606,9 +662,10 @@ export const deactivateUser = mutation({
  * Reactiva un usuario previamente inactivo.
  */
 export const reactivateUser = mutation({
-  args: { id: v.id("users") },
+  args: { id: v.id("users"), adminPassword: v.string() },
   handler: async (ctx, args) => {
     await requireAdmin(ctx);
+    await assertAdminPassword(ctx, args.adminPassword);
     const user = await ctx.db.get(args.id);
     if (!user) {
       throw new Error("Usuario no encontrado.");

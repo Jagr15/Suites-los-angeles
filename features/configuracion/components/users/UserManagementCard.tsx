@@ -34,11 +34,13 @@ export function UserManagementCard() {
   const { profiles, isLoading: isProfilesLoading } = useProfiles();
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [userToDeactivate, setUserToDeactivate] = useState<User | null>(null);
+  const [userToReactivate, setUserToReactivate] = useState<User | null>(null);
   const [userToDelete, setUserToDelete] = useState<User | null>(null);
   
   // State for form fields
   const [formState, setFormState] = useState<Partial<User & { roleId?: string; password?: string }>>({});
   const [isSaving, setIsSaving] = useState(false);
+  const [isConfirmingAction, setIsConfirmingAction] = useState(false);
 
   const handleEdit = (user: User) => {
     setSelectedUser(user);
@@ -159,16 +161,22 @@ export function UserManagementCard() {
     if (user) setUserToDeactivate(user);
   };
 
-  const handleReactivateRequest = async (id: string) => {
+  const handleReactivateRequest = (id: string) => {
     const user = users.find(u => u.id === id);
-    if (!user) return;
+    if (user) setUserToReactivate(user);
+  };
+
+  const handleConfirmReactivate = async (adminPassword?: string) => {
+    if (!userToReactivate) return;
     try {
-      await reactivateUser(user.id);
+      setIsConfirmingAction(true);
+      await reactivateUser(userToReactivate.id, adminPassword || "");
       addToast({
         title: "Usuario Reactivado",
-        description: `${user.email} volvió a estar activo.`,
+        description: `${userToReactivate.email} volvió a estar activo.`,
         color: "success",
       });
+      setUserToReactivate(null);
     } catch (error) {
       const message =
         error instanceof Error
@@ -179,6 +187,8 @@ export function UserManagementCard() {
         description: message,
         color: "danger",
       });
+    } finally {
+      setIsConfirmingAction(false);
     }
   };
 
@@ -187,10 +197,11 @@ export function UserManagementCard() {
     if (user) setUserToDelete(user);
   };
 
-  const handleConfirmDeactivate = async () => {
+  const handleConfirmDeactivate = async (adminPassword?: string) => {
     if (!userToDeactivate) return;
     try {
-      await deactivateUser(userToDeactivate.id);
+      setIsConfirmingAction(true);
+      await deactivateUser(userToDeactivate.id, adminPassword || "");
       addToast({
         title: "Usuario dado de baja",
         description: `${userToDeactivate.email} quedó inactivo.`,
@@ -207,13 +218,16 @@ export function UserManagementCard() {
         description: message,
         color: "danger",
       });
+    } finally {
+      setIsConfirmingAction(false);
     }
   };
 
-  const handleConfirmDelete = async () => {
+  const handleConfirmDelete = async (adminPassword?: string) => {
     if (!userToDelete) return;
     try {
-      await deleteUser(userToDelete.id);
+      setIsConfirmingAction(true);
+      await deleteUser(userToDelete.id, adminPassword || "");
       addToast({
         title: "Usuario eliminado definitivamente",
         description: `El acceso de ${userToDelete.email} ha sido borrado permanentemente.`,
@@ -230,6 +244,8 @@ export function UserManagementCard() {
         description: message,
         color: "danger",
       });
+    } finally {
+      setIsConfirmingAction(false);
     }
   };
 
@@ -284,6 +300,19 @@ export function UserManagementCard() {
           description={`El usuario "${userToDeactivate?.email}" quedará inactivo, sin borrar su registro.`}
           confirmLabel="Dar de baja"
           variant="warning"
+          isConfirming={isConfirmingAction}
+          requirePassword={true}
+        />
+
+        <ConfirmModal
+          isOpen={!!userToReactivate}
+          onClose={() => setUserToReactivate(null)}
+          onConfirm={handleConfirmReactivate}
+          title="¿Reactivar usuario?"
+          description={`El usuario "${userToReactivate?.email}" volverá a estar activo.`}
+          confirmLabel="Reactivar"
+          variant="warning"
+          isConfirming={isConfirmingAction}
           requirePassword={true}
         />
 
@@ -295,6 +324,7 @@ export function UserManagementCard() {
           description={`Esta acción eliminará definitivamente a "${userToDelete?.email}". Solo aplica a usuarios inactivos y no se puede deshacer.`}
           confirmLabel="Eliminar definitivamente"
           variant="danger"
+          isConfirming={isConfirmingAction}
           requirePassword={true}
         />
       </CardBody>
