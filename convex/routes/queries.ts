@@ -2,6 +2,7 @@ import { query } from "../_generated/server";
 import { v } from "convex/values";
 import { Id } from "../_generated/dataModel";
 import { QueryCtx } from "../_generated/server";
+import { getAuthUserId } from "@convex-dev/auth/server";
 
 const isLikelyConvexId = (value: unknown) =>
   typeof value === "string" && value.includes("|");
@@ -123,17 +124,37 @@ export const listByCurrentUser = query({
   handler: async (ctx) => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity?.email) return [];
+    const authUserId = await getAuthUserId(ctx);
 
-    const user = await ctx.db
+    const usersByEmail = await ctx.db
       .query("users")
       .withIndex("by_email", (q) => q.eq("email", identity.email!))
-      .first();
-    if (!user) return [];
-
-    const routes = await ctx.db
-      .query("routes")
-      .withIndex("by_assignedUserId", (q) => q.eq("assignedUserId", user._id))
       .collect();
+    const resolvedUser = usersByEmail.find((user) => user.isActive !== false) ?? usersByEmail[0] ?? null;
+    if (!resolvedUser && !authUserId) return [];
+
+    const profileId = resolvedUser?.profileId ?? null;
+    const routeSets = await Promise.all([
+      resolvedUser?._id
+        ? ctx.db
+            .query("routes")
+            .withIndex("by_assignedUserId", (q) => q.eq("assignedUserId", resolvedUser._id))
+            .collect()
+        : [],
+      authUserId
+        ? ctx.db
+            .query("routes")
+            .withIndex("by_assignedUserId", (q) => q.eq("assignedUserId", authUserId))
+            .collect()
+        : [],
+      profileId
+        ? ctx.db
+            .query("routes")
+            .withIndex("by_assignedProfileId", (q) => q.eq("assignedProfileId", profileId))
+            .collect()
+        : [],
+    ]);
+    const routes = Array.from(new Map(routeSets.flat().map((route) => [String(route._id), route])).values());
 
     return Promise.all(
       routes.map(async (route) => {
@@ -142,10 +163,12 @@ export const listByCurrentUser = query({
           ...route,
           routeType: route.routeType || "Interna",
           assetId: route.assetId || asset?._id,
-          assignedUserName: user.name || user.email || "Desconocido",
+          assignedUserName: resolvedUser?.name || resolvedUser?.email || "Desconocido",
           vehicleInfo: asset ? `${asset.name} (${asset.plate || "S/P"})` : "Sin transporte",
         };
       })
     );
   },
 });
+
+export const listForCurrentUser = listByCurrentUser;

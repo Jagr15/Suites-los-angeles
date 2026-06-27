@@ -101,6 +101,25 @@ export default defineSchema({
   // Tabla de Rutas
   routes: routesTable,
 
+  journeys: defineTable({
+    profileId: v.id("profiles"),
+    date: v.string(),
+    startKm: v.number(),
+    endKm: v.optional(v.number()),
+    startLat: v.optional(v.number()),
+    startLng: v.optional(v.number()),
+    endLat: v.optional(v.number()),
+    endLng: v.optional(v.number()),
+    unit: v.optional(v.string()),
+    licensePlate: v.optional(v.string()),
+    startTime: v.number(),
+    endTime: v.optional(v.number()),
+    status: v.union(v.literal("active"), v.literal("completed")),
+  })
+    .index("by_profile", ["profileId"])
+    .index("by_date", ["date"])
+    .index("by_profile_date", ["profileId", "date"]),
+
   // Tabla de Vehículos
   vehicles: vehiclesTable,
 

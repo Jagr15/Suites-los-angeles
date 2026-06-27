@@ -36,6 +36,7 @@ export const current = query({
   handler: async (ctx) => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) return null;
+    const authUserId = await getAuthUserId(ctx);
 
     let user = null;
 
@@ -68,6 +69,10 @@ export const current = query({
     // Buscamos rol y perfil completos
     const roleData = user.roleId ? await ctx.db.get(user.roleId) : null;
     const profileData = user.profileId ? await ctx.db.get(user.profileId) : null;
+    const operationalBodegaId =
+      profileData?.assignedBodegaId ??
+      user.allowedWarehouseIds?.[0] ??
+      null;
     const effectivePermissions = getEffectivePermissions({
       rolePermissions: roleData?.permissions || [],
       extraPermissions: user.extraPermissions || [],
@@ -76,8 +81,10 @@ export const current = query({
 
     return {
       ...user,
+      authUserId: authUserId ? String(authUserId) : null,
       roleData,
       profileData,
+      operationalBodegaId,
       effectivePermissions,
     };
   },

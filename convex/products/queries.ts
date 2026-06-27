@@ -2,6 +2,7 @@ import { query } from "../_generated/server";
 import { v } from "convex/values";
 import { hasPermission, isAdmin } from "../common/utils";
 import type { Id } from "../_generated/dataModel";
+import { getCurrentUserWithRole } from "../common/utils";
 
 const COST_FIELDS = ["lista1", "lista2", "lista3", "lista4", "lista5"] as const;
 
@@ -60,6 +61,42 @@ export const list = query({
         return normalizedProduct;
       })
     );
+  },
+});
+
+export const listForCurrentUser = query({
+  args: {},
+  handler: async (ctx) => {
+    const currentUser = await getCurrentUserWithRole(ctx);
+    if (!currentUser) return [];
+
+    const isAdminOrWarehouse = currentUser.user.role?.toLowerCase?.().includes("admin") || currentUser.user.role?.toLowerCase?.().includes("bodega");
+    const bodegaId = currentUser.user.profileId
+      ? (await ctx.db.get(currentUser.user.profileId))?.assignedBodegaId
+      : currentUser.user.allowedWarehouseIds?.[0] ?? null;
+
+    const products = await ctx.db.query("products").collect();
+    const activeProducts = products.filter((product) => product.status === "Activo");
+    if (!bodegaId) {
+      return isAdminOrWarehouse ? activeProducts : [];
+    }
+
+    const inventoryRows = await ctx.db
+      .query("inventory")
+      .withIndex("by_bodega", (q) => q.eq("bodegaId", bodegaId as Id<"bodegas">))
+      .collect();
+    const inventoryByProductId = new Map(inventoryRows.map((row) => [String(row.productId), row.quantity]));
+
+    return activeProducts.map((product) => {
+      const stock = inventoryByProductId.get(String(product._id)) ?? product.stock ?? 0;
+      return {
+        ...product,
+        stock,
+        available: stock > 0,
+        inventorySource: "bodega",
+        bodegaId,
+      };
+    }).filter((product) => isAdminOrWarehouse || (product.stock ?? 0) > 0);
   },
 });
 

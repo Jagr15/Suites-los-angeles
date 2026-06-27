@@ -1,5 +1,6 @@
-import { mutation } from "./_generated/server";
+import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
+import { getAuthUserId } from "@convex-dev/auth/server";
 import { DEFAULT_PERMISSIONS_BY_ROLE } from "../shared/security/permissions";
 import { hashPassword } from "./common/hashing";
 import { isAdmin } from "./common/utils";
@@ -232,6 +233,891 @@ export const repairDemoUserPasswordAccounts = mutation({
     return {
       ok: true,
       results,
+    };
+  },
+});
+
+function normalizeText(value?: string | null) {
+  return (value || "").trim().toLowerCase();
+}
+
+function todayWeekdayCode(date = new Date()) {
+  return ["D", "L", "M", "X", "J", "V", "S"][date.getDay()];
+}
+
+function getOperationalDate(date = new Date()) {
+  const formatter = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Mexico_City",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  });
+  const parts = formatter.formatToParts(date);
+  const year = parts.find((part) => part.type === "year")?.value;
+  const month = parts.find((part) => part.type === "month")?.value;
+  const day = parts.find((part) => part.type === "day")?.value;
+  if (!year || !month || !day) throw new Error("No se pudo calcular la fecha operativa");
+  return `${year}-${month}-${day}`;
+}
+
+async function resolveDemoUserContext(ctx: any) {
+  const identity = await ctx.auth.getUserIdentity();
+  const email = identity?.email?.trim().toLowerCase() || "";
+  const authUserId = await getAuthUserId(ctx);
+  let resolvedUser = null;
+
+  if (email) {
+    const usersByEmail = await ctx.db
+      .query("users")
+      .withIndex("by_email", (q: any) => q.eq("email", email))
+      .collect();
+    if (usersByEmail.length > 0) {
+      resolvedUser = usersByEmail.find((user: any) => user.isActive !== false) ?? usersByEmail[0] ?? null;
+    }
+  }
+
+  if (!resolvedUser && authUserId) {
+    try {
+      resolvedUser = await ctx.db.get(authUserId);
+    } catch {
+      resolvedUser = null;
+    }
+  }
+
+  const profileId = resolvedUser?.profileId ?? null;
+  const profile = profileId ? await ctx.db.get(profileId) : null;
+  const profileRecord = profile as any;
+  const operationalBodegaId =
+    profileRecord?.assignedBodegaId ??
+    resolvedUser?.allowedWarehouseIds?.[0] ??
+    null;
+
+  const routeBindings = {
+    byAssignedUserId: resolvedUser?._id
+      ? await ctx.db
+          .query("routes")
+          .withIndex("by_assignedUserId", (q: any) => q.eq("assignedUserId", resolvedUser._id))
+          .collect()
+      : [],
+    byAuthUserId: authUserId
+      ? await ctx.db
+          .query("routes")
+          .withIndex("by_assignedUserId", (q: any) => q.eq("assignedUserId", authUserId))
+          .collect()
+      : [],
+    byAssignedProfileId: profileId
+      ? await ctx.db
+          .query("routes")
+          .withIndex("by_assignedProfileId", (q: any) => q.eq("assignedProfileId", profileId))
+          .collect()
+      : [],
+  };
+
+  return {
+    authUserId: authUserId ? String(authUserId) : null,
+    resolvedUser,
+    email,
+    profileId: profileId ? String(profileId) : null,
+    operationalBodegaId: operationalBodegaId ? String(operationalBodegaId) : null,
+    routeBindings,
+  };
+}
+
+export const debugVendorRouteResolution = query({
+  args: { email: v.optional(v.string()) },
+  handler: async (ctx, args) => {
+    const context = await resolveDemoUserContext(ctx);
+    const email = args.email?.trim().toLowerCase() || context.email;
+    let resolvedUser = context.resolvedUser;
+
+    if (email) {
+      const usersByEmail = await ctx.db
+        .query("users")
+        .withIndex("by_email", (q: any) => q.eq("email", email))
+        .collect();
+      resolvedUser = usersByEmail.find((user: any) => user.isActive !== false) ?? usersByEmail[0] ?? resolvedUser;
+    }
+
+    const profileId = resolvedUser?.profileId ?? context.profileId;
+    const profile = profileId ? await ctx.db.get(profileId) : null;
+    const profileRecord = profile as any;
+    const operationalBodegaId =
+      profileRecord?.assignedBodegaId ??
+      resolvedUser?.allowedWarehouseIds?.[0] ??
+      context.operationalBodegaId ??
+      null;
+    const authUserId = context.authUserId;
+    const routeBindings = {
+      byAssignedUserId: resolvedUser?._id
+        ? await ctx.db
+            .query("routes")
+            .withIndex("by_assignedUserId", (q: any) => q.eq("assignedUserId", resolvedUser._id))
+            .collect()
+        : [],
+      byAuthUserId: authUserId
+        ? await ctx.db
+            .query("routes")
+            .withIndex("by_assignedUserId", (q: any) => q.eq("assignedUserId", authUserId))
+            .collect()
+        : [],
+      byAssignedProfileId: profileId
+        ? await ctx.db
+            .query("routes")
+            .withIndex("by_assignedProfileId", (q: any) => q.eq("assignedProfileId", profileId))
+            .collect()
+        : [],
+    };
+    const routeIds = new Set<string>();
+    for (const route of [
+      ...routeBindings.byAssignedUserId,
+      ...routeBindings.byAuthUserId,
+      ...routeBindings.byAssignedProfileId,
+    ]) {
+      routeIds.add(String(route._id));
+    }
+
+    const routes = await Promise.all(
+      Array.from(routeIds).map(async (routeId) => {
+        const route = await ctx.db.get(routeId as any);
+        return route
+          ? {
+              _id: String((route as any)._id),
+              name: String((route as any).name || ""),
+              isActive: Boolean((route as any).isActive),
+              status: (route as any).status ?? null,
+              days: (route as any).operationDays || [],
+              diasOperacion: (route as any).diasOperacion || null,
+              assignedUserId: (route as any).assignedUserId ? String((route as any).assignedUserId) : null,
+              assignedProfileId: (route as any).assignedProfileId ? String((route as any).assignedProfileId) : null,
+              bodegaId: (route as any).bodegaId ? String((route as any).bodegaId) : null,
+            }
+          : null;
+      })
+    );
+
+    return {
+      authUserId,
+      resolvedUser,
+      email,
+      profileId: profileId ? String(profileId) : null,
+      operationalBodegaId: operationalBodegaId ? String(operationalBodegaId) : null,
+      routeBindings,
+      routes: routes.filter(Boolean),
+    };
+  },
+});
+
+async function ensureQaVendorBodega(ctx: any, summary: Record<string, unknown>) {
+  const preferredName = "Centro de Distribución";
+  const fallbackName = "Bodega QA App";
+  const existing =
+    (await ctx.db.query("bodegas").withIndex("by_name", (q: any) => q.eq("name", preferredName)).first()) ||
+    (await ctx.db.query("bodegas").withIndex("by_name", (q: any) => q.eq("name", fallbackName)).first());
+
+  if (existing) {
+    const patch: Record<string, unknown> = {};
+    if (existing.name !== preferredName && normalizeText(existing.name) !== normalizeText(fallbackName)) {
+      patch.name = preferredName;
+    }
+    if (existing.isActive !== true) patch.isActive = true;
+    if (JSON.stringify(existing.allowedUserIds || []) !== JSON.stringify([])) patch.allowedUserIds = [];
+    if (Object.keys(patch).length > 0) {
+      await ctx.db.patch(existing._id, patch);
+    }
+    summary.bodegaId = String(existing._id);
+    summary.bodegaName = patch.name || existing.name;
+    return existing;
+  }
+
+  const id = await ctx.db.insert("bodegas", {
+    code: undefined,
+    name: fallbackName,
+    description: "Bodega de QA para validación del vendedor móvil.",
+    address: "QA",
+    manager: "QA",
+    isActive: true,
+    allowedUserIds: [],
+  });
+  const created = await ctx.db.get(id);
+  summary.bodegaId = String(id);
+  summary.bodegaName = fallbackName;
+  return created;
+}
+
+async function ensureQaVendorUserAndProfile(ctx: any, summary: Record<string, unknown>) {
+  const userEmail = "vendedor1@gmail.com";
+  const userName = "Vendedor Demo 1";
+  const role = await ctx.db.query("roles").withIndex("by_name", (q: any) => q.eq("name", "Vendedor")).first();
+  let user = await ctx.db.query("users").withIndex("by_email", (q: any) => q.eq("email", userEmail)).first();
+
+  if (user) {
+    const patch: Record<string, unknown> = {};
+    if (user.name !== userName) patch.name = userName;
+    if (user.role !== "Vendedor") patch.role = "Vendedor";
+    if (role && String(user.roleId || "") !== String(role._id)) patch.roleId = role._id;
+    if (user.isActive !== true) patch.isActive = true;
+    if (Object.keys(patch).length > 0) {
+      await ctx.db.patch(user._id, patch);
+      user = await ctx.db.get(user._id);
+    }
+  } else {
+    const userId = await ctx.db.insert("users", {
+      name: userName,
+      email: userEmail,
+      role: "Vendedor",
+      roleId: role?._id,
+      isActive: true,
+    });
+    user = await ctx.db.get(userId);
+  }
+
+  if (!user) throw new Error("No se pudo resolver el usuario QA del vendedor");
+
+  let profile = user.profileId ? await ctx.db.get(user.profileId) : null;
+  if (profile) {
+    const patch: Record<string, unknown> = {};
+    if (profile.fullName !== userName) patch.fullName = userName;
+    if (profile.status !== "Activo") patch.status = "Activo";
+    if (profile.group !== "Ventas") patch.group = "Ventas";
+    if (profile.isEmployee !== true) patch.isEmployee = true;
+    if (profile.workplaceType !== "Ruta") patch.workplaceType = "Ruta";
+    if (Object.keys(patch).length > 0) {
+      await ctx.db.patch(profile._id, patch);
+      profile = await ctx.db.get(profile._id);
+    }
+  } else {
+    const profileId = await ctx.db.insert("profiles", {
+      fullName: userName,
+      userId: user._id,
+      status: "Activo",
+      isEmployee: true,
+      group: "Ventas",
+      workplaceType: "Ruta",
+    });
+    profile = await ctx.db.get(profileId);
+    await ctx.db.patch(user._id, { profileId });
+  }
+
+  summary.userId = String(user._id);
+  summary.profileId = profile ? String(profile._id) : null;
+
+  return { user, profile };
+}
+
+async function ensureQaVendorRoute(ctx: any, summary: Record<string, unknown>, args: {
+  userId: Id<"users">;
+  profileId: Id<"profiles">;
+  bodegaId: Id<"bodegas">;
+}) {
+  const routeName = "Ruta QA App";
+  const todayDay = todayWeekdayCode();
+  const existing = await ctx.db.query("routes").withIndex("by_name", (q: any) => q.eq("name", routeName)).first();
+
+  if (existing) {
+    const patch: Record<string, unknown> = {};
+    if (existing.assignedUserId !== args.userId) patch.assignedUserId = args.userId;
+    if (existing.assignedProfileId !== args.profileId) patch.assignedProfileId = args.profileId;
+    if (existing.isActive !== true) patch.isActive = true;
+    if (!existing.operationDays?.includes(todayDay)) patch.operationDays = Array.from(new Set([...(existing.operationDays || []), todayDay]));
+    if (existing.loadDay !== todayDay) patch.loadDay = todayDay;
+    if (Object.keys(patch).length > 0) {
+      await ctx.db.patch(existing._id, patch);
+    }
+    summary.routeId = String(existing._id);
+    summary.routeName = routeName;
+    return existing;
+  }
+
+  const id = await ctx.db.insert("routes", {
+    name: routeName,
+    destination: "QA",
+    deliveryType: "sucursal",
+    routeType: "Interna",
+    assignedUserId: args.userId,
+    assignedProfileId: args.profileId,
+    operationDays: [todayDay, "L", "M", "X", "J", "V"],
+    loadDay: todayDay,
+    isActive: true,
+    requireGpsValidation: true,
+    gpsRadiusLimit: 100,
+    allowLocationUpdate: true,
+    requireKmTracking: false,
+    allowOffHoursSales: false,
+    requireVisitOrder: false,
+    allowNoSaleCheckIn: true,
+    requireMinVisitTime: false,
+    minVisitTimeMinutes: 0,
+    startLat: 19.2433,
+    startLng: -103.7247,
+    stops: [
+      { name: "QA Stop 1", lat: 19.2437, lng: -103.7252 },
+    ],
+  });
+  summary.routeId = String(id);
+  summary.routeName = routeName;
+  return await ctx.db.get(id);
+}
+
+async function ensureQaClients(ctx: any, summary: Record<string, unknown>, routeId: Id<"routes">) {
+  const clientsInput = [
+    {
+      commercialName: "Cliente QA App 1",
+      buyerName: "QA Buyer 1",
+      businessName: "Cliente QA App 1 SA de CV",
+      rfc: "QAA001010AA1",
+      mapsUrl: "https://www.google.com/maps?q=19.2437,-103.7252",
+      stateId: "06",
+      stateName: "Colima",
+      municipalityId: "002",
+      municipalityName: "Colima",
+      townId: "0001",
+      townName: "Colima",
+      lat: 19.2437,
+      lng: -103.7252,
+      creditLimit: 5000,
+      creditDays: 15,
+      visitOrder: 1,
+    },
+    {
+      commercialName: "Cliente QA App 2",
+      buyerName: "QA Buyer 2",
+      businessName: "Cliente QA App 2 SA de CV",
+      rfc: "QAA002020AA2",
+      mapsUrl: "https://www.google.com/maps?q=19.2441,-103.7241",
+      stateId: "06",
+      stateName: "Colima",
+      municipalityId: "002",
+      municipalityName: "Colima",
+      townId: "0001",
+      townName: "Colima",
+      lat: 19.2441,
+      lng: -103.7241,
+      creditLimit: 5000,
+      creditDays: 15,
+      visitOrder: 2,
+    },
+    {
+      commercialName: "Cliente QA App 3",
+      buyerName: "QA Buyer 3",
+      businessName: "Cliente QA App 3 SA de CV",
+      rfc: "QAA003030AA3",
+      mapsUrl: "https://www.google.com/maps?q=19.2444,-103.7238",
+      stateId: "06",
+      stateName: "Colima",
+      municipalityId: "002",
+      municipalityName: "Colima",
+      townId: "0001",
+      townName: "Colima",
+      lat: 19.2444,
+      lng: -103.7238,
+      creditLimit: 3500,
+      creditDays: 10,
+      visitOrder: 3,
+    },
+    {
+      commercialName: "Cliente QA App 4",
+      buyerName: "QA Buyer 4",
+      businessName: "Cliente QA App 4 SA de CV",
+      rfc: "QAA004040AA4",
+      mapsUrl: "https://www.google.com/maps?q=19.2448,-103.7234",
+      stateId: "06",
+      stateName: "Colima",
+      municipalityId: "002",
+      municipalityName: "Colima",
+      townId: "0001",
+      townName: "Colima",
+      lat: 19.2448,
+      lng: -103.7234,
+      creditLimit: 4500,
+      creditDays: 15,
+      visitOrder: 4,
+    },
+    {
+      commercialName: "Cliente QA App 5",
+      buyerName: "QA Buyer 5",
+      businessName: "Cliente QA App 5 SA de CV",
+      rfc: "QAA005050AA5",
+      mapsUrl: "https://www.google.com/maps?q=19.2452,-103.7231",
+      stateId: "06",
+      stateName: "Colima",
+      municipalityId: "002",
+      municipalityName: "Colima",
+      townId: "0001",
+      townName: "Colima",
+      lat: 19.2452,
+      lng: -103.7231,
+      creditLimit: 6000,
+      creditDays: 20,
+      visitOrder: 5,
+    },
+    {
+      commercialName: "Cliente QA App 6",
+      buyerName: "QA Buyer 6",
+      businessName: "Cliente QA App 6 SA de CV",
+      rfc: "QAA006060AA6",
+      mapsUrl: "https://www.google.com/maps?q=19.2455,-103.7227",
+      stateId: "06",
+      stateName: "Colima",
+      municipalityId: "002",
+      municipalityName: "Colima",
+      townId: "0001",
+      townName: "Colima",
+      lat: 19.2455,
+      lng: -103.7227,
+      creditLimit: 8000,
+      creditDays: 25,
+      visitOrder: 6,
+    },
+    {
+      commercialName: "Cliente QA App 7",
+      buyerName: "QA Buyer 7",
+      businessName: "Cliente QA App 7 SA de CV",
+      rfc: "QAA007070AA7",
+      mapsUrl: "https://www.google.com/maps?q=19.2459,-103.7224",
+      stateId: "06",
+      stateName: "Colima",
+      municipalityId: "002",
+      municipalityName: "Colima",
+      townId: "0001",
+      townName: "Colima",
+      lat: 19.2459,
+      lng: -103.7224,
+      creditLimit: 5500,
+      creditDays: 15,
+      visitOrder: 7,
+    },
+    {
+      commercialName: "Cliente QA App 8",
+      buyerName: "QA Buyer 8",
+      businessName: "Cliente QA App 8 SA de CV",
+      rfc: "QAA008080AA8",
+      mapsUrl: "https://www.google.com/maps?q=19.2462,-103.7221",
+      stateId: "06",
+      stateName: "Colima",
+      municipalityId: "002",
+      municipalityName: "Colima",
+      townId: "0001",
+      townName: "Colima",
+      lat: 19.2462,
+      lng: -103.7221,
+      creditLimit: 7000,
+      creditDays: 18,
+      visitOrder: 8,
+    },
+    {
+      commercialName: "Cliente QA App 9",
+      buyerName: "QA Buyer 9",
+      businessName: "Cliente QA App 9 SA de CV",
+      rfc: "QAA009090AA9",
+      mapsUrl: "https://www.google.com/maps?q=19.2465,-103.7218",
+      stateId: "06",
+      stateName: "Colima",
+      municipalityId: "002",
+      municipalityName: "Colima",
+      townId: "0001",
+      townName: "Colima",
+      lat: 19.2465,
+      lng: -103.7218,
+      creditLimit: 4000,
+      creditDays: 12,
+      visitOrder: 9,
+    },
+    {
+      commercialName: "Cliente QA App 10",
+      buyerName: "QA Buyer 10",
+      businessName: "Cliente QA App 10 SA de CV",
+      rfc: "QAA010100AA0",
+      mapsUrl: "https://www.google.com/maps?q=19.2468,-103.7214",
+      stateId: "06",
+      stateName: "Colima",
+      municipalityId: "002",
+      municipalityName: "Colima",
+      townId: "0001",
+      townName: "Colima",
+      lat: 19.2468,
+      lng: -103.7214,
+      creditLimit: 9000,
+      creditDays: 30,
+      visitOrder: 10,
+    },
+  ];
+
+  const ids: string[] = [];
+  for (const input of clientsInput) {
+    const existing = await ctx.db
+      .query("clients")
+      .withIndex("by_commercialName", (q: any) => q.eq("commercialName", input.commercialName))
+      .first();
+    if (existing) {
+      const patch: Record<string, unknown> = {};
+      if (!existing.assignedRouteId || String(existing.assignedRouteId) !== String(routeId)) patch.assignedRouteId = routeId;
+      if (existing.assignedRouteName !== "Ruta QA App") patch.assignedRouteName = "Ruta QA App";
+      if (existing.mapsUrl !== input.mapsUrl) patch.mapsUrl = input.mapsUrl;
+      if (existing.requiresInvoice !== true) patch.requiresInvoice = true;
+      if (existing.creditLimit !== input.creditLimit) patch.creditLimit = input.creditLimit;
+      if (existing.creditDays !== input.creditDays) patch.creditDays = input.creditDays;
+      if (existing.visitFrequency !== "Semanal") patch.visitFrequency = "Semanal";
+      if (existing.stateName !== input.stateName) patch.stateName = input.stateName;
+      if (existing.municipalityName !== input.municipalityName) patch.municipalityName = input.municipalityName;
+      if (existing.townName !== input.townName) patch.townName = input.townName;
+      if (Object.keys(patch).length > 0) {
+        await ctx.db.patch(existing._id, patch);
+      }
+      ids.push(String(existing._id));
+      continue;
+    }
+
+    const id = await ctx.db.insert("clients", {
+      clientType: "commercial",
+      commercialName: input.commercialName,
+      buyerName: input.buyerName,
+      requiresInvoice: true,
+      businessName: input.businessName,
+      rfc: input.rfc,
+      mapsUrl: input.mapsUrl,
+      townId: input.townId,
+      townName: input.townName,
+      municipalityId: input.municipalityId,
+      municipalityName: input.municipalityName,
+      stateId: input.stateId,
+      stateName: input.stateName,
+      visitFrequency: "Semanal",
+      assignedRouteId: routeId,
+      assignedRouteName: "Ruta QA App",
+      creditLimit: input.creditLimit,
+      creditDays: input.creditDays,
+      lat: input.lat,
+      lng: input.lng,
+      visitOrder: input.visitOrder,
+    });
+    ids.push(String(id));
+  }
+
+  summary.clientIds = ids;
+  return ids;
+}
+
+async function ensureQaJourney(
+  ctx: any,
+  summary: Record<string, unknown>,
+  profileId: Id<"profiles">,
+  bodegaId: Id<"bodegas">
+) {
+  const date = getOperationalDate();
+  const existing = await ctx.db
+    .query("journeys")
+    .withIndex("by_profile_date", (q: any) => q.eq("profileId", profileId).eq("date", date))
+    .first();
+
+  if (existing) {
+    const patch: Record<string, unknown> = {};
+    if (existing.status !== "active") patch.status = "active";
+    if (existing.startKm !== 0) patch.startKm = 0;
+    if (Object.keys(patch).length > 0) {
+      await ctx.db.patch(existing._id, patch);
+    }
+    summary.journeyId = String(existing._id);
+    summary.journeyDate = date;
+    return existing;
+  }
+
+  const id = await ctx.db.insert("journeys", {
+    profileId,
+    date,
+    startKm: 0,
+    startLat: 19.2433,
+    startLng: -103.7247,
+    unit: "QA",
+    licensePlate: "QA-APP",
+    startTime: Date.now(),
+    status: "active",
+  });
+  summary.journeyId = String(id);
+  summary.journeyDate = date;
+  return await ctx.db.get(id);
+}
+
+async function ensureQaProductsAndInventory(ctx: any, summary: Record<string, unknown>, bodegaId: Id<"bodegas">) {
+  const activeProducts = await ctx.db.query("products").collect();
+  const usableProducts = activeProducts.filter((product: any) => product.status === "Activo");
+  const qaProducts: Array<{ _id: Id<"products">; producto: string }> = [];
+
+  for (const product of usableProducts.slice(0, 25)) {
+    qaProducts.push({ _id: product._id, producto: product.producto });
+  }
+
+  const ensureProduct = async (sku: string, producto: string, codigo: string) => {
+    const existing = await ctx.db.query("products").withIndex("by_sku", (q: any) => q.eq("sku", sku)).first();
+    if (existing) {
+      const patch: Record<string, unknown> = {};
+      if (existing.status !== "Activo") patch.status = "Activo";
+      if ((existing.stock ?? 0) !== 10) patch.stock = 10;
+      if (existing.lista1 !== "25.00") patch.lista1 = "25.00";
+      if (existing.lista2 !== "27.50") patch.lista2 = "27.50";
+      if (existing.lista3 !== "30.00") patch.lista3 = "30.00";
+      if (existing.lista4 !== "32.50") patch.lista4 = "32.50";
+      if (existing.lista5 !== "35.00") patch.lista5 = "35.00";
+      if (Object.keys(patch).length > 0) {
+        await ctx.db.patch(existing._id, patch);
+      }
+      return await ctx.db.get(existing._id);
+    }
+    const category = await ctx.db.query("product_categories").withIndex("by_name", (q: any) => q.eq("name", "QA")).first()
+      || await ctx.db.insert("product_categories", { name: "QA" }).then((id: any) => ctx.db.get(id));
+    const subcategory = await ctx.db.query("product_subcategories").withIndex("by_category", (q: any) => q.eq("categoryId", category._id)).first()
+      || await ctx.db.insert("product_subcategories", { name: "App", categoryId: category._id }).then((id: any) => ctx.db.get(id));
+    const id = await ctx.db.insert("products", {
+      sku,
+      codigo,
+      producto,
+      cantidadEmpaque: "1",
+      categoria: String(category._id),
+      subcategoria: String(subcategory._id),
+      status: "Activo",
+      stock: 10,
+      lista1: "25.00",
+      lista2: "27.50",
+      lista3: "30.00",
+      lista4: "32.50",
+      lista5: "35.00",
+    });
+    return await ctx.db.get(id);
+  };
+
+  const targetProducts = Array.from({ length: 25 }, (_, index) => {
+    const n = index + 1;
+    return {
+      sku: `QA-APP-${String(n).padStart(3, "0")}`,
+      producto: `Producto QA App ${n}`,
+      codigo: `QAAPP${String(n).padStart(3, "0")}`,
+    };
+  });
+
+  for (const product of targetProducts) {
+    const existingMatch = qaProducts.find((p) => String(p.producto).toLowerCase() === product.producto.toLowerCase());
+    if (existingMatch) continue;
+    const created = await ensureProduct(product.sku, product.producto, product.codigo);
+    if (created) qaProducts.push({ _id: created._id, producto: created.producto });
+  }
+
+  const finalProducts = qaProducts.slice(0, 25);
+  const inventoryIds: string[] = [];
+  for (const product of finalProducts) {
+    const existing = await ctx.db
+      .query("inventory")
+      .withIndex("by_product_bodega", (q: any) => q.eq("productId", product._id).eq("bodegaId", bodegaId))
+      .first();
+    if (existing) {
+      if (existing.quantity !== 10) {
+        await ctx.db.patch(existing._id, { quantity: 10 });
+      }
+      inventoryIds.push(String(existing._id));
+      continue;
+    }
+    const inventoryId = await ctx.db.insert("inventory", {
+      productId: product._id,
+      bodegaId,
+      quantity: 10,
+    });
+    inventoryIds.push(String(inventoryId));
+  }
+
+  summary.productIds = finalProducts.map((p) => String(p._id));
+  summary.inventoryIds = inventoryIds;
+  return { productIds: summary.productIds, inventoryIds };
+}
+
+async function ensureQaHistoricalMovements(
+  ctx: any,
+  summary: Record<string, unknown>,
+  args: {
+    bodegaId: Id<"bodegas">;
+    profileId: Id<"profiles">;
+    routeId: Id<"routes">;
+    clientIds: string[];
+    productIds: string[];
+  }
+) {
+  const today = getOperationalDate();
+  const dates = [0, 1, 2].map((daysAgo) => {
+    const d = new Date();
+    d.setDate(d.getDate() - daysAgo);
+    return getOperationalDate(d);
+  });
+
+  const incomeCategory =
+    (await ctx.db.query("bodega_categorias").withIndex("by_type", (q: any) => q.eq("type", "ingreso")).first()) ||
+    (await ctx.db.insert("bodega_categorias", { name: "Ventas QA", type: "ingreso", isActive: true }).then((id: any) => ctx.db.get(id)));
+  const expenseCategory =
+    (await ctx.db.query("bodega_categorias").withIndex("by_type", (q: any) => q.eq("type", "egreso")).first()) ||
+    (await ctx.db.insert("bodega_categorias", { name: "Gastos QA", type: "egreso", isActive: true }).then((id: any) => ctx.db.get(id)));
+
+  const existingSales = await ctx.db.query("salidas").collect();
+  const existingIncome = await ctx.db.query("bodega_ingresos").collect();
+  const existingExpense = await ctx.db.query("bodega_egresos").collect();
+
+  const routeLabel = "Ruta QA App";
+  const responsibleName = "Vendedor Demo 1";
+
+  const saleTemplates = [
+    { numeroSalida: "QA-SALE-001", fecha: dates[0], totalAmount: 1380, clientIndex: 0 },
+    { numeroSalida: "QA-SALE-002", fecha: dates[1], totalAmount: 920, clientIndex: 1 },
+    { numeroSalida: "QA-SALE-003", fecha: dates[2], totalAmount: 1760, clientIndex: 2 },
+  ];
+
+  for (const sale of saleTemplates) {
+    if (existingSales.some((row: any) => row.numeroSalida === sale.numeroSalida)) continue;
+    const clientId = args.clientIds[sale.clientIndex] as Id<"clients"> | undefined;
+    const productA = args.productIds[0] as Id<"products">;
+    const productB = args.productIds[1] as Id<"products">;
+    await ctx.db.insert("salidas", {
+      numeroSalida: sale.numeroSalida,
+      fecha: sale.fecha,
+      status: "Entregado",
+      responsable: responsibleName,
+      tipoEntrega: "route",
+      almacen: "Centro de Distribución",
+      agente: responsibleName,
+      clienteDireccion: "QA",
+      totalAmount: sale.totalAmount,
+      tipo: "venta",
+      serie: "QA",
+      clienteCodigo: clientId ? String(clientId) : undefined,
+      clienteNombre: clientId ? `Cliente QA ${sale.clientIndex + 1}` : "Cliente QA",
+      numeroDocumento: sale.numeroSalida,
+      ruta: routeLabel,
+      rutaId: args.routeId,
+      routeId: args.routeId,
+      destino: "QA",
+      recipientType: "route",
+      shippingMode: "pickup",
+      clientId,
+      items: [
+        {
+          productId: productA,
+          quantity: 2,
+          price: 300,
+          subtotal: 600,
+          sku: "QA-APP-001",
+          descripcion: "Producto QA App 1",
+        },
+        {
+          productId: productB,
+          quantity: 3,
+          price: 260,
+          subtotal: 780,
+          sku: "QA-APP-002",
+          descripcion: "Producto QA App 2",
+        },
+      ],
+    } as any);
+  }
+
+  const incomeTemplates = [
+    { folio: "QA-ING-001", date: dates[1], amount: 2500, notes: "Ingreso QA día previo" },
+    { folio: "QA-ING-002", date: dates[2], amount: 1800, notes: "Ingreso QA histórico" },
+  ];
+
+  for (const income of incomeTemplates) {
+    if (existingIncome.some((row: any) => row.folio === income.folio)) continue;
+    await ctx.db.insert("bodega_ingresos", {
+      bodegaId: args.bodegaId,
+      folio: income.folio,
+      status: "Aprobado",
+      amount: income.amount,
+      categoryId: incomeCategory._id,
+      date: income.date,
+      responsibleId: args.profileId,
+      responsibleName,
+      responsibleGroup: "Ventas",
+      clientName: "Cliente QA",
+      notes: income.notes,
+    } as any);
+  }
+
+  const expenseTemplates = [
+    { folio: "QA-EGR-001", date: dates[1], amount: 420, notes: "Gasto QA combustible" },
+    { folio: "QA-EGR-002", date: dates[2], amount: 860, notes: "Gasto QA viáticos" },
+  ];
+
+  for (const expense of expenseTemplates) {
+    if (existingExpense.some((row: any) => row.folio === expense.folio)) continue;
+    await ctx.db.insert("bodega_egresos", {
+      bodegaId: args.bodegaId,
+      folio: expense.folio,
+      status: "Aprobado",
+      amount: expense.amount,
+      categoryId: expenseCategory._id,
+      date: expense.date,
+      responsibleId: args.profileId,
+      responsibleName,
+      responsibleGroup: "Ventas",
+      provider: "Proveedor QA",
+      notes: expense.notes,
+    } as any);
+  }
+
+  summary.historicalMovements = {
+    sales: saleTemplates.map((sale) => sale.numeroSalida),
+    incomes: incomeTemplates.map((income) => income.folio),
+    expenses: expenseTemplates.map((expense) => expense.folio),
+    today,
+  };
+}
+
+export const seedQaVendorData = mutation({
+  args: {},
+  handler: async (ctx) => {
+    await assertSeedMaintenanceAccess(ctx);
+
+    const summary: Record<string, unknown> = {
+      mode: process.env.CONVEX_DEPLOYMENT || "unknown",
+      operationDays: [todayWeekdayCode()],
+    };
+
+    const { user, profile } = await ensureQaVendorUserAndProfile(ctx, summary);
+    const bodega = await ensureQaVendorBodega(ctx, summary);
+    if (!profile || !bodega) {
+      throw new Error("No se pudo preparar perfil o bodega QA");
+    }
+
+  const bodegaId = bodega._id as Id<"bodegas">;
+  const profileId = profile._id as Id<"profiles">;
+  const userId = user._id as Id<"users">;
+
+  const nextUserPatch: Record<string, unknown> = {
+    profileId,
+    allowedWarehouseIds: [bodegaId],
+    isActive: true,
+  };
+  if (String(user.profileId || "") !== String(profileId) || JSON.stringify(user.allowedWarehouseIds || []) !== JSON.stringify([bodegaId])) {
+    await ctx.db.patch(userId, nextUserPatch);
+  }
+  if (String(profile.assignedBodegaId || "") !== String(bodegaId)) {
+    await ctx.db.patch(profileId, { assignedBodegaId: bodegaId, workplaceType: "Ruta", status: "Activo", isEmployee: true });
+  }
+
+  const route = await ensureQaVendorRoute(ctx, summary, { userId, profileId, bodegaId });
+  if (!route) throw new Error("No se pudo preparar la ruta QA");
+
+    const clientIds = await ensureQaClients(ctx, summary, route._id as Id<"routes">);
+    const { productIds, inventoryIds } = await ensureQaProductsAndInventory(ctx, summary, bodegaId);
+    const journey = await ensureQaJourney(ctx, summary, profileId, bodegaId);
+
+  const refreshedUser = await ctx.db.get(userId);
+  const refreshedProfile = await ctx.db.get(profileId);
+  const operationalBodegaId = refreshedProfile?.assignedBodegaId || (refreshedUser?.allowedWarehouseIds || [])[0] || null;
+  summary.operationalBodegaId = operationalBodegaId ? String(operationalBodegaId) : null;
+  summary.journeyActive = Boolean(journey);
+  summary.clientIds = clientIds;
+  summary.productIds = productIds;
+  summary.inventoryIds = inventoryIds;
+
+    console.log("QA vendor seed summary", summary);
+
+    return {
+      ok: true,
+      ...summary,
     };
   },
 });

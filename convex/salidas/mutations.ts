@@ -1,7 +1,7 @@
 import { mutation } from "../_generated/server";
 import { v } from "convex/values";
-import { salidaFields } from "./schema";
-import { hasPermission, isAdmin, isSuperAdmin, requireIdentity, requirePermission, requireWarehouseAccess } from "../common/utils";
+import { salidaWriteFields } from "./schema";
+import { hasPermission, isAdmin, isSuperAdmin, requireIdentity, requirePermission, requireWarehouseAccess, getCurrentUserWithRole } from "../common/utils";
 import { getNextWarehouseMovementFolio } from "../common/warehouseFolios";
 import type { MutationCtx } from "../_generated/server";
 import type { Doc, Id } from "../_generated/dataModel";
@@ -123,7 +123,7 @@ function sumItemsTotal(items: Array<{ subtotal: number }>) {
 
 export const create = mutation({
   args: {
-    ...salidaFields,
+    ...salidaWriteFields,
     bodegaId: v.id("bodegas"),
     clientId: v.id("clients"),
   },
@@ -175,10 +175,63 @@ export const create = mutation({
   },
 });
 
+export const completePosSale = mutation({
+  args: {
+    paymentAmount: v.optional(v.number()),
+    paymentMethod: v.optional(v.union(v.literal("cash"), v.literal("transfer"))),
+    notes: v.optional(v.string()),
+    ...salidaWriteFields,
+    items: v.array(v.object({
+      productId: v.id("products"),
+      quantity: v.number(),
+      price: v.number(),
+      subtotal: v.number(),
+      basePrice: v.optional(v.number()),
+      zoneMargin: v.optional(v.number()),
+      discountPct: v.optional(v.number()),
+      finalPrice: v.optional(v.number()),
+      pricingSource: v.optional(v.string()),
+      pricingRuleVersion: v.optional(v.number()),
+      sku: v.optional(v.string()),
+      descripcion: v.optional(v.string()),
+    })),
+  },
+  handler: async (ctx, args) => {
+    await requireIdentity(ctx);
+    const currentUser = await getCurrentUserWithRole(ctx);
+    const profile = currentUser?.user.profileId
+      ? await ctx.db.get(currentUser.user.profileId)
+      : null;
+    if (!profile) throw new Error("No se encontró el perfil operativo del usuario");
+
+    if (args.posOperationKey) {
+      const existingSale = await ctx.db
+        .query("salidas")
+        .withIndex("by_posOperationKey", (q) => q.eq("posOperationKey", args.posOperationKey))
+        .first();
+      if (existingSale) {
+        return { salidaId: existingSale._id, paymentId: null, visitId: null };
+      }
+    }
+
+    const bodegaId = args.bodegaId ?? profile.assignedBodegaId ?? undefined;
+    if (!bodegaId) throw new Error("No hay bodega asignada para esta operación");
+    await requireWarehouseAccess(ctx, bodegaId);
+
+    const salidaId = await ctx.db.insert("salidas", {
+      ...args,
+      bodegaId,
+      fecha: args.fecha,
+      status: args.status,
+    });
+    return { salidaId, paymentId: null, visitId: null };
+  },
+});
+
 export const update = mutation({
   args: {
     id: v.id("salidas"),
-    ...salidaFields,
+    ...salidaWriteFields,
     clientId: v.optional(v.id("clients")),
   },
   handler: async (ctx, { id, ...args }) => {

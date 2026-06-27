@@ -32,6 +32,7 @@ import type * as http from "../http.js";
 import type * as inventory_mutations from "../inventory/mutations.js";
 import type * as inventory_queries from "../inventory/queries.js";
 import type * as inventoryLogs_queries from "../inventoryLogs/queries.js";
+import type * as journeys_queries from "../journeys/queries.js";
 import type * as loans_functions from "../loans/functions.js";
 import type * as maintenance from "../maintenance.js";
 import type * as maintenance_pricingQa from "../maintenance/pricingQa.js";
@@ -96,6 +97,7 @@ declare const fullApi: ApiFromModules<{
   "inventory/mutations": typeof inventory_mutations;
   "inventory/queries": typeof inventory_queries;
   "inventoryLogs/queries": typeof inventoryLogs_queries;
+  "journeys/queries": typeof journeys_queries;
   "loans/functions": typeof loans_functions;
   maintenance: typeof maintenance;
   "maintenance/pricingQa": typeof maintenance_pricingQa;
