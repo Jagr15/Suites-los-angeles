@@ -17,7 +17,7 @@ export interface Route {
   name: string;
   destination: string;
   deliveryType: "sucursal" | "envio";
-  routeType?: "Interna" | "Externa";
+  routeType?: "Interna" | "Externa" | "QA";
   assignedUserId: string;
   assignedUserName: string;
   assignedProfileId?: string;

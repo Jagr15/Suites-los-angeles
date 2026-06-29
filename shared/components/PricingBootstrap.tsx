@@ -16,7 +16,9 @@ export function PricingBootstrap() {
   useEffect(() => {
     if (hasSynced.current) return;
     hasSynced.current = true;
-    void syncFixedCustomerLevels();
+    void syncFixedCustomerLevels().catch((error) => {
+      console.warn("PricingBootstrap: syncFixedCustomerLevels failed", error);
+    });
   }, [syncFixedCustomerLevels]);
 
   return null;

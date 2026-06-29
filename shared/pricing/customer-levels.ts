@@ -1,4 +1,4 @@
-export type ClientType = "commercial" | "wholesaler" | "retail";
+export type ClientType = "commercial" | "wholesaler" | "retail" | "QA";
 
 export type FixedCustomerLevelCode = "BRONCE" | "PLATA" | "ORO" | "DIAMANTE" | "ULTRA";
 
@@ -37,6 +37,7 @@ export function getAllowedCustomerLevelCodes(clientType: ClientType): FixedCusto
       return [...FIXED_CUSTOMER_LEVEL_ORDER];
     case "retail":
       return ["BRONCE"];
+    case "QA":
     case "commercial":
     default:
       return ["BRONCE", "PLATA", "ORO", "DIAMANTE"];

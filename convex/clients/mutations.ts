@@ -9,7 +9,7 @@ import {
 } from "../pricing/customer_levels";
 
 const clientFields = {
-  clientType: v.optional(v.union(v.literal("commercial"), v.literal("wholesaler"), v.literal("retail"))),
+  clientType: v.optional(v.union(v.literal("commercial"), v.literal("wholesaler"), v.literal("retail"), v.literal("QA"))),
   commercialName: v.string(),
   buyerName: v.optional(v.string()),
   responsable: v.optional(v.string()),
@@ -45,7 +45,7 @@ function normalizeText(value?: string) {
 }
 
 type ClientMutationArgs = {
-  clientType?: "commercial" | "wholesaler" | "retail";
+  clientType?: "commercial" | "wholesaler" | "retail" | "QA";
   commercialName: string;
   buyerName?: string;
   responsable?: string;
@@ -77,7 +77,7 @@ type ClientMutationArgs = {
 };
 
 type NormalizedClientPayload = {
-  clientType: "commercial" | "wholesaler" | "retail";
+  clientType: "commercial" | "wholesaler" | "retail" | "QA";
   commercialName: string;
   buyerName: string;
   responsable: string;
@@ -92,7 +92,7 @@ type NormalizedClientPayload = {
   municipalityName: string;
   pricingCustomerLevelId?: Id<"pricingCustomerLevels">;
   visitFrequency: "Semanal" | "Quincenal" | "Mensual";
-  tipoEntrega?: "pickup" | "delivery";
+  tipoEntrega?: "pickup" | "delivery" | "Ruta";
   diaEntrega?: string;
   assignedRouteId?: Id<"routes">;
   assignedRouteName?: string;
@@ -114,6 +114,7 @@ async function normalizeClientPayload(
   existingAssignedRouteId?: Id<"routes">
 ): Promise<NormalizedClientPayload> {
   const clientType = args.clientType ?? "commercial";
+  const isQA = clientType === "QA";
   const isRetail = clientType === "retail";
   const isWholesaler = clientType === "wholesaler";
   const commercialName = normalizeText(args.commercialName);
@@ -142,7 +143,7 @@ async function normalizeClientPayload(
     : undefined;
   const diaEntrega = isWholesaler ? normalizeText(args.diaEntrega) || "Lunes" : undefined;
 
-  if (!isRetail) {
+  if (!isRetail && !isQA) {
     assertLocationConsistency({
       stateId,
       stateName,
@@ -169,13 +170,13 @@ async function normalizeClientPayload(
   await ensureFixedCustomerLevels(ctx);
   const bronzeLevelId = await getFixedCustomerLevelId(ctx, "BRONCE");
   let levelId: Id<"pricingCustomerLevels"> | undefined;
-  if (isRetail) {
-    levelId = bronzeLevelId ?? undefined;
-  } else {
-    levelId = args.pricingCustomerLevelId;
+  if (isRetail || isQA) {
+      levelId = bronzeLevelId ?? undefined;
+    } else {
+      levelId = args.pricingCustomerLevelId;
   }
 
-  if (!isRetail && levelId) {
+  if (!isRetail && !isQA && levelId) {
     const level = await ctx.db.get(levelId);
     if (!level) throw new Error("El nivel de precio seleccionado no existe.");
     const code = normalizeText(level.code).toUpperCase();
@@ -188,7 +189,7 @@ async function normalizeClientPayload(
   }
 
   return {
-    clientType,
+    clientType: isQA ? "commercial" : clientType,
     commercialName,
     buyerName,
     responsable: responsible,

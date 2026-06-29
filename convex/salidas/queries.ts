@@ -118,38 +118,54 @@ export const listRecent = query({
 export const summary = query({
   args: { bodegaId: v.optional(v.id("bodegas")) },
   handler: async (ctx, args) => {
-    const now = new Date();
-    const today = getDateKey(now);
-    const monthStartKey = startOfMonthKey(now);
-    const nextDay = addDays(today, 1);
-    const nextMonth = addMonths(monthStartKey, 1);
+    try {
+      const now = new Date();
+      const today = getDateKey(now);
+      const monthStartKey = startOfMonthKey(now);
+      const nextDay = addDays(today, 1);
+      const nextMonth = addMonths(monthStartKey, 1);
 
-    const todayRows = args.bodegaId
-      ? await ctx.db
-          .query("salidas")
-          .withIndex("by_bodegaId_fecha", (q) => q.eq("bodegaId", args.bodegaId!).gte("fecha", today).lt("fecha", nextDay))
-          .collect()
-      : await ctx.db.query("salidas").withIndex("by_fecha", (q) => q.gte("fecha", today).lt("fecha", nextDay)).collect();
+      const todayRows = args.bodegaId
+        ? await ctx.db
+            .query("salidas")
+            .withIndex("by_bodegaId_fecha", (q) => q.eq("bodegaId", args.bodegaId!).gte("fecha", today).lt("fecha", nextDay))
+            .collect()
+        : await ctx.db.query("salidas").withIndex("by_fecha", (q) => q.gte("fecha", today).lt("fecha", nextDay)).collect();
 
-    const monthRows = args.bodegaId
-      ? await ctx.db
-          .query("salidas")
-          .withIndex("by_bodegaId_fecha", (q) => q.eq("bodegaId", args.bodegaId!).gte("fecha", monthStartKey).lt("fecha", nextMonth))
-          .collect()
-      : await ctx.db.query("salidas").withIndex("by_fecha", (q) => q.gte("fecha", monthStartKey).lt("fecha", nextMonth)).collect();
+      const monthRows = args.bodegaId
+        ? await ctx.db
+            .query("salidas")
+            .withIndex("by_bodegaId_fecha", (q) => q.eq("bodegaId", args.bodegaId!).gte("fecha", monthStartKey).lt("fecha", nextMonth))
+            .collect()
+        : await ctx.db.query("salidas").withIndex("by_fecha", (q) => q.gte("fecha", monthStartKey).lt("fecha", nextMonth)).collect();
 
-    const todayTotal = todayRows.reduce((acc, row) => acc + Number(row.totalAmount || 0), 0);
-    const monthTotal = monthRows.reduce((acc, row) => acc + Number(row.totalAmount || 0), 0);
-    const monthCount = monthRows.length;
+      const todayTotal = todayRows.reduce((acc, row) => acc + Number(row.totalAmount || 0), 0);
+      const monthTotal = monthRows.reduce((acc, row) => acc + Number(row.totalAmount || 0), 0);
+      const monthCount = monthRows.length;
 
-    return {
-      todayTotal,
-      todayCount: todayRows.length,
-      monthTotal,
-      monthCount,
-      averageTicket: monthCount > 0 ? monthTotal / monthCount : 0,
-      hasTodayData: todayRows.length > 0,
-      hasMonthData: monthCount > 0,
-    };
+      return {
+        todayTotal: Number.isFinite(todayTotal) ? todayTotal : 0,
+        todayCount: todayRows.length,
+        monthTotal: Number.isFinite(monthTotal) ? monthTotal : 0,
+        monthCount,
+        averageTicket: monthCount > 0 && Number.isFinite(monthTotal) ? monthTotal / monthCount : 0,
+        hasTodayData: todayRows.length > 0,
+        hasMonthData: monthCount > 0,
+      };
+    } catch (error) {
+      console.error("salidas.summary failed", {
+        bodegaId: args.bodegaId ? String(args.bodegaId) : null,
+        error: error instanceof Error ? error.message : error,
+      });
+      return {
+        todayTotal: 0,
+        todayCount: 0,
+        monthTotal: 0,
+        monthCount: 0,
+        averageTicket: 0,
+        hasTodayData: false,
+        hasMonthData: false,
+      };
+    }
   },
 });

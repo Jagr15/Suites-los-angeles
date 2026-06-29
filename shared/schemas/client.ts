@@ -1,7 +1,7 @@
 import { z } from "zod";
 
-const clientTypeSchema = z.enum(["commercial", "wholesaler", "retail"]);
-const deliveryTypeSchema = z.enum(["pickup", "delivery"]);
+const clientTypeSchema = z.enum(["commercial", "wholesaler", "retail", "QA"]);
+const deliveryTypeSchema = z.enum(["pickup", "delivery", "Ruta"]);
 
 export const clientSchema = z
   .object({

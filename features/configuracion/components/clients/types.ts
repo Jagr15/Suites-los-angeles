@@ -1,14 +1,16 @@
-export type ClientType = "commercial" | "wholesaler" | "retail";
+export type ClientType = "commercial" | "wholesaler" | "retail" | "QA";
 
 export const CLIENT_TYPE_LABELS: Record<ClientType, string> = {
   commercial: "Comercial",
   wholesaler: "Mayorista",
   retail: "Minorista",
+  QA: "QA",
 };
 
 export const DELIVERY_TYPE_LABELS = {
   pickup: "Recoge en sucursal",
   delivery: "Envío",
+  Ruta: "Ruta",
 } as const;
 
 export const DELIVERY_DAY_OPTIONS = [
@@ -41,12 +43,13 @@ export interface Client {
   pricingCustomerLevelId?: string;
   pricingCustomerLevelName?: string;
   visitFrequency: "Semanal" | "Quincenal" | "Mensual";
-  tipoEntrega?: "pickup" | "delivery";
+  tipoEntrega?: "pickup" | "delivery" | "Ruta";
   diaEntrega?: string;
   assignedRouteId: string;
   assignedRouteName: string;
   creditLimit: number;
   creditDays: number;
+  balance?: number;
   lat?: number;
   lng?: number;
   availableScheduleStart?: string;

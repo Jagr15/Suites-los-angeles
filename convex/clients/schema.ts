@@ -2,7 +2,7 @@ import { defineTable } from "convex/server";
 import { v } from "convex/values";
 
 export const clientsTable = defineTable({
-  clientType: v.optional(v.union(v.literal("commercial"), v.literal("wholesaler"), v.literal("retail"))),
+  clientType: v.optional(v.union(v.literal("commercial"), v.literal("wholesaler"), v.literal("retail"), v.literal("QA"))),
   commercialName: v.string(),
   buyerName: v.string(),
   responsable: v.optional(v.string()),
@@ -19,12 +19,13 @@ export const clientsTable = defineTable({
   stateName: v.optional(v.string()),
   pricingCustomerLevelId: v.optional(v.id("pricingCustomerLevels")),
   visitFrequency: v.union(v.literal("Semanal"), v.literal("Quincenal"), v.literal("Mensual")),
-  tipoEntrega: v.optional(v.union(v.literal("pickup"), v.literal("delivery"))),
+  tipoEntrega: v.optional(v.union(v.literal("pickup"), v.literal("delivery"), v.literal("Ruta"))),
   diaEntrega: v.optional(v.string()),
   assignedRouteId: v.optional(v.id("routes")),
   assignedRouteName: v.optional(v.string()),
   creditLimit: v.number(),
   creditDays: v.number(),
+  balance: v.optional(v.number()),
   availableScheduleStart: v.optional(v.string()),
   availableScheduleEnd: v.optional(v.string()),
   lat: v.optional(v.number()),

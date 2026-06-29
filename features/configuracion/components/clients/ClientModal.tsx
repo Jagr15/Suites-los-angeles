@@ -148,7 +148,7 @@ export function ClientModal({
   const mapsUrl = useWatch({ control, name: "mapsUrl" });
   const availableScheduleEnd = useWatch({ control, name: "availableScheduleEnd" });
   const embedSrc = getGoogleMapsEmbedSrc(lat, lng, mapsUrl);
-  const allowedCustomerLevelCodes = getAllowedCustomerLevelCodes(clientType || "commercial");
+  const allowedCustomerLevelCodes = getAllowedCustomerLevelCodes((clientType === "QA" ? "commercial" : clientType) || "commercial");
   const allowedPricingLevels = useMemo(
     () => pricingLevels.filter((level) => allowedCustomerLevelCodes.includes(String(level.code).trim().toUpperCase() as FixedCustomerLevelCode)),
     [allowedCustomerLevelCodes, pricingLevels]
