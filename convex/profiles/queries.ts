@@ -31,16 +31,23 @@ export const getById = query({
 export const listForSelection = query({
   args: {},
   handler: async (ctx) => {
-    await requireIdentity(ctx);
-    const profiles = await ctx.db.query("profiles").collect();
-    return profiles
-      .filter((p) => p.status === "Activo")
-      .map((p) => ({
-        _id: p._id,
-        fullName: p.fullName,
-        userId: p.userId,
-        group: p.group,
-      }));
+    try {
+      await requireIdentity(ctx);
+      const profiles = await ctx.db.query("profiles").collect();
+      return profiles
+        .filter((p) => String(p.status || "").trim() === "Activo")
+        .map((p) => ({
+          _id: p._id,
+          fullName: String(p.fullName || "").trim() || "Sin nombre",
+          userId: p.userId,
+          group: p.group,
+        }));
+    } catch (error) {
+      console.error("profiles.listForSelection failed", {
+        error: error instanceof Error ? error.message : error,
+      });
+      return [];
+    }
   },
 });
 
@@ -50,17 +57,24 @@ export const listForSelection = query({
 export const listActiveForSelection = query({
   args: {},
   handler: async (ctx) => {
-    await requireIdentity(ctx);
-    const profiles = await ctx.db.query("profiles").collect();
-    return profiles
-      .filter((p) => p.status === "Activo")
-      .map((p) => ({
-        _id: p._id,
-        fullName: p.fullName,
-        userId: p.userId,
-        group: p.group,
-        status: p.status,
-      }));
+    try {
+      await requireIdentity(ctx);
+      const profiles = await ctx.db.query("profiles").collect();
+      return profiles
+        .filter((p) => String(p.status || "").trim() === "Activo")
+        .map((p) => ({
+          _id: p._id,
+          fullName: String(p.fullName || "").trim() || "Sin nombre",
+          userId: p.userId,
+          group: p.group,
+          status: p.status,
+        }));
+    } catch (error) {
+      console.error("profiles.listActiveForSelection failed", {
+        error: error instanceof Error ? error.message : error,
+      });
+      return [];
+    }
   },
 });
 

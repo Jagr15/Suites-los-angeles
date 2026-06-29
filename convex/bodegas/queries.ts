@@ -37,11 +37,18 @@ export const getById = query({
 export const listAccessible = query({
   args: {},
   handler: async (ctx) => {
-    await requireIdentity(ctx);
-    const allowedIds = await getAccessibleWarehouseIds(ctx);
-    if (allowedIds.length === 0) return [];
-    const all = await ctx.db.query("bodegas").collect();
-    const allowedSet = new Set(allowedIds.map((id) => String(id)));
-    return all.filter((b) => allowedSet.has(String(b._id)));
+    try {
+      await requireIdentity(ctx);
+      const allowedIds = await getAccessibleWarehouseIds(ctx);
+      if (allowedIds.length === 0) return [];
+      const all = await ctx.db.query("bodegas").collect();
+      const allowedSet = new Set(allowedIds.map((id) => String(id)));
+      return all.filter((b) => allowedSet.has(String(b._id)));
+    } catch (error) {
+      console.error("bodegas.listAccessible failed", {
+        error: error instanceof Error ? error.message : error,
+      });
+      return [];
+    }
   },
 });
