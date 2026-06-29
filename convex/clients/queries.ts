@@ -39,24 +39,38 @@ async function getRouteIdsForUser(
 export const list = query({
   args: {},
   handler: async (ctx) => {
-    const clients = await ctx.db.query("clients").collect();
-    if (await isAdmin(ctx)) return clients;
+    try {
+      const clients = await ctx.db.query("clients").collect();
+      if (await isAdmin(ctx)) return clients;
 
-    const restrictToOwnCustomers = await hasPermission(ctx, "customers:restrict_view_other_salesmen");
-    if (!restrictToOwnCustomers) return clients;
+      const restrictToOwnCustomers = await hasPermission(ctx, "customers:restrict_view_other_salesmen");
+      if (!restrictToOwnCustomers) return clients;
 
-    const user = await getCurrentUserByEmail(ctx);
-    if (!user) return [];
-    const allowedRouteIds = await getRouteIdsForUser(ctx, user);
-    return clients.filter((client) => client.assignedRouteId && allowedRouteIds.has(client.assignedRouteId));
+      const user = await getCurrentUserByEmail(ctx);
+      if (!user) return [];
+      const allowedRouteIds = await getRouteIdsForUser(ctx, user);
+      return clients.filter((client) => client.assignedRouteId && allowedRouteIds.has(client.assignedRouteId));
+    } catch (error) {
+      console.error("clients.list failed", {
+        error: error instanceof Error ? error.message : error,
+      });
+      return [];
+    }
   },
 });
 
 export const listActiveForSelection = query({
   args: {},
   handler: async (ctx) => {
-    const clients = await ctx.db.query("clients").collect();
-    return clients.filter((client: any) => client.isActive !== false && client.status !== "Inactivo");
+    try {
+      const clients = await ctx.db.query("clients").collect();
+      return clients.filter((client: any) => client.isActive !== false && client.status !== "Inactivo");
+    } catch (error) {
+      console.error("clients.listActiveForSelection failed", {
+        error: error instanceof Error ? error.message : error,
+      });
+      return [];
+    }
   },
 });
 
@@ -88,9 +102,17 @@ export const getById = query({
 export const listByRoute = query({
   args: { routeId: v.id("routes") },
   handler: async (ctx, args) => {
-    return await ctx.db
-      .query("clients")
-      .filter((q) => q.eq(q.field("assignedRouteId"), args.routeId))
-      .collect();
+    try {
+      return await ctx.db
+        .query("clients")
+        .filter((q) => q.eq(q.field("assignedRouteId"), args.routeId))
+        .collect();
+    } catch (error) {
+      console.error("clients.listByRoute failed", {
+        routeId: String(args.routeId),
+        error: error instanceof Error ? error.message : error,
+      });
+      return [];
+    }
   },
 });

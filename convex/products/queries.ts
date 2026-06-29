@@ -9,94 +9,106 @@ const COST_FIELDS = ["lista1", "lista2", "lista3", "lista4", "lista5"] as const;
 export const list = query({
   args: {},
   handler: async (ctx) => {
-    const products = await ctx.db.query("products").collect();
-    const isAdministrator = await isAdmin(ctx);
-    const hideCostAndMargin = !isAdministrator && (await hasPermission(ctx, "products:hide_cost_and_margin"));
-    const hideCentralStock = !isAdministrator && !(await hasPermission(ctx, "inventory:allow_view_central_stock"));
+    try {
+      const products = await ctx.db.query("products").collect();
+      const isAdministrator = await isAdmin(ctx);
+      const hideCostAndMargin = !isAdministrator && (await hasPermission(ctx, "products:hide_cost_and_margin"));
+      const hideCentralStock = !isAdministrator && !(await hasPermission(ctx, "inventory:allow_view_central_stock"));
 
-    const getNameFromDoc = (doc: unknown): string | null => {
-      if (!doc || typeof doc !== "object") return null;
-      const maybeName = (doc as { name?: unknown }).name;
-      return typeof maybeName === "string" ? maybeName : null;
-    };
-    
-    return await Promise.all(
-      products.map(async (p) => {
-        let categoriaLabel = p.categoria;
-        let subcategoriaLabel = p.subcategoria;
+      const getNameFromDoc = (doc: unknown): string | null => {
+        if (!doc || typeof doc !== "object") return null;
+        const maybeName = (doc as { name?: unknown }).name;
+        return typeof maybeName === "string" ? maybeName : null;
+      };
 
-        // Intentar obtener el nombre de la categoría si es un ID válido
-        try {
-          if (p.categoria && p.categoria.length > 10) {
-            const cat = await ctx.db.get(p.categoria as Id<"product_categories">);
-            const categoryName = getNameFromDoc(cat);
-            if (categoryName) categoriaLabel = categoryName;
+      return await Promise.all(
+        products.map(async (p) => {
+          let categoriaLabel = p.categoria;
+          let subcategoriaLabel = p.subcategoria;
+
+          try {
+            if (p.categoria && p.categoria.length > 10) {
+              const cat = await ctx.db.get(p.categoria as Id<"product_categories">);
+              const categoryName = getNameFromDoc(cat);
+              if (categoryName) categoriaLabel = categoryName;
+            }
+          } catch {}
+
+          try {
+            if (p.subcategoria && p.subcategoria.length > 10) {
+              const sub = await ctx.db.get(p.subcategoria as Id<"product_subcategories">);
+              const subcategoryName = getNameFromDoc(sub);
+              if (subcategoryName) subcategoriaLabel = subcategoryName;
+            }
+          } catch {}
+
+          const normalizedProduct: Record<string, unknown> = {
+            ...p,
+            categoria: categoriaLabel,
+            subcategoria: subcategoriaLabel,
+            categoriaId: p.categoria,
+            subcategoriaId: p.subcategoria,
+          };
+
+          if (hideCostAndMargin) {
+            for (const field of COST_FIELDS) delete normalizedProduct[field];
           }
-        } catch (e) {}
-
-        // Intentar obtener el nombre de la subcategoría si es un ID válido
-        try {
-          if (p.subcategoria && p.subcategoria.length > 10) {
-            const sub = await ctx.db.get(p.subcategoria as Id<"product_subcategories">);
-            const subcategoryName = getNameFromDoc(sub);
-            if (subcategoryName) subcategoriaLabel = subcategoryName;
+          if (hideCentralStock) {
+            delete normalizedProduct.stock;
           }
-        } catch (e) {}
 
-        const normalizedProduct: Record<string, unknown> = {
-          ...p,
-          categoria: categoriaLabel,
-          subcategoria: subcategoriaLabel,
-          categoriaId: p.categoria,
-          subcategoriaId: p.subcategoria,
-        };
-
-        if (hideCostAndMargin) {
-          for (const field of COST_FIELDS) delete normalizedProduct[field];
-        }
-        if (hideCentralStock) {
-          delete normalizedProduct.stock;
-        }
-
-        return normalizedProduct;
-      })
-    );
+          return normalizedProduct;
+        })
+      );
+    } catch (error) {
+      console.error("products.list failed", {
+        error: error instanceof Error ? error.message : error,
+      });
+      return [];
+    }
   },
 });
 
 export const listForCurrentUser = query({
   args: {},
   handler: async (ctx) => {
-    const currentUser = await getCurrentUserWithRole(ctx);
-    if (!currentUser) return [];
+    try {
+      const currentUser = await getCurrentUserWithRole(ctx);
+      if (!currentUser) return [];
 
-    const isAdminOrWarehouse = currentUser.user.role?.toLowerCase?.().includes("admin") || currentUser.user.role?.toLowerCase?.().includes("bodega");
-    const bodegaId = currentUser.user.profileId
-      ? (await ctx.db.get(currentUser.user.profileId))?.assignedBodegaId
-      : currentUser.user.allowedWarehouseIds?.[0] ?? null;
+      const isAdminOrWarehouse = currentUser.user.role?.toLowerCase?.().includes("admin") || currentUser.user.role?.toLowerCase?.().includes("bodega");
+      const bodegaId = currentUser.user.profileId
+        ? (await ctx.db.get(currentUser.user.profileId))?.assignedBodegaId
+        : currentUser.user.allowedWarehouseIds?.[0] ?? null;
 
-    const products = await ctx.db.query("products").collect();
-    const activeProducts = products.filter((product) => product.status === "Activo");
-    if (!bodegaId) {
-      return isAdminOrWarehouse ? activeProducts : [];
+      const products = await ctx.db.query("products").collect();
+      const activeProducts = products.filter((product) => product.status === "Activo");
+      if (!bodegaId) {
+        return isAdminOrWarehouse ? activeProducts : [];
+      }
+
+      const inventoryRows = await ctx.db
+        .query("inventory")
+        .withIndex("by_bodega", (q) => q.eq("bodegaId", bodegaId as Id<"bodegas">))
+        .collect();
+      const inventoryByProductId = new Map(inventoryRows.map((row) => [String(row.productId), row.quantity]));
+
+      return activeProducts.map((product) => {
+        const stock = inventoryByProductId.get(String(product._id)) ?? product.stock ?? 0;
+        return {
+          ...product,
+          stock,
+          available: stock > 0,
+          inventorySource: "bodega",
+          bodegaId,
+        };
+      }).filter((product) => isAdminOrWarehouse || (product.stock ?? 0) > 0);
+    } catch (error) {
+      console.error("products.listForCurrentUser failed", {
+        error: error instanceof Error ? error.message : error,
+      });
+      return [];
     }
-
-    const inventoryRows = await ctx.db
-      .query("inventory")
-      .withIndex("by_bodega", (q) => q.eq("bodegaId", bodegaId as Id<"bodegas">))
-      .collect();
-    const inventoryByProductId = new Map(inventoryRows.map((row) => [String(row.productId), row.quantity]));
-
-    return activeProducts.map((product) => {
-      const stock = inventoryByProductId.get(String(product._id)) ?? product.stock ?? 0;
-      return {
-        ...product,
-        stock,
-        available: stock > 0,
-        inventorySource: "bodega",
-        bodegaId,
-      };
-    }).filter((product) => isAdminOrWarehouse || (product.stock ?? 0) > 0);
   },
 });
 

@@ -84,49 +84,56 @@ async function loadSupplierLookup(ctx: QueryCtx, purchases: Array<Doc<"purchases
 export const list = query({
   args: { bodegaId: v.optional(v.id("bodegas")) },
   handler: async (ctx, args) => {
-    const purchases = args.bodegaId
-      ? await ctx.db
-          .query("purchases")
-          .withIndex("by_bodegaId", (q) => q.eq("bodegaId", args.bodegaId!))
-          .order("desc")
-          .collect()
-      : await ctx.db.query("purchases").order("desc").collect();
-    return Promise.all(
-      purchases.map(async (purchase) => {
-        const [supplier, bodega] = await Promise.all([
-          ctx.db.get(purchase.supplierId),
-          ctx.db.get(purchase.bodegaId),
-        ]);
+    try {
+      const purchases = args.bodegaId
+        ? await ctx.db
+            .query("purchases")
+            .withIndex("by_bodegaId", (q) => q.eq("bodegaId", args.bodegaId!))
+            .order("desc")
+            .collect()
+        : await ctx.db.query("purchases").order("desc").collect();
+      return Promise.all(
+        purchases.map(async (purchase) => {
+          const [supplier, bodega] = await Promise.all([
+            ctx.db.get(purchase.supplierId),
+            ctx.db.get(purchase.bodegaId),
+          ]);
 
-        // Fetch items for this purchase
-        const items = await ctx.db
-          .query("purchase_items")
-          .withIndex("by_purchaseId", (q) => q.eq("purchaseId", purchase._id))
-          .collect();
+          const items = await ctx.db
+            .query("purchase_items")
+            .withIndex("by_purchaseId", (q) => q.eq("purchaseId", purchase._id))
+            .collect();
 
-        const itemsWithDetails = await Promise.all(
-          items.map(async (item) => {
-            const product = item.productId ? await ctx.db.get(item.productId) : null;
-            return {
-              ...item,
-              rowId: String(item._id), // Stable string ID
-              name: product?.producto || "Producto desconocido",
-              sku: product?.sku || "",
-              category: product?.categoria || "",
-            };
-          })
-        );
-        const productos = await buildProductosForPurchase(ctx, String(purchase._id), String(purchase.bodegaId));
+          const itemsWithDetails = await Promise.all(
+            items.map(async (item) => {
+              const product = item.productId ? await ctx.db.get(item.productId) : null;
+              return {
+                ...item,
+                rowId: String(item._id),
+                name: product?.producto || "Producto desconocido",
+                sku: product?.sku || "",
+                category: product?.categoria || "",
+              };
+            })
+          );
+          const productos = await buildProductosForPurchase(ctx, String(purchase._id), String(purchase.bodegaId));
 
-        return {
-          ...purchase,
-          supplierName: supplier?.businessName || "Proveedor desconocido",
-          bodegaName: bodega?.name || "Bodega desconocida",
-          items: itemsWithDetails || [],
-          productos,
-        };
-      })
-    );
+          return {
+            ...purchase,
+            supplierName: supplier?.businessName || "Proveedor desconocido",
+            bodegaName: bodega?.name || "Bodega desconocida",
+            items: itemsWithDetails || [],
+            productos,
+          };
+        })
+      );
+    } catch (error) {
+      console.error("purchases.list failed", {
+        bodegaId: args.bodegaId ? String(args.bodegaId) : null,
+        error: error instanceof Error ? error.message : error,
+      });
+      return [];
+    }
   },
 });
 
@@ -216,20 +223,28 @@ export const getById = query({
 export const listBySupplier = query({
   args: { supplierId: v.id("suppliers") },
   handler: async (ctx, args) => {
-    const purchases = await ctx.db
-      .query("purchases")
-      .withIndex("by_supplierId", (q) => q.eq("supplierId", args.supplierId))
-      .order("desc")
-      .collect();
+    try {
+      const purchases = await ctx.db
+        .query("purchases")
+        .withIndex("by_supplierId", (q) => q.eq("supplierId", args.supplierId))
+        .order("desc")
+        .collect();
 
-    return Promise.all(
-      purchases.map(async (purchase) => {
-        const bodega = await ctx.db.get(purchase.bodegaId);
-        return {
-          ...purchase,
-          bodegaName: bodega?.name || "Bodega desconocida",
-        };
-      })
-    );
+      return Promise.all(
+        purchases.map(async (purchase) => {
+          const bodega = await ctx.db.get(purchase.bodegaId);
+          return {
+            ...purchase,
+            bodegaName: bodega?.name || "Bodega desconocida",
+          };
+        })
+      );
+    } catch (error) {
+      console.error("purchases.listBySupplier failed", {
+        supplierId: String(args.supplierId),
+        error: error instanceof Error ? error.message : error,
+      });
+      return [];
+    }
   },
 });
