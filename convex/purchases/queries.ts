@@ -4,46 +4,70 @@ import type { QueryCtx } from "../_generated/server";
 import type { Doc, Id } from "../_generated/dataModel";
 
 async function buildProductosForPurchase(ctx: QueryCtx, purchaseId: string, bodegaId: string) {
-  const items = await ctx.db
-    .query("purchase_items")
-    .withIndex("by_purchaseId", (q) => q.eq("purchaseId", purchaseId as Doc<"purchase_items">["purchaseId"]))
-    .collect();
+  try {
+    const items = await ctx.db
+      .query("purchase_items")
+      .withIndex("by_purchaseId", (q) => q.eq("purchaseId", purchaseId as Doc<"purchase_items">["purchaseId"]))
+      .collect();
 
-  const inventoryRows = await ctx.db
-    .query("inventory")
-    .withIndex("by_bodega", (q) => q.eq("bodegaId", bodegaId as Doc<"inventory">["bodegaId"]))
-    .collect();
-  const inventoryByProduct = new Map<string, number>(inventoryRows.map((row) => [String(row.productId), row.quantity]));
+    const inventoryRows = await ctx.db
+      .query("inventory")
+      .withIndex("by_bodega", (q) => q.eq("bodegaId", bodegaId as Doc<"inventory">["bodegaId"]))
+      .collect();
+    const inventoryByProduct = new Map<string, number>(inventoryRows.map((row) => [String(row.productId), row.quantity]));
 
-  return Promise.all(
-    items.map(async (item) => {
-      const product = item.productId ? await ctx.db.get(item.productId) : null;
-      const stock = inventoryByProduct.get(String(item.productId)) ?? 0;
-      const quantity = item.quantity || 0;
-      const etiqueta = stock <= 0 ? "Rojo" : stock <= 30 ? "Amarillo" : "Verde";
-      return {
-        ...item,
-        rowId: String(item._id),
-        id: String(item.productId),
-        name: product?.producto || "Producto desconocido",
-        sku: product?.sku || "",
-        descripcion: product?.producto || "Producto desconocido",
-        category: product?.categoria || "",
-        subcategory: product?.subcategoria || "",
-        stock,
-        quantity,
-        critico: 10,
-        bajo: 30,
-        optimo: 50,
-        etiqueta,
-      };
-    })
-  );
+    return await Promise.all(
+      items.map(async (item) => {
+        const product = item.productId ? await ctx.db.get(item.productId) : null;
+        const stock = inventoryByProduct.get(String(item.productId)) ?? 0;
+        const quantity = Number.isFinite(Number(item.quantity)) ? Number(item.quantity) : 0;
+        const etiqueta = stock <= 0 ? "Rojo" : stock <= 30 ? "Amarillo" : "Verde";
+        return {
+          ...item,
+          rowId: String(item._id),
+          id: String(item.productId || ""),
+          name: product?.producto || "Producto desconocido",
+          sku: product?.sku || "",
+          descripcion: product?.producto || "Producto desconocido",
+          category: product?.categoria || "",
+          subcategory: product?.subcategoria || "",
+          stock,
+          quantity,
+          critico: 10,
+          bajo: 30,
+          optimo: 50,
+          etiqueta,
+        };
+      })
+    );
+  } catch (error) {
+    console.error("purchases.buildProductosForPurchase failed", {
+      purchaseId,
+      bodegaId,
+      error: error instanceof Error ? error.message : error,
+    });
+    return [];
+  }
 }
 
 async function loadSupplierLookup(ctx: QueryCtx, purchases: Array<Doc<"purchases">>) {
-  const supplierIds = Array.from(new Set(purchases.map((purchase) => String(purchase.supplierId))));
-  const suppliers = await Promise.all(supplierIds.map((id) => ctx.db.get(id as Id<"suppliers">)));
+  const supplierIds = Array.from(
+    new Set(
+      purchases
+        .map((purchase) => purchase.supplierId)
+        .filter(Boolean)
+        .map((id) => String(id))
+    )
+  );
+  const suppliers = await Promise.all(
+    supplierIds.map(async (id) => {
+      try {
+        return await ctx.db.get(id as Id<"suppliers">);
+      } catch {
+        return null;
+      }
+    })
+  );
 
   const supplierById = new Map<string, NonNullable<Doc<"suppliers">>>();
   for (const supplier of suppliers) {
@@ -112,24 +136,34 @@ export const listRecent = query({
     limit: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
-    const limit = Math.max(1, Math.min(args.limit ?? 6, 25));
-    const purchases = args.bodegaId
-      ? await ctx.db
-          .query("purchases")
-          .withIndex("by_bodegaId_date", (q) => q.eq("bodegaId", args.bodegaId!))
-          .order("desc")
-          .take(limit)
-      : await ctx.db.query("purchases").withIndex("by_date", (q) => q.gte("date", "")).order("desc").take(limit);
+    try {
+      const limit = Math.max(1, Math.min(args.limit ?? 6, 25));
+      const purchases = args.bodegaId
+        ? await ctx.db
+            .query("purchases")
+            .withIndex("by_bodegaId_date", (q) => q.eq("bodegaId", args.bodegaId!))
+            .order("desc")
+            .take(limit)
+        : await ctx.db.query("purchases").withIndex("by_date", (q) => q.gte("date", "")).order("desc").take(limit);
 
-    const supplierById = await loadSupplierLookup(ctx, purchases);
+      const supplierById = await loadSupplierLookup(ctx, purchases);
 
-    return purchases.map((purchase) => {
-      const supplier = supplierById.get(String(purchase.supplierId));
-      return {
-        ...purchase,
-        supplierName: supplier?.businessName || "Proveedor desconocido",
-      };
-    });
+      return purchases.map((purchase) => {
+        const supplier = purchase.supplierId ? supplierById.get(String(purchase.supplierId)) : null;
+        return {
+          ...purchase,
+          totalAmount: Number.isFinite(Number(purchase.totalAmount)) ? Number(purchase.totalAmount) : 0,
+          date: String(purchase.date || ""),
+          supplierName: supplier?.businessName || "Proveedor desconocido",
+        };
+      });
+    } catch (error) {
+      console.error("purchases.listRecent failed", {
+        bodegaId: args.bodegaId ? String(args.bodegaId) : null,
+        error: error instanceof Error ? error.message : error,
+      });
+      return [];
+    }
   },
 });
 

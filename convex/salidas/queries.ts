@@ -89,29 +89,38 @@ export const listRecent = query({
     limit: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
-    const limit = Math.max(1, Math.min(args.limit ?? 6, 25));
-    const salidas = args.bodegaId
-      ? await ctx.db
-          .query("salidas")
-          .withIndex("by_bodegaId_fecha", (q) => q.eq("bodegaId", args.bodegaId!))
-          .order("desc")
-          .take(limit)
-      : await ctx.db.query("salidas").withIndex("by_fecha", (q) => q.gte("fecha", "")).order("desc").take(limit);
+    try {
+      const limit = Math.max(1, Math.min(args.limit ?? 6, 25));
+      const salidas = args.bodegaId
+        ? await ctx.db
+            .query("salidas")
+            .withIndex("by_bodegaId_fecha", (q) => q.eq("bodegaId", args.bodegaId!))
+            .order("desc")
+            .take(limit)
+        : await ctx.db.query("salidas").withIndex("by_fecha", (q) => q.gte("fecha", "")).order("desc").take(limit);
 
-    const { clientById, routeById, routeByName } = await loadClientAndRouteLookup(ctx, salidas);
+      const { clientById, routeById, routeByName } = await loadClientAndRouteLookup(ctx, salidas);
 
-    return salidas.map((salida) => {
-      const client = salida.clientId ? clientById.get(String(salida.clientId)) ?? null : null;
-      const route =
-        (salida.rutaId ? routeById.get(String(salida.rutaId)) ?? null : null) ||
-        (salida.routeId ? routeById.get(String(salida.routeId)) ?? null : null) ||
-        (salida.ruta ? routeByName.get(String(salida.ruta).trim().toLowerCase()) ?? null : null);
+      return salidas.map((salida) => {
+        const client = salida.clientId ? clientById.get(String(salida.clientId)) ?? null : null;
+        const route =
+          (salida.rutaId ? routeById.get(String(salida.rutaId)) ?? null : null) ||
+          (salida.routeId ? routeById.get(String(salida.routeId)) ?? null : null) ||
+          (salida.ruta ? routeByName.get(String(salida.ruta).trim().toLowerCase()) ?? null : null);
 
-      return {
-        ...salida,
-        destinatario: resolveDestinatario(salida, client, route),
-      };
-    });
+        return {
+          ...salida,
+          totalAmount: Number.isFinite(Number(salida.totalAmount)) ? Number(salida.totalAmount) : 0,
+          destinatario: resolveDestinatario(salida, client, route),
+        };
+      });
+    } catch (error) {
+      console.error("salidas.listRecent failed", {
+        bodegaId: args.bodegaId ? String(args.bodegaId) : null,
+        error: error instanceof Error ? error.message : error,
+      });
+      return [];
+    }
   },
 });
 
@@ -142,8 +151,16 @@ export const summary = query({
       const todayTotal = todayRows.reduce((acc, row) => acc + Number(row.totalAmount || 0), 0);
       const monthTotal = monthRows.reduce((acc, row) => acc + Number(row.totalAmount || 0), 0);
       const monthCount = monthRows.length;
+      const recent = [...todayRows]
+        .sort((a, b) => String(b.fecha || "").localeCompare(String(a.fecha || "")))
+        .slice(0, 6);
 
       return {
+        totalSalidas: monthCount,
+        totalAmount: Number.isFinite(monthTotal) ? monthTotal : 0,
+        count: monthCount,
+        recent,
+        items: recent,
         todayTotal: Number.isFinite(todayTotal) ? todayTotal : 0,
         todayCount: todayRows.length,
         monthTotal: Number.isFinite(monthTotal) ? monthTotal : 0,
@@ -158,6 +175,11 @@ export const summary = query({
         error: error instanceof Error ? error.message : error,
       });
       return {
+        totalSalidas: 0,
+        totalAmount: 0,
+        count: 0,
+        recent: [],
+        items: [],
         todayTotal: 0,
         todayCount: 0,
         monthTotal: 0,
