@@ -32,6 +32,31 @@ export function BodegaPage() {
   const clients = useQuery(api.clients.queries.listActiveForSelection);
   const purchases = useQuery(api.purchases.queries.list, selectedWarehouseId ? { bodegaId: selectedWarehouseId as any } : "skip");
   const salidas = useQuery(api.salidas.queries.list, selectedWarehouseId ? { bodegaId: selectedWarehouseId as any } : "skip");
+  
+  const allProductsList = useQuery(api.products.queries.list) || [];
+  const inventoryStock = useQuery(api.inventory.queries.listByBodega, selectedWarehouseId ? { bodegaId: selectedWarehouseId as any } : "skip") || [];
+
+  const allProductsStockList = useMemo(() => {
+    if (!allProductsList || !inventoryStock) return [];
+    const stockMap = new Map(inventoryStock.map((inv: any) => [String(inv.productId), inv.quantity]));
+    return allProductsList.map((p: any) => {
+      const stock = stockMap.get(String(p._id)) ?? 0;
+      const etiqueta = stock <= 10 ? "Rojo" : stock <= 30 ? "Naranja" : "Verde";
+      return {
+        id: String(p._id),
+        sku: p.sku || p.codigo || "",
+        descripcion: p.producto,
+        categoria: p.categoria || "",
+        subcategoria: p.subcategoria || "",
+        stock,
+        critico: 10,
+        bajo: 30,
+        optimo: 50,
+        etiqueta,
+      };
+    });
+  }, [allProductsList, inventoryStock]);
+
   const createSalida = useMutation(api.salidas.mutations.create);
   const updateSalida = useMutation(api.salidas.mutations.update);
   const removeSalida = useMutation(api.salidas.mutations.remove);
@@ -439,6 +464,7 @@ export function BodegaPage() {
                 onNuevo={() => setView("form")}
                 onAjustar={() => setView("form")}
                 canAdjust={canAdjustInventory}
+                allProductsStockList={allProductsStockList}
               />
             ) : currentTab === "egresos" ? (
               <BodegaGastos

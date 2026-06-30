@@ -3,12 +3,26 @@ import type { QueryCtx } from "../_generated/server";
 import type { Doc } from "../_generated/dataModel";
 import { FIXED_CUSTOMER_LEVEL_ORDER, FIXED_CUSTOMER_LEVELS } from "../../shared/pricing/customer-levels";
 
-async function withProductName(ctx: QueryCtx, tier: Doc<"pricingProductTiers">) {
-  const product = tier.productId ? await ctx.db.get(tier.productId) : null;
-  return {
-    ...tier,
-    productName: product?.producto || product?.sku || "Producto eliminado",
-  };
+type ProductTierRow = Doc<"pricingProductTiers"> & {
+  productName: string;
+  productStatus?: string;
+  productSku?: string;
+  isOrphaned?: boolean;
+};
+
+async function withProductName(ctx: QueryCtx, tier: Doc<"pricingProductTiers">): Promise<ProductTierRow | null> {
+  try {
+    const product = await ctx.db.get(tier.productId);
+    return {
+      ...tier,
+      productName: product?.producto || product?.sku || "Producto eliminado",
+      productStatus: product?.status,
+      productSku: product?.sku,
+      isOrphaned: !product,
+    };
+  } catch {
+    return null;
+  }
 }
 
 export const listProductTiers = query({
@@ -21,7 +35,8 @@ export const listProductTiers = query({
         if (productCompare !== 0) return productCompare;
         return Number(a.minQty || 0) - Number(b.minQty || 0);
       });
-      return await Promise.all(ordered.map((tier) => withProductName(ctx, tier)));
+      const resolved = await Promise.all(ordered.map((tier) => withProductName(ctx, tier)));
+      return resolved.filter((tier): tier is ProductTierRow => Boolean(tier));
     } catch (error) {
       console.error("pricing.listProductTiers failed", {
         error: error instanceof Error ? error.message : error,

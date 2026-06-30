@@ -154,14 +154,17 @@ export function ProductosPage() {
           description: `Se eliminó "${productToDelete.producto}".`,
           color: "success",
         });
-      } catch {
+      } catch (error) {
+        const errorMsg = error instanceof Error 
+          ? error.message.replace("Mutation error: ", "") 
+          : "No se pudo eliminar el producto.";
         addToast({
           title: "Error",
-          description: "No se pudo eliminar el producto.",
+          description: errorMsg,
           color: "danger",
-      });
-    }
-    setProductToDelete(null);
+        });
+      }
+      setProductToDelete(null);
   }, [productToDelete, deleteProduct]);
 
   const handleImportExcel = useCallback(async (file: File) => {
@@ -232,7 +235,7 @@ export function ProductosPage() {
               {displayProductos.length} productos encontrados
             </p>
             <p className="text-xs text-default-500">
-              Los precios de costo y venta se editan directamente desde la tabla; los rangos por producto se guardan desde el modal.
+              Los precios de costo y venta se editan directamente desde la tabla. La importación de Excel actualiza la información del catálogo y carga el stock inicial en los almacenes.
             </p>
           </div>
           <div className="text-xs font-medium text-default-500">

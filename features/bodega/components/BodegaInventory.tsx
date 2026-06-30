@@ -24,7 +24,7 @@ import type { BodegaRow } from "@/shared/mocks";
 
 const ROWS_PER_PAGE = 10;
 
-type InventoryItem = BodegaRow["productos"][number] & {
+export type InventoryItem = {
     id: string;
     sku: string;
     descripcion: string;
@@ -44,17 +44,20 @@ type BodegaInventoryProps = {
     onNuevo?: () => void;
     onAjustar?: () => void;
     canAdjust?: boolean;
+    allProductsStockList?: InventoryItem[];
 };
 
-export function BodegaInventory({ items, selectedCarga, onClearSelection, onNuevo, onAjustar, canAdjust = true }: BodegaInventoryProps) {
+export function BodegaInventory({ items, selectedCarga, onClearSelection, onNuevo, onAjustar, canAdjust = true, allProductsStockList }: BodegaInventoryProps) {
     const [page, setPage] = useState(1);
     const [search, setSearch] = useState("");
 
     const allInventoryItems = useMemo<InventoryItem[]>(() => {
-        const currentCarga = selectedCarga ? items.find((i) => i.id === selectedCarga.id) : null;
-        const source = currentCarga ? currentCarga.productos : items.flatMap((i) => i.productos);
-        return source as InventoryItem[];
-    }, [selectedCarga, items]);
+        if (selectedCarga) {
+            const currentCarga = items.find((i) => i.id === selectedCarga.id);
+            return (currentCarga ? currentCarga.productos : []) as InventoryItem[];
+        }
+        return allProductsStockList || (items.flatMap((i) => i.productos) as InventoryItem[]);
+    }, [selectedCarga, items, allProductsStockList]);
 
     const filteredItems = useMemo(() => {
         if (!search) return allInventoryItems;

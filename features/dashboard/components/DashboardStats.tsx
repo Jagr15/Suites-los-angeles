@@ -31,7 +31,7 @@ type DashboardSummary = {
 function MetricSkeleton() {
   return (
     <Card className="border border-default-200 bg-content1">
-      <CardBody className="gap-3 p-5">
+      <CardBody className="gap-3 p-4 sm:p-5">
         <div className="flex items-start justify-between gap-3">
           <div className="space-y-2">
             <div className="h-4 w-24 rounded bg-default-200/80 animate-pulse" />
@@ -57,7 +57,7 @@ export function DashboardStats() {
     return (
       <div>
         <h2 className="mb-4 text-lg font-semibold text-foreground">Resumen operativo</h2>
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
           <MetricSkeleton />
           <MetricSkeleton />
           <MetricSkeleton />
@@ -101,13 +101,13 @@ export function DashboardStats() {
           MXN
         </Chip>
       </div>
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
         {cards.map((card) => {
           const Icon = card.icon;
           return (
             <Card
               key={card.title}
-              className={`border border-default-200 ${
+              className={`h-full border border-default-200 ${
                 card.tone === "primary"
                   ? "bg-primary/5 border-primary/20"
                   : card.tone === "success"
@@ -115,9 +115,9 @@ export function DashboardStats() {
                     : "bg-default-50"
               }`}
             >
-              <CardBody className="gap-3 p-5">
+              <CardBody className="gap-3 p-4 sm:p-5">
                 <div className="flex items-start justify-between">
-                  <div className="flex items-center gap-2">
+                  <div className="flex min-w-0 items-center gap-3">
                     <span
                       className={`flex h-10 w-10 items-center justify-center rounded-lg ${
                         card.tone === "primary"
@@ -127,15 +127,17 @@ export function DashboardStats() {
                             : "bg-default-200 text-default-600"
                       }`}
                     >
-                      <Icon className="size-5" />
+                      <Icon className="size-4 sm:size-5" />
                     </span>
-                    <div>
-                      <p className="font-semibold text-foreground">{card.title}</p>
-                      <p className="text-tiny text-default-500">{card.subtitle}</p>
+                    <div className="min-w-0">
+                      <p className="truncate font-semibold text-foreground">{card.title}</p>
+                      <p className="max-h-9 overflow-hidden text-tiny leading-snug text-default-500">
+                        {card.subtitle}
+                      </p>
                     </div>
                   </div>
                 </div>
-                <p className="text-2xl font-bold text-foreground">{card.value}</p>
+                <p className="text-2xl font-bold leading-none text-foreground sm:text-[2rem]">{card.value}</p>
                 <div className="text-tiny text-default-500">{card.helper}</div>
               </CardBody>
             </Card>

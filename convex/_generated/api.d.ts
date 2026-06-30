@@ -35,6 +35,7 @@ import type * as inventoryLogs_queries from "../inventoryLogs/queries.js";
 import type * as journeys_queries from "../journeys/queries.js";
 import type * as loans_functions from "../loans/functions.js";
 import type * as maintenance from "../maintenance.js";
+import type * as maintenance_import from "../maintenance/import.js";
 import type * as maintenance_pricingQa from "../maintenance/pricingQa.js";
 import type * as pricing_customer_levels from "../pricing/customer_levels.js";
 import type * as pricing_mutations from "../pricing/mutations.js";
@@ -100,6 +101,7 @@ declare const fullApi: ApiFromModules<{
   "journeys/queries": typeof journeys_queries;
   "loans/functions": typeof loans_functions;
   maintenance: typeof maintenance;
+  "maintenance/import": typeof maintenance_import;
   "maintenance/pricingQa": typeof maintenance_pricingQa;
   "pricing/customer_levels": typeof pricing_customer_levels;
   "pricing/mutations": typeof pricing_mutations;

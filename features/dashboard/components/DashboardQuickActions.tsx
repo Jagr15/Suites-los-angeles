@@ -59,14 +59,14 @@ const actions = [
 
 export function DashboardQuickActions() {
   return (
-    <Card>
-      <CardHeader className="flex justify-between">
-        <div>
+    <Card className="h-full border border-default-200 bg-content1">
+      <CardHeader className="flex items-start justify-between gap-3 px-5 pt-5 pb-2">
+        <div className="min-w-0">
           <h2 className="text-lg font-semibold">Acciones rápidas</h2>
           <p className="text-tiny text-default-500">Atajos operativos reales</p>
         </div>
       </CardHeader>
-      <CardBody className="grid gap-2 sm:grid-cols-2 xl:grid-cols-1">
+      <CardBody className="grid gap-3 px-5 pb-5 sm:grid-cols-2 xl:grid-cols-1">
         {actions.map((action) => {
           const Icon = action.icon;
           return (
@@ -77,15 +77,17 @@ export function DashboardQuickActions() {
               color={action.color}
               variant="flat"
               fullWidth
-              className="h-auto justify-start py-3 text-left"
+              className="h-full min-h-20 justify-start px-4 py-3 text-left"
             >
-              <div className="flex w-full items-center gap-3">
-                <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-background/70">
-                  <Icon className="size-5" />
+              <div className="flex w-full min-w-0 items-center gap-3">
+                <span className="flex aspect-square h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-background/70">
+                  <Icon className="size-4 sm:size-5" />
                 </span>
                 <div className="min-w-0 flex-1">
-                  <p className="font-semibold leading-tight">{action.label}</p>
-                  <p className="text-tiny opacity-70">{action.description}</p>
+                  <p className="truncate font-semibold leading-tight">{action.label}</p>
+                  <p className="max-h-8 overflow-hidden text-tiny leading-snug opacity-70">
+                    {action.description}
+                  </p>
                 </div>
                 <TruckIcon className="size-4 shrink-0 opacity-40" />
               </div>

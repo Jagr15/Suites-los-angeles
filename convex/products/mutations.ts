@@ -70,6 +70,48 @@ export const remove = mutation({
   args: { id: v.id("products") },
   handler: async (ctx, args) => {
     await requireIdentity(ctx);
+
+    // 1. Check if referenced in historical sales (salidas)
+    const allSalidas = await ctx.db.query("salidas").collect();
+    const hasSalidaRef = allSalidas.some((s) => 
+      (s.items || []).some((item) => String(item.productId) === String(args.id))
+    );
+    if (hasSalidaRef) {
+      throw new Error("No se puede eliminar el producto porque tiene ventas históricas asociadas.");
+    }
+
+    // 2. Check if has active inventory stock > 0 in any bodega
+    const inventoryEntries = await ctx.db
+      .query("inventory")
+      .withIndex("by_product", (q) => q.eq("productId", args.id))
+      .collect();
+    const hasInventory = inventoryEntries.some((inv) => inv.quantity > 0);
+    if (hasInventory) {
+      throw new Error("No se puede eliminar el producto porque tiene existencias activas en el inventario.");
+    }
+
+    // 3. Check if has historical movement logs
+    const logs = await ctx.db
+      .query("inventoryLogs")
+      .withIndex("by_product", (q) => q.eq("productId", args.id))
+      .collect();
+    if (logs.length > 0) {
+      throw new Error("No se puede eliminar el producto porque tiene historial de movimientos registrado.");
+    }
+
+    // Cleanup associated pricing tiers and zero-stock inventory records
+    const pricingTiers = await ctx.db
+      .query("pricingProductTiers")
+      .withIndex("by_productId", (q) => q.eq("productId", args.id))
+      .collect();
+    for (const tier of pricingTiers) {
+      await ctx.db.delete(tier._id);
+    }
+    
+    for (const inv of inventoryEntries) {
+      await ctx.db.delete(inv._id);
+    }
+
     await ctx.db.delete(args.id);
   },
 });

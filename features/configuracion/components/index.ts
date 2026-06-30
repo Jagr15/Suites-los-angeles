@@ -9,3 +9,4 @@ export { AssetsManagementCard } from "./assets/AssetsManagementCard";
 export { FinanceManagementCard } from "./FinanceManagementCard";
 export { BodegasManagementCard } from "./bodegas/BodegasManagementCard";
 export { PricingManagementCard } from "./pricing/PricingManagementCard";
+export { InventoryManagementCard } from "./inventario/InventoryManagementCard";

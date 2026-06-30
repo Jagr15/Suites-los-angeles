@@ -25,6 +25,7 @@ import {
   FinanceManagementCard,
   BodegasManagementCard,
   PricingManagementCard,
+  InventoryManagementCard,
 } from "../components";
 
 export function ConfiguracionPage() {
@@ -100,6 +101,20 @@ export function ConfiguracionPage() {
           >
             <div className="mt-4">
               <BodegasManagementCard />
+            </div>
+          </Tab>
+
+          <Tab
+            key="inventario"
+            title={
+              <div className="flex items-center space-x-2 text-sm">
+                <BuildingStorefrontIcon className="size-4" />
+                <span>Inventario</span>
+              </div>
+            }
+          >
+            <div className="mt-4">
+              <InventoryManagementCard />
             </div>
           </Tab>
 

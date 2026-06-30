@@ -33,6 +33,24 @@ type ProductResult = {
   stock: number;
 };
 
+type TierResult = {
+  tierId: string;
+  productId: string;
+  action: "created" | "updated" | "existing";
+  basePrice: number;
+};
+
+type AcapulcoProductSeed = {
+  match: string[];
+  sku?: string;
+  producto: string;
+  cantidadEmpaque: string;
+  categoriaName: string;
+  subcategoriaName: string;
+  lista1: string;
+  stock: number;
+};
+
 type SupplierDoc = {
   _id: Id<"suppliers">;
   businessName: string;
@@ -45,6 +63,13 @@ function normalize(value: string) {
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
     .toLowerCase();
+}
+
+function parseMoney(value: unknown) {
+  if (typeof value === "number" && Number.isFinite(value)) return Math.max(0, value);
+  if (typeof value !== "string") return 0;
+  const parsed = Number(value.replace(/[$,\s]/g, ""));
+  return Number.isFinite(parsed) ? Math.max(0, parsed) : 0;
 }
 
 async function assertProdMaintenanceAccess(ctx: MutationCtx) {
@@ -117,6 +142,59 @@ async function ensureProduct(
   return { id, action: "created" as const };
 }
 
+async function ensureProductTier(
+  ctx: MutationCtx,
+  productId: Id<"products">,
+  basePrice: number
+) {
+  const existing = await ctx.db
+    .query("pricingProductTiers")
+    .withIndex("by_productId_minQty", (q) => q.eq("productId", productId))
+    .collect();
+
+  const activeTiers = existing.filter((tier) => tier.active);
+  const payload = {
+    productId,
+    minQty: 1,
+    maxQty: undefined,
+    basePrice,
+    active: true,
+    ruleVersion: 1,
+    effectiveFrom: undefined,
+    effectiveTo: undefined,
+    notes: "Seed QA inventario",
+  };
+
+  if (activeTiers.length > 0) {
+    const primary = activeTiers.find((tier) => tier.minQty === 1 && tier.maxQty === undefined) || activeTiers[0];
+    const needsPatch =
+      primary.minQty !== 1 ||
+      primary.maxQty !== undefined ||
+      primary.basePrice !== basePrice ||
+      primary.active !== true ||
+      primary.notes !== "Seed QA inventario";
+    if (needsPatch) {
+      await ctx.db.patch(primary._id, payload);
+      for (const tier of activeTiers) {
+        if (tier._id !== primary._id) {
+          await ctx.db.patch(tier._id, { active: false });
+        }
+      }
+      return { id: primary._id, action: "updated" as const };
+    }
+
+    for (const tier of existing) {
+      if (tier._id !== primary._id && tier.active) {
+        await ctx.db.patch(tier._id, { active: false });
+      }
+    }
+    return { id: primary._id, action: "existing" as const };
+  }
+
+  const id = await ctx.db.insert("pricingProductTiers", payload);
+  return { id, action: "created" as const };
+}
+
 async function ensureInventoryQuantity(
   ctx: MutationCtx,
   productId: Id<"products">,
@@ -144,6 +222,16 @@ async function ensureInventoryQuantity(
     quantity,
   });
   return "created" as const;
+}
+
+async function ensureQAProductRepairFields(
+  ctx: MutationCtx,
+  productId: Id<"products">,
+  patch: Record<string, unknown>
+) {
+  if (Object.keys(patch).length === 0) return "existing" as const;
+  await ctx.db.patch(productId, patch);
+  return "updated" as const;
 }
 
 async function recomputeProductStock(ctx: MutationCtx, productId: Id<"products">) {
@@ -331,6 +419,7 @@ export const seedInventoryForPricingQA = mutation({
     ]);
 
     const productResults: ProductResult[] = [];
+    const tierResults: TierResult[] = [];
     const inventoryResults: InventoryResult[] = [];
 
     for (const seed of productSeeds) {
@@ -341,6 +430,13 @@ export const seedInventoryForPricingQA = mutation({
       }
 
       const product = await ensureProduct(ctx, seed, categoryId, subcategoryId);
+      const tier = await ensureProductTier(ctx, product.id, parseMoney(seed.lista1));
+      tierResults.push({
+        tierId: String(tier.id),
+        productId: String(product.id),
+        action: tier.action,
+        basePrice: parseMoney(seed.lista1),
+      });
       const quantitiesByBodega = new Map<Id<"bodegas">, number>([
         [targetBodegas[0]._id, 100],
         [targetBodegas[1]._id, 80],
@@ -397,8 +493,131 @@ export const seedInventoryForPricingQA = mutation({
         name: bodega.name,
       })),
       products: productResults,
+      pricingTiers: tierResults,
       inventory: inventoryResults,
       note: "Seed idempotente ejecutado sin borrar datos existentes.",
+    };
+  },
+});
+
+export const repairAcapulcoQaPricing = mutation({
+  args: {},
+  handler: async (ctx) => {
+    await assertProdMaintenanceAccess(ctx);
+
+    const qaBodega = (await ctx.db.query("bodegas").collect()).find((bodega) => {
+      const label = normalize(`${bodega.name} ${String((bodega as { alias?: string }).alias || "")}`);
+      return label.includes("acapulco");
+    });
+    if (!qaBodega) {
+      throw new Error("No se encontró la bodega QA de Acapulco.");
+    }
+
+    const beverageCategory = await ensureCategory(ctx, "Bebidas");
+    const groceryCategory = await ensureCategory(ctx, "Abarrotes");
+    const snackCategory = await ensureCategory(ctx, "Snacks");
+
+    const [aguaSub, refrescosSub, snackSub] = await Promise.all([
+      ensureSubcategory(ctx, beverageCategory.id, "Agua"),
+      ensureSubcategory(ctx, beverageCategory.id, "Refrescos"),
+      ensureSubcategory(ctx, snackCategory.id, "Snacks"),
+    ]);
+
+    const qaSeeds: AcapulcoProductSeed[] = [
+      {
+        match: ["agua qa acapulco 1l", "agua qa acapulco"],
+        producto: "Agua QA Acapulco 1L",
+        cantidadEmpaque: "1 pieza",
+        categoriaName: "Bebidas",
+        subcategoriaName: "Agua",
+        lista1: "$12.00",
+        stock: 100,
+      },
+      {
+        match: ["refresco qa acapulco 600ml", "refresco qa acapulco"],
+        producto: "Refresco QA Acapulco 600ML",
+        cantidadEmpaque: "1 pieza",
+        categoriaName: "Bebidas",
+        subcategoriaName: "Refrescos",
+        lista1: "$15.00",
+        stock: 80,
+      },
+      {
+        match: ["snack qa acapulco"],
+        producto: "Snack QA Acapulco",
+        cantidadEmpaque: "1 pieza",
+        categoriaName: "Snacks",
+        subcategoriaName: "Snacks",
+        lista1: "$18.00",
+        stock: 60,
+      },
+    ];
+
+    const categoryByName = new Map([
+      [normalize("Bebidas"), beverageCategory.id],
+      [normalize("Abarrotes"), groceryCategory.id],
+      [normalize("Snacks"), snackCategory.id],
+    ]);
+    const subcategoryByName = new Map([
+      [normalize("Agua"), aguaSub.id],
+      [normalize("Refrescos"), refrescosSub.id],
+      [normalize("Snacks"), snackSub.id],
+    ]);
+
+    const products = await ctx.db.query("products").collect();
+    const results: Array<{
+      productId: string;
+      sku?: string;
+      action: "updated" | "existing" | "missing";
+      tierId?: string;
+      tierAction?: "created" | "updated" | "existing";
+      stockAction?: "created" | "updated" | "existing";
+    }> = [];
+
+    for (const seed of qaSeeds) {
+      const product = products.find((item) => {
+        const haystack = normalize(`${item.producto} ${item.sku} ${item.codigo}`);
+        return seed.match.some((needle) => haystack.includes(normalize(needle)));
+      });
+
+      if (!product) {
+        results.push({ productId: "missing", sku: seed.producto, action: "missing" });
+        continue;
+      }
+
+      const categoryId = categoryByName.get(normalize(seed.categoriaName));
+      const subcategoryId = subcategoryByName.get(normalize(seed.subcategoriaName));
+      const patch: Record<string, unknown> = {};
+      if (!product.status || product.status !== "Activo") patch.status = "Activo";
+      if (!product.cantidadEmpaque) patch.cantidadEmpaque = seed.cantidadEmpaque;
+      if (!product.categoria && categoryId) patch.categoria = String(categoryId);
+      if (!product.subcategoria && subcategoryId) patch.subcategoria = String(subcategoryId);
+      if (!product.lista1) patch.lista1 = seed.lista1;
+
+      const productAction = await ensureQAProductRepairFields(ctx, product._id, patch);
+      const basePrice = parseMoney(product.lista1 || seed.lista1);
+      const tier = await ensureProductTier(ctx, product._id, basePrice);
+      const stockAction = await ensureInventoryQuantity(ctx, product._id, qaBodega._id, seed.stock);
+      const currentStock = await recomputeProductStock(ctx, product._id);
+      if (currentStock !== product.stock) {
+        await ctx.db.patch(product._id, { stock: currentStock });
+      }
+
+      results.push({
+        productId: String(product._id),
+        sku: product.sku,
+        action: productAction,
+        tierId: String(tier.id),
+        tierAction: tier.action,
+        stockAction,
+      });
+    }
+
+    return {
+      ok: true,
+      bodegaId: String(qaBodega._id),
+      bodegaName: qaBodega.name,
+      products: results,
     };
   },
 });

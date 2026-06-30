@@ -27,34 +27,45 @@ function addMonths(monthKey: string, months: number) {
 }
 
 async function loadClientAndRouteLookup(ctx: QueryCtx, salidas: SalidaRow[]) {
-  const clientIds = new Set<Id<"clients">>();
-  const routeIds = new Set<Id<"routes">>();
+  try {
+    const clientIds = new Set<Id<"clients">>();
+    const routeIds = new Set<Id<"routes">>();
 
-  for (const salida of salidas) {
-    if (salida.clientId) clientIds.add(salida.clientId);
-    if (salida.rutaId) routeIds.add(salida.rutaId as Id<"routes">);
-    if (salida.routeId) routeIds.add(salida.routeId as Id<"routes">);
+    for (const salida of salidas) {
+      if (salida.clientId) clientIds.add(salida.clientId);
+      if (salida.rutaId) routeIds.add(salida.rutaId as Id<"routes">);
+      if (salida.routeId) routeIds.add(salida.routeId as Id<"routes">);
+    }
+
+    const [clients, routes] = await Promise.all([
+      Promise.all(Array.from(clientIds).map((id) => ctx.db.get(id).catch(() => null))),
+      Promise.all(Array.from(routeIds).map((id) => ctx.db.get(id).catch(() => null))),
+    ]);
+
+    const clientById = new Map<string, NonNullable<NullableDoc<Doc<"clients">>>>();
+    for (const client of clients) {
+      if (client) clientById.set(String(client._id), client);
+    }
+
+    const routeById = new Map<string, NonNullable<NullableDoc<Doc<"routes">>>>();
+    const routeByName = new Map<string, NonNullable<NullableDoc<Doc<"routes">>>>();
+    for (const route of routes) {
+      if (!route) continue;
+      routeById.set(String(route._id), route);
+      routeByName.set(String(route.name || "").trim().toLowerCase(), route);
+    }
+
+    return { clientById, routeById, routeByName };
+  } catch (error) {
+    console.error("salidas.loadClientAndRouteLookup failed", {
+      error: error instanceof Error ? error.message : error,
+    });
+    return {
+      clientById: new Map(),
+      routeById: new Map(),
+      routeByName: new Map(),
+    };
   }
-
-  const [clients, routes] = await Promise.all([
-    Promise.all(Array.from(clientIds).map((id) => ctx.db.get(id))),
-    Promise.all(Array.from(routeIds).map((id) => ctx.db.get(id))),
-  ]);
-
-  const clientById = new Map<string, NonNullable<NullableDoc<Doc<"clients">>>>();
-  for (const client of clients) {
-    if (client) clientById.set(String(client._id), client);
-  }
-
-  const routeById = new Map<string, NonNullable<NullableDoc<Doc<"routes">>>>();
-  const routeByName = new Map<string, NonNullable<NullableDoc<Doc<"routes">>>>();
-  for (const route of routes) {
-    if (!route) continue;
-    routeById.set(String(route._id), route);
-    routeByName.set(String(route.name || "").trim().toLowerCase(), route);
-  }
-
-  return { clientById, routeById, routeByName };
 }
 
 function resolveDestinatario(salida: SalidaRow, client: NullableDoc<Doc<"clients">>, route: NullableDoc<Doc<"routes">>) {
@@ -72,14 +83,22 @@ function resolveDestinatario(salida: SalidaRow, client: NullableDoc<Doc<"clients
 export const list = query({
   args: { bodegaId: v.optional(v.id("bodegas")) },
   handler: async (ctx, args) => {
-    if (args.bodegaId) {
-      return await ctx.db
-        .query("salidas")
-        .withIndex("by_bodegaId", (q) => q.eq("bodegaId", args.bodegaId!))
-        .order("desc")
-        .collect();
+    try {
+      if (args.bodegaId) {
+        return await ctx.db
+          .query("salidas")
+          .withIndex("by_bodegaId", (q) => q.eq("bodegaId", args.bodegaId!))
+          .order("desc")
+          .collect();
+      }
+      return await ctx.db.query("salidas").order("desc").collect();
+    } catch (error) {
+      console.error("salidas.list failed", {
+        bodegaId: args.bodegaId ? String(args.bodegaId) : null,
+        error: error instanceof Error ? error.message : error,
+      });
+      return [];
     }
-    return await ctx.db.query("salidas").order("desc").collect();
   },
 });
 

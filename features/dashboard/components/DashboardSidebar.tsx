@@ -150,15 +150,6 @@ export function DashboardSidebar({ user, isAdmin, isVendedor, role }: DashboardS
                   collapsed={collapsed}
                 />
               )}
-              {isAdmin && (
-                <SidebarItem
-                  title="Catálogo"
-                  icon={<CubeIcon className="size-5" />}
-                  isActive={pathname === "/dashboard/productos"}
-                  href="/dashboard/productos"
-                  collapsed={collapsed}
-                />
-              )}
             </SidebarMenu>
 
             <SidebarMenu title="General" collapsed={collapsed}>
