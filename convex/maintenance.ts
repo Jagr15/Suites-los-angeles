@@ -6,6 +6,7 @@ import { hashPassword } from "./common/hashing";
 import { isAdmin } from "./common/utils";
 import { ensureWarehouseMovementSequence, numberToWarehouseCode } from "./common/warehouseFolios";
 import { auditPasswordAccountsForEmail, ensurePasswordAccountForUser } from "./common/authAccounts";
+import { resolveCurrentStaffUser } from "./common/utils";
 import type { Id } from "./_generated/dataModel";
 
 function assertDevMaintenanceEnabled() {
@@ -408,7 +409,7 @@ export const debugVendorRouteResolution = query({
 });
 
 async function ensureQaVendorBodega(ctx: any, summary: Record<string, unknown>) {
-  const preferredName = "Centro de Distribución";
+  const preferredName = "Bodega Acapulco";
   const fallbackName = "Bodega QA App";
   const existing =
     (await ctx.db.query("bodegas").withIndex("by_name", (q: any) => q.eq("name", preferredName)).first()) ||
@@ -416,11 +417,16 @@ async function ensureQaVendorBodega(ctx: any, summary: Record<string, unknown>) 
 
   if (existing) {
     const patch: Record<string, unknown> = {};
-    if (existing.name !== preferredName && normalizeText(existing.name) !== normalizeText(fallbackName)) {
+    if (existing.name !== preferredName) {
       patch.name = preferredName;
     }
     if (existing.isActive !== true) patch.isActive = true;
     if (JSON.stringify(existing.allowedUserIds || []) !== JSON.stringify([])) patch.allowedUserIds = [];
+    if (existing.description !== "Bodega operativa oficial para la demostración comercial de Acapulco") {
+      patch.description = "Bodega operativa oficial para la demostración comercial de Acapulco";
+    }
+    if (existing.address !== "Acapulco, Guerrero") patch.address = "Acapulco, Guerrero";
+    if (existing.manager !== "Vendedor Acapulco Centro") patch.manager = "Vendedor Acapulco Centro";
     if (Object.keys(patch).length > 0) {
       await ctx.db.patch(existing._id, patch);
     }
@@ -432,9 +438,9 @@ async function ensureQaVendorBodega(ctx: any, summary: Record<string, unknown>) 
   const id = await ctx.db.insert("bodegas", {
     code: undefined,
     name: fallbackName,
-    description: "Bodega de QA para validación del vendedor móvil.",
-    address: "QA",
-    manager: "QA",
+    description: "Bodega operativa oficial para la demostración comercial de Acapulco",
+    address: "Acapulco, Guerrero",
+    manager: "Vendedor Acapulco Centro",
     isActive: true,
     allowedUserIds: [],
   });
@@ -445,8 +451,8 @@ async function ensureQaVendorBodega(ctx: any, summary: Record<string, unknown>) 
 }
 
 async function ensureQaVendorUserAndProfile(ctx: any, summary: Record<string, unknown>) {
-  const userEmail = "vendedor1@gmail.com";
-  const userName = "Vendedor Demo 1";
+  const userEmail = "venta.acapulco@supra.local";
+  const userName = "Vendedor Acapulco Centro";
   const role = await ctx.db.query("roles").withIndex("by_name", (q: any) => q.eq("name", "Vendedor")).first();
   let user = await ctx.db.query("users").withIndex("by_email", (q: any) => q.eq("email", userEmail)).first();
 
@@ -471,7 +477,7 @@ async function ensureQaVendorUserAndProfile(ctx: any, summary: Record<string, un
     user = await ctx.db.get(userId);
   }
 
-  if (!user) throw new Error("No se pudo resolver el usuario QA del vendedor");
+  if (!user) throw new Error("No se pudo resolver el usuario oficial del vendedor");
 
   let profile = user.profileId ? await ctx.db.get(user.profileId) : null;
   if (profile) {
@@ -509,7 +515,7 @@ async function ensureQaVendorRoute(ctx: any, summary: Record<string, unknown>, a
   profileId: Id<"profiles">;
   bodegaId: Id<"bodegas">;
 }) {
-  const routeName = "Ruta QA App";
+  const routeName = "Ruta Acapulco Centro";
   const todayDay = todayWeekdayCode();
   const existing = await ctx.db.query("routes").withIndex("by_name", (q: any) => q.eq("name", routeName)).first();
 
@@ -530,8 +536,8 @@ async function ensureQaVendorRoute(ctx: any, summary: Record<string, unknown>, a
 
   const id = await ctx.db.insert("routes", {
     name: routeName,
-    destination: "QA",
-    deliveryType: "sucursal",
+    destination: "Acapulco Centro",
+    deliveryType: "envio",
     routeType: "Interna",
     assignedUserId: args.userId,
     assignedProfileId: args.profileId,
@@ -539,7 +545,7 @@ async function ensureQaVendorRoute(ctx: any, summary: Record<string, unknown>, a
     loadDay: todayDay,
     isActive: true,
     requireGpsValidation: true,
-    gpsRadiusLimit: 100,
+    gpsRadiusLimit: 1000,
     allowLocationUpdate: true,
     requireKmTracking: false,
     allowOffHoursSales: false,
@@ -550,7 +556,8 @@ async function ensureQaVendorRoute(ctx: any, summary: Record<string, unknown>, a
     startLat: 19.2433,
     startLng: -103.7247,
     stops: [
-      { name: "QA Stop 1", lat: 19.2437, lng: -103.7252 },
+      { name: "Abarrotes Costera", lat: 16.845, lng: -99.906 },
+      { name: "Miscelánea Centro", lat: 16.847, lng: -99.903 },
     ],
   });
   summary.routeId = String(id);
@@ -561,184 +568,94 @@ async function ensureQaVendorRoute(ctx: any, summary: Record<string, unknown>, a
 async function ensureQaClients(ctx: any, summary: Record<string, unknown>, routeId: Id<"routes">) {
   const clientsInput = [
     {
-      commercialName: "Cliente QA App 1",
-      buyerName: "QA Buyer 1",
-      businessName: "Cliente QA App 1 SA de CV",
-      rfc: "QAA001010AA1",
-      mapsUrl: "https://www.google.com/maps?q=19.2437,-103.7252",
-      stateId: "06",
-      stateName: "Colima",
-      municipalityId: "002",
-      municipalityName: "Colima",
-      townId: "0001",
-      townName: "Colima",
-      lat: 19.2437,
-      lng: -103.7252,
+      commercialName: "Abarrotes Costera",
+      buyerName: "Abarrotes Costera",
+      businessName: "Abarrotes Costera S.A. de C.V.",
+      rfc: "ACO850101AA1",
+      mapsUrl: "https://www.google.com/maps?q=16.845,-99.906",
+      stateId: "12",
+      stateName: "Guerrero",
+      municipalityId: "001",
+      municipalityName: "Acapulco de Juárez",
+      townId: "acapulco-centro-1",
+      townName: "Acapulco Centro",
+      lat: 16.845,
+      lng: -99.906,
       creditLimit: 5000,
       creditDays: 15,
       visitOrder: 1,
     },
     {
-      commercialName: "Cliente QA App 2",
-      buyerName: "QA Buyer 2",
-      businessName: "Cliente QA App 2 SA de CV",
-      rfc: "QAA002020AA2",
-      mapsUrl: "https://www.google.com/maps?q=19.2441,-103.7241",
-      stateId: "06",
-      stateName: "Colima",
-      municipalityId: "002",
-      municipalityName: "Colima",
-      townId: "0001",
-      townName: "Colima",
-      lat: 19.2441,
-      lng: -103.7241,
+      commercialName: "Miscelánea Centro",
+      buyerName: "Miscelánea Centro",
+      businessName: "Miscelánea Centro S.A. de C.V.",
+      rfc: "MCE850101AA2",
+      mapsUrl: "https://www.google.com/maps?q=16.847,-99.903",
+      stateId: "12",
+      stateName: "Guerrero",
+      municipalityId: "001",
+      municipalityName: "Acapulco de Juárez",
+      townId: "acapulco-centro-2",
+      townName: "Acapulco Centro",
+      lat: 16.847,
+      lng: -99.903,
       creditLimit: 5000,
       creditDays: 15,
       visitOrder: 2,
     },
     {
-      commercialName: "Cliente QA App 3",
-      buyerName: "QA Buyer 3",
-      businessName: "Cliente QA App 3 SA de CV",
-      rfc: "QAA003030AA3",
-      mapsUrl: "https://www.google.com/maps?q=19.2444,-103.7238",
-      stateId: "06",
-      stateName: "Colima",
-      municipalityId: "002",
-      municipalityName: "Colima",
-      townId: "0001",
-      townName: "Colima",
-      lat: 19.2444,
-      lng: -103.7238,
+      commercialName: "Tienda Caleta",
+      buyerName: "Tienda Caleta",
+      businessName: "Tienda Caleta S.A. de C.V.",
+      rfc: "TCA850101AA3",
+      mapsUrl: "https://www.google.com/maps?q=16.838,-99.909",
+      stateId: "12",
+      stateName: "Guerrero",
+      municipalityId: "001",
+      municipalityName: "Acapulco de Juárez",
+      townId: "acapulco-centro-3",
+      townName: "Acapulco Centro",
+      lat: 16.838,
+      lng: -99.909,
       creditLimit: 3500,
       creditDays: 10,
       visitOrder: 3,
     },
     {
-      commercialName: "Cliente QA App 4",
-      buyerName: "QA Buyer 4",
-      businessName: "Cliente QA App 4 SA de CV",
-      rfc: "QAA004040AA4",
-      mapsUrl: "https://www.google.com/maps?q=19.2448,-103.7234",
-      stateId: "06",
-      stateName: "Colima",
-      municipalityId: "002",
-      municipalityName: "Colima",
-      townId: "0001",
-      townName: "Colima",
-      lat: 19.2448,
-      lng: -103.7234,
+      commercialName: "Mini Súper Renacimiento",
+      buyerName: "Mini Súper Renacimiento",
+      businessName: "Mini Súper Renacimiento S.A. de C.V.",
+      rfc: "MSR850101AA4",
+      mapsUrl: "https://www.google.com/maps?q=16.851,-99.899",
+      stateId: "12",
+      stateName: "Guerrero",
+      municipalityId: "001",
+      municipalityName: "Acapulco de Juárez",
+      townId: "acapulco-centro-4",
+      townName: "Acapulco Centro",
+      lat: 16.851,
+      lng: -99.899,
       creditLimit: 4500,
       creditDays: 15,
       visitOrder: 4,
     },
     {
-      commercialName: "Cliente QA App 5",
-      buyerName: "QA Buyer 5",
-      businessName: "Cliente QA App 5 SA de CV",
-      rfc: "QAA005050AA5",
-      mapsUrl: "https://www.google.com/maps?q=19.2452,-103.7231",
-      stateId: "06",
-      stateName: "Colima",
-      municipalityId: "002",
-      municipalityName: "Colima",
-      townId: "0001",
-      townName: "Colima",
-      lat: 19.2452,
-      lng: -103.7231,
+      commercialName: "Abarrotes Zócalo",
+      buyerName: "Abarrotes Zócalo",
+      businessName: "Abarrotes Zócalo S.A. de C.V.",
+      rfc: "AZC850101AA5",
+      mapsUrl: "https://www.google.com/maps?q=16.849,-99.902",
+      stateId: "12",
+      stateName: "Guerrero",
+      municipalityId: "001",
+      municipalityName: "Acapulco de Juárez",
+      townId: "acapulco-centro-5",
+      townName: "Acapulco Centro",
+      lat: 16.849,
+      lng: -99.902,
       creditLimit: 6000,
       creditDays: 20,
       visitOrder: 5,
-    },
-    {
-      commercialName: "Cliente QA App 6",
-      buyerName: "QA Buyer 6",
-      businessName: "Cliente QA App 6 SA de CV",
-      rfc: "QAA006060AA6",
-      mapsUrl: "https://www.google.com/maps?q=19.2455,-103.7227",
-      stateId: "06",
-      stateName: "Colima",
-      municipalityId: "002",
-      municipalityName: "Colima",
-      townId: "0001",
-      townName: "Colima",
-      lat: 19.2455,
-      lng: -103.7227,
-      creditLimit: 8000,
-      creditDays: 25,
-      visitOrder: 6,
-    },
-    {
-      commercialName: "Cliente QA App 7",
-      buyerName: "QA Buyer 7",
-      businessName: "Cliente QA App 7 SA de CV",
-      rfc: "QAA007070AA7",
-      mapsUrl: "https://www.google.com/maps?q=19.2459,-103.7224",
-      stateId: "06",
-      stateName: "Colima",
-      municipalityId: "002",
-      municipalityName: "Colima",
-      townId: "0001",
-      townName: "Colima",
-      lat: 19.2459,
-      lng: -103.7224,
-      creditLimit: 5500,
-      creditDays: 15,
-      visitOrder: 7,
-    },
-    {
-      commercialName: "Cliente QA App 8",
-      buyerName: "QA Buyer 8",
-      businessName: "Cliente QA App 8 SA de CV",
-      rfc: "QAA008080AA8",
-      mapsUrl: "https://www.google.com/maps?q=19.2462,-103.7221",
-      stateId: "06",
-      stateName: "Colima",
-      municipalityId: "002",
-      municipalityName: "Colima",
-      townId: "0001",
-      townName: "Colima",
-      lat: 19.2462,
-      lng: -103.7221,
-      creditLimit: 7000,
-      creditDays: 18,
-      visitOrder: 8,
-    },
-    {
-      commercialName: "Cliente QA App 9",
-      buyerName: "QA Buyer 9",
-      businessName: "Cliente QA App 9 SA de CV",
-      rfc: "QAA009090AA9",
-      mapsUrl: "https://www.google.com/maps?q=19.2465,-103.7218",
-      stateId: "06",
-      stateName: "Colima",
-      municipalityId: "002",
-      municipalityName: "Colima",
-      townId: "0001",
-      townName: "Colima",
-      lat: 19.2465,
-      lng: -103.7218,
-      creditLimit: 4000,
-      creditDays: 12,
-      visitOrder: 9,
-    },
-    {
-      commercialName: "Cliente QA App 10",
-      buyerName: "QA Buyer 10",
-      businessName: "Cliente QA App 10 SA de CV",
-      rfc: "QAA010100AA0",
-      mapsUrl: "https://www.google.com/maps?q=19.2468,-103.7214",
-      stateId: "06",
-      stateName: "Colima",
-      municipalityId: "002",
-      municipalityName: "Colima",
-      townId: "0001",
-      townName: "Colima",
-      lat: 19.2468,
-      lng: -103.7214,
-      creditLimit: 9000,
-      creditDays: 30,
-      visitOrder: 10,
     },
   ];
 
@@ -751,7 +668,7 @@ async function ensureQaClients(ctx: any, summary: Record<string, unknown>, route
     if (existing) {
       const patch: Record<string, unknown> = {};
       if (!existing.assignedRouteId || String(existing.assignedRouteId) !== String(routeId)) patch.assignedRouteId = routeId;
-      if (existing.assignedRouteName !== "Ruta QA App") patch.assignedRouteName = "Ruta QA App";
+      if (existing.assignedRouteName !== "Ruta Acapulco Centro") patch.assignedRouteName = "Ruta Acapulco Centro";
       if (existing.mapsUrl !== input.mapsUrl) patch.mapsUrl = input.mapsUrl;
       if (existing.requiresInvoice !== true) patch.requiresInvoice = true;
       if (existing.creditLimit !== input.creditLimit) patch.creditLimit = input.creditLimit;
@@ -783,7 +700,7 @@ async function ensureQaClients(ctx: any, summary: Record<string, unknown>, route
       stateName: input.stateName,
       visitFrequency: "Semanal",
       assignedRouteId: routeId,
-      assignedRouteName: "Ruta QA App",
+      assignedRouteName: "Ruta Acapulco Centro",
       creditLimit: input.creditLimit,
       creditDays: input.creditDays,
       lat: input.lat,
@@ -827,8 +744,8 @@ async function ensureQaJourney(
     startKm: 0,
     startLat: 19.2433,
     startLng: -103.7247,
-    unit: "QA",
-    licensePlate: "QA-APP",
+    unit: "ACAPULCO-DEMO",
+    licensePlate: "ACAPULCO-DEMO",
     startTime: Date.now(),
     status: "active",
   });
@@ -838,69 +755,18 @@ async function ensureQaJourney(
 }
 
 async function ensureQaProductsAndInventory(ctx: any, summary: Record<string, unknown>, bodegaId: Id<"bodegas">) {
-  const activeProducts = await ctx.db.query("products").collect();
-  const usableProducts = activeProducts.filter((product: any) => product.status === "Activo");
-  const qaProducts: Array<{ _id: Id<"products">; producto: string }> = [];
-
-  for (const product of usableProducts.slice(0, 25)) {
-    qaProducts.push({ _id: product._id, producto: product.producto });
-  }
-
-  const ensureProduct = async (sku: string, producto: string, codigo: string) => {
-    const existing = await ctx.db.query("products").withIndex("by_sku", (q: any) => q.eq("sku", sku)).first();
-    if (existing) {
-      const patch: Record<string, unknown> = {};
-      if (existing.status !== "Activo") patch.status = "Activo";
-      if ((existing.stock ?? 0) !== 10) patch.stock = 10;
-      if (existing.lista1 !== "25.00") patch.lista1 = "25.00";
-      if (existing.lista2 !== "27.50") patch.lista2 = "27.50";
-      if (existing.lista3 !== "30.00") patch.lista3 = "30.00";
-      if (existing.lista4 !== "32.50") patch.lista4 = "32.50";
-      if (existing.lista5 !== "35.00") patch.lista5 = "35.00";
-      if (Object.keys(patch).length > 0) {
-        await ctx.db.patch(existing._id, patch);
-      }
-      return await ctx.db.get(existing._id);
+  const productNames = ["Agua 600ml", "Refresco Cola 355ml"];
+  const finalProducts: Array<{ _id: Id<"products">; producto: string }> = [];
+  for (const productName of productNames) {
+    const product = await ctx.db.query("products").withIndex("by_producto", (q: any) => q.eq("producto", productName)).first()
+      || await ctx.db.query("products").withIndex("by_sku", (q: any) => q.eq("sku", productName)).first()
+      || await ctx.db.query("products").withIndex("by_codigo", (q: any) => q.eq("codigo", productName)).first()
+      || await ctx.db.query("products").collect().then((rows: any[]) => rows.find((row) => String(row.producto || "").toLowerCase().includes(productName.toLowerCase())));
+    if (!product) {
+      throw new Error(`No se encontró el producto requerido: ${productName}`);
     }
-    const category = await ctx.db.query("product_categories").withIndex("by_name", (q: any) => q.eq("name", "QA")).first()
-      || await ctx.db.insert("product_categories", { name: "QA" }).then((id: any) => ctx.db.get(id));
-    const subcategory = await ctx.db.query("product_subcategories").withIndex("by_category", (q: any) => q.eq("categoryId", category._id)).first()
-      || await ctx.db.insert("product_subcategories", { name: "App", categoryId: category._id }).then((id: any) => ctx.db.get(id));
-    const id = await ctx.db.insert("products", {
-      sku,
-      codigo,
-      producto,
-      cantidadEmpaque: "1",
-      categoria: String(category._id),
-      subcategoria: String(subcategory._id),
-      status: "Activo",
-      stock: 10,
-      lista1: "25.00",
-      lista2: "27.50",
-      lista3: "30.00",
-      lista4: "32.50",
-      lista5: "35.00",
-    });
-    return await ctx.db.get(id);
-  };
-
-  const targetProducts = Array.from({ length: 25 }, (_, index) => {
-    const n = index + 1;
-    return {
-      sku: `QA-APP-${String(n).padStart(3, "0")}`,
-      producto: `Producto QA App ${n}`,
-      codigo: `QAAPP${String(n).padStart(3, "0")}`,
-    };
-  });
-
-  for (const product of targetProducts) {
-    const existingMatch = qaProducts.find((p) => String(p.producto).toLowerCase() === product.producto.toLowerCase());
-    if (existingMatch) continue;
-    const created = await ensureProduct(product.sku, product.producto, product.codigo);
-    if (created) qaProducts.push({ _id: created._id, producto: created.producto });
+    finalProducts.push({ _id: product._id, producto: product.producto });
   }
-
-  const finalProducts = qaProducts.slice(0, 25);
   const inventoryIds: string[] = [];
   for (const product of finalProducts) {
     const existing = await ctx.db
@@ -908,8 +774,8 @@ async function ensureQaProductsAndInventory(ctx: any, summary: Record<string, un
       .withIndex("by_product_bodega", (q: any) => q.eq("productId", product._id).eq("bodegaId", bodegaId))
       .first();
     if (existing) {
-      if (existing.quantity !== 10) {
-        await ctx.db.patch(existing._id, { quantity: 10 });
+      if (existing.quantity !== 120) {
+        await ctx.db.patch(existing._id, { quantity: 120 });
       }
       inventoryIds.push(String(existing._id));
       continue;
@@ -917,7 +783,7 @@ async function ensureQaProductsAndInventory(ctx: any, summary: Record<string, un
     const inventoryId = await ctx.db.insert("inventory", {
       productId: product._id,
       bodegaId,
-      quantity: 10,
+      quantity: 120,
     });
     inventoryIds.push(String(inventoryId));
   }
@@ -956,13 +822,13 @@ async function ensureQaHistoricalMovements(
   const existingIncome = await ctx.db.query("bodega_ingresos").collect();
   const existingExpense = await ctx.db.query("bodega_egresos").collect();
 
-  const routeLabel = "Ruta QA App";
-  const responsibleName = "Vendedor Demo 1";
+  const routeLabel = "Ruta Acapulco Centro";
+  const responsibleName = "Vendedor Acapulco Centro";
 
   const saleTemplates = [
-    { numeroSalida: "QA-SALE-001", fecha: dates[0], totalAmount: 1380, clientIndex: 0 },
-    { numeroSalida: "QA-SALE-002", fecha: dates[1], totalAmount: 920, clientIndex: 1 },
-    { numeroSalida: "QA-SALE-003", fecha: dates[2], totalAmount: 1760, clientIndex: 2 },
+    { numeroSalida: "ACAP-SALE-001", fecha: dates[0], totalAmount: 1380, clientIndex: 0 },
+    { numeroSalida: "ACAP-SALE-002", fecha: dates[1], totalAmount: 920, clientIndex: 1 },
+    { numeroSalida: "ACAP-SALE-003", fecha: dates[2], totalAmount: 1760, clientIndex: 2 },
   ];
 
   for (const sale of saleTemplates) {
@@ -978,17 +844,17 @@ async function ensureQaHistoricalMovements(
       tipoEntrega: "route",
       almacen: "Centro de Distribución",
       agente: responsibleName,
-      clienteDireccion: "QA",
+      clienteDireccion: "Acapulco Centro",
       totalAmount: sale.totalAmount,
       tipo: "venta",
-      serie: "QA",
+      serie: "ACAP",
       clienteCodigo: clientId ? String(clientId) : undefined,
-      clienteNombre: clientId ? `Cliente QA ${sale.clientIndex + 1}` : "Cliente QA",
+      clienteNombre: clientId ? String((await ctx.db.get(clientId as any))?.commercialName || "Cliente Acapulco") : "Cliente Acapulco",
       numeroDocumento: sale.numeroSalida,
       ruta: routeLabel,
       rutaId: args.routeId,
       routeId: args.routeId,
-      destino: "QA",
+      destino: "Acapulco Centro",
       recipientType: "route",
       shippingMode: "pickup",
       clientId,
@@ -998,24 +864,24 @@ async function ensureQaHistoricalMovements(
           quantity: 2,
           price: 300,
           subtotal: 600,
-          sku: "QA-APP-001",
-          descripcion: "Producto QA App 1",
+          sku: "ACAP-001",
+          descripcion: "Agua 600ml",
         },
         {
           productId: productB,
           quantity: 3,
           price: 260,
           subtotal: 780,
-          sku: "QA-APP-002",
-          descripcion: "Producto QA App 2",
+          sku: "ACAP-002",
+          descripcion: "Refresco Cola 355ml",
         },
       ],
     } as any);
   }
 
   const incomeTemplates = [
-    { folio: "QA-ING-001", date: dates[1], amount: 2500, notes: "Ingreso QA día previo" },
-    { folio: "QA-ING-002", date: dates[2], amount: 1800, notes: "Ingreso QA histórico" },
+    { folio: "ACAP-ING-001", date: dates[1], amount: 2500, notes: "Ingreso operativo día previo" },
+    { folio: "ACAP-ING-002", date: dates[2], amount: 1800, notes: "Ingreso operativo histórico" },
   ];
 
   for (const income of incomeTemplates) {
@@ -1030,14 +896,14 @@ async function ensureQaHistoricalMovements(
       responsibleId: args.profileId,
       responsibleName,
       responsibleGroup: "Ventas",
-      clientName: "Cliente QA",
+      clientName: "Abarrotes Costera",
       notes: income.notes,
     } as any);
   }
 
   const expenseTemplates = [
-    { folio: "QA-EGR-001", date: dates[1], amount: 420, notes: "Gasto QA combustible" },
-    { folio: "QA-EGR-002", date: dates[2], amount: 860, notes: "Gasto QA viáticos" },
+    { folio: "ACAP-EGR-001", date: dates[1], amount: 420, notes: "Gasto operativo combustible" },
+    { folio: "ACAP-EGR-002", date: dates[2], amount: 860, notes: "Gasto operativo viáticos" },
   ];
 
   for (const expense of expenseTemplates) {
@@ -1052,7 +918,7 @@ async function ensureQaHistoricalMovements(
       responsibleId: args.profileId,
       responsibleName,
       responsibleGroup: "Ventas",
-      provider: "Proveedor QA",
+      provider: "Proveedor Operativo",
       notes: expense.notes,
     } as any);
   }
@@ -1063,6 +929,101 @@ async function ensureQaHistoricalMovements(
     expenses: expenseTemplates.map((expense) => expense.folio),
     today,
   };
+}
+
+async function ensureOfficialDemoSales(
+  ctx: any,
+  summary: Record<string, unknown>,
+  args: {
+    bodegaId: Id<"bodegas">;
+    profileId: Id<"profiles">;
+    routeId: Id<"routes">;
+    clientIds: string[];
+    vendorName: string;
+    routeName: string;
+  }
+) {
+  const productA = await ctx.db.query("products").withIndex("by_producto", (q: any) => q.eq("producto", "Agua 600ml")).first();
+  const productB = await ctx.db.query("products").withIndex("by_producto", (q: any) => q.eq("producto", "Refresco Cola 355ml")).first();
+  if (!productA || !productB) throw new Error("No se encontraron productos base para ventas oficiales.");
+
+  const saleTemplates = [
+    { numeroSalida: `${args.routeName}-EFECTIVO`, fecha: getOperationalDate(), paymentMethod: "cash" as const, total: 600, clientIndex: 0 },
+    { numeroSalida: `${args.routeName}-TRANSFERENCIA`, fecha: getOperationalDate(), paymentMethod: "transfer" as const, total: 780, clientIndex: 1 },
+    { numeroSalida: `${args.routeName}-CREDITO`, fecha: getOperationalDate(), paymentMethod: "credit" as const, total: 860, clientIndex: 2 },
+  ];
+
+  const existing = await ctx.db.query("salidas").collect();
+  for (const sale of saleTemplates) {
+    if (existing.some((row: any) => row.numeroSalida === sale.numeroSalida)) continue;
+    const clientId = args.clientIds[sale.clientIndex] as Id<"clients"> | undefined;
+    await ctx.db.insert("salidas", {
+      numeroSalida: sale.numeroSalida,
+      fecha: sale.fecha,
+      status: sale.paymentMethod === "credit" ? "Pendiente" : "Entregado",
+      responsable: args.vendorName,
+      tipoEntrega: "route",
+      almacen: String(args.bodegaId),
+      agente: args.vendorName,
+      clienteDireccion: "Ruta operativa oficial",
+      totalAmount: sale.total,
+      tipo: "venta",
+      serie: "OFF",
+      clienteCodigo: clientId ? String(clientId) : undefined,
+      clienteNombre: clientId ? String((await ctx.db.get(clientId as any))?.commercialName || "Cliente oficial") : "Cliente oficial",
+      numeroDocumento: sale.numeroSalida,
+      ruta: args.routeName,
+      rutaId: args.routeId,
+      routeId: args.routeId,
+      destino: "Ruta operativa oficial",
+      recipientType: "route",
+      shippingMode: "delivery",
+      clientId,
+      items: [
+        {
+          productId: productA._id,
+          quantity: 1,
+          price: 300,
+          subtotal: 300,
+          sku: productA.sku || "AGUA600",
+          descripcion: productA.producto,
+        },
+        {
+          productId: productB._id,
+          quantity: 1,
+          price: sale.paymentMethod === "cash" ? 300 : sale.paymentMethod === "transfer" ? 480 : 560,
+          subtotal: sale.paymentMethod === "cash" ? 300 : sale.paymentMethod === "transfer" ? 480 : 560,
+          sku: productB.sku || "COLA355",
+          descripcion: productB.producto,
+        },
+      ],
+    } as any);
+
+    for (const [product, qty] of [[productA, 1], [productB, 1]] as const) {
+      const inventory = await ctx.db
+        .query("inventory")
+        .withIndex("by_product_bodega", (q: any) => q.eq("productId", product._id).eq("bodegaId", args.bodegaId))
+        .first();
+      const previousStock = inventory?.quantity ?? 0;
+      const newStock = Math.max(previousStock - qty, 0);
+      if (inventory) await ctx.db.patch(inventory._id, { quantity: newStock });
+      else await ctx.db.insert("inventory", { productId: product._id, bodegaId: args.bodegaId, quantity: newStock });
+      await ctx.db.patch(product._id, { stock: Math.max((product.stock ?? 0) - qty, 0) });
+      await ctx.db.insert("inventoryLogs", {
+        productId: product._id,
+        bodegaId: args.bodegaId,
+        previousStock,
+        quantity: -qty,
+        newStock,
+        type: "salida",
+        reason: `Venta oficial ${sale.paymentMethod}`,
+        referenceId: sale.numeroSalida,
+        date: sale.fecha,
+      });
+    }
+  }
+
+  summary.salesSeeded = saleTemplates.map((sale) => sale.numeroSalida);
 }
 
 export const seedQaVendorData = mutation({
@@ -1098,11 +1059,19 @@ export const seedQaVendorData = mutation({
   }
 
   const route = await ensureQaVendorRoute(ctx, summary, { userId, profileId, bodegaId });
-  if (!route) throw new Error("No se pudo preparar la ruta QA");
+  if (!route) throw new Error("No se pudo preparar la ruta oficial");
 
     const clientIds = await ensureQaClients(ctx, summary, route._id as Id<"routes">);
     const { productIds, inventoryIds } = await ensureQaProductsAndInventory(ctx, summary, bodegaId);
     const journey = await ensureQaJourney(ctx, summary, profileId, bodegaId);
+    await ensureOfficialDemoSales(ctx, summary, {
+      bodegaId,
+      profileId,
+      routeId: route._id as Id<"routes">,
+      clientIds,
+      vendorName: "Vendedor Acapulco Centro",
+      routeName: "Ruta Acapulco Centro",
+    });
 
   const refreshedUser = await ctx.db.get(userId);
   const refreshedProfile = await ctx.db.get(profileId);
@@ -1113,7 +1082,7 @@ export const seedQaVendorData = mutation({
   summary.productIds = productIds;
   summary.inventoryIds = inventoryIds;
 
-    console.log("QA vendor seed summary", summary);
+    console.log("Acapulco vendor seed summary", summary);
 
     return {
       ok: true,
@@ -1749,5 +1718,549 @@ export const ensureLinkedAccounts = mutation({
     }
 
     return { ok: true, createdOrUpdated };
+  },
+});
+
+export const seedOfficialAcapulcoDemo = mutation({
+  args: {},
+  handler: async (ctx) => {
+    await assertProdMaintenanceAccess(ctx);
+
+    const bodegaName = "Bodega Acapulco";
+    const routeName = "Ruta Acapulco Centro";
+    const vendorEmail = "venta.acapulco@supra.local";
+    const vendorName = "Vendedor Acapulco Centro";
+    const vendorPassword = "Supra2026!";
+    const clientNames = [
+      "Abarrotes Costera",
+      "Miscelánea Centro",
+      "Tienda Caleta",
+      "Mini Súper Renacimiento",
+      "Abarrotes Zócalo",
+    ];
+    const productNames = ["Agua 600ml", "Refresco Cola 355ml"];
+
+    const bodega = await ctx.db.query("bodegas").withIndex("by_name", (q) => q.eq("name", bodegaName)).first();
+    const bodegaId = bodega?._id ?? await ctx.db.insert("bodegas", {
+      name: bodegaName,
+      description: "Bodega operativa para la demostración comercial de Acapulco",
+      address: "Acapulco, Guerrero",
+      manager: vendorName,
+      isActive: true,
+    });
+    if (!bodega) {
+      await ctx.db.patch(bodegaId, { isActive: true, manager: vendorName, description: "Bodega operativa para la demostración comercial de Acapulco" });
+    }
+
+    const sellerRole = await ctx.db.query("roles").withIndex("by_name", (q) => q.eq("name", "Vendedor")).first();
+    const roleId = sellerRole?._id ?? await ctx.db.insert("roles", {
+      name: "Vendedor",
+      description: "Operación comercial y ventas.",
+      permissions: DEFAULT_PERMISSIONS_BY_ROLE.Vendedor,
+    });
+
+    let user = await ctx.db.query("users").withIndex("by_email", (q) => q.eq("email", vendorEmail)).first();
+    const userId = user?._id ?? await ctx.db.insert("users", {
+      name: vendorName,
+      email: vendorEmail,
+      role: "Vendedor",
+      roleId,
+      isActive: true,
+      allowedWarehouseIds: [bodegaId],
+    });
+    if (user) {
+      await ctx.db.patch(user._id, {
+        name: vendorName,
+        role: "Vendedor",
+        roleId,
+        isActive: true,
+        allowedWarehouseIds: [bodegaId],
+      });
+    }
+
+    await ensurePasswordAccountForUser(ctx, {
+      userId,
+      email: vendorEmail,
+      password: vendorPassword,
+    });
+
+    let profile = await ctx.db.query("profiles").withIndex("by_userId", (q) => q.eq("userId", userId)).first();
+    const profileId = profile?._id ?? await ctx.db.insert("profiles", {
+      fullName: vendorName,
+      userId,
+      status: "Activo",
+      isEmployee: true,
+      group: "Ventas",
+      workplaceType: "Ruta",
+      assignedBodegaId: bodegaId,
+    });
+    if (profile) {
+      await ctx.db.patch(profile._id, {
+        fullName: vendorName,
+        status: "Activo",
+        isEmployee: true,
+        group: "Ventas",
+        workplaceType: "Ruta",
+        assignedBodegaId: bodegaId,
+      });
+    }
+    await ctx.db.patch(userId, { profileId });
+
+    const route = await ctx.db.query("routes").withIndex("by_name", (q) => q.eq("name", routeName)).first();
+    const routeId = route?._id ?? await ctx.db.insert("routes", {
+      name: routeName,
+      destination: "Acapulco Centro",
+      deliveryType: "envio",
+      assignedProfileId: profileId,
+      assignedUserId: userId,
+      routeType: "Interna",
+      operationDays: ["L", "M", "X", "J", "V", "S"],
+      loadDay: "L",
+      isActive: true,
+      allowOffHoursSales: true,
+      requireGpsValidation: false,
+      gpsRadiusLimit: 1000,
+      allowLocationUpdate: true,
+      requireVisitOrder: false,
+      allowNoSaleCheckIn: true,
+      requireMinVisitTime: false,
+      minVisitTimeMinutes: 0,
+    });
+    if (route) {
+      await ctx.db.patch(route._id, {
+        assignedProfileId: profileId,
+        assignedUserId: userId,
+        destination: "Acapulco Centro",
+        routeType: "Interna",
+        isActive: true,
+      });
+    }
+
+    const clients = await ctx.db.query("clients").collect();
+    const clientIds: string[] = [];
+    for (const [index, name] of clientNames.entries()) {
+      const existing = clients.find((client) => client.commercialName?.trim().toLowerCase() === name.toLowerCase());
+      const clientId = existing?._id ?? await ctx.db.insert("clients", {
+        commercialName: name,
+        buyerName: name,
+        clientType: "commercial",
+        responsable: vendorName,
+        diaEntrega: "L",
+        tipoEntrega: "Ruta",
+        requiresInvoice: false,
+        mapsUrl: "https://maps.google.com",
+        townId: `acapulco-${index + 1}`,
+        townName: "Acapulco",
+        municipalityId: `acapulco-mun-${index + 1}`,
+        municipalityName: "Acapulco",
+        stateName: "Guerrero",
+        visitFrequency: "Semanal",
+        assignedRouteId: routeId,
+        assignedRouteName: routeName,
+        creditLimit: 5000,
+        creditDays: 7,
+        balance: 0,
+        visitOrder: index + 1,
+      });
+      if (existing) {
+        await ctx.db.patch(existing._id, {
+          assignedRouteId: routeId,
+          assignedRouteName: routeName,
+          visitOrder: index + 1,
+        });
+      }
+      clientIds.push(String(clientId));
+    }
+
+    const allProducts = await ctx.db.query("products").collect();
+    const inventoryRows: Array<Record<string, unknown>> = [];
+    for (const productName of productNames) {
+      const product = allProducts.find((item) =>
+        item.producto.toLowerCase().includes(productName.toLowerCase()) ||
+        item.sku.toLowerCase().includes(productName.toLowerCase()) ||
+        item.codigo.toLowerCase().includes(productName.toLowerCase())
+      );
+      if (!product) continue;
+      const existingInventory = await ctx.db
+        .query("inventory")
+        .withIndex("by_product_bodega", (q) => q.eq("productId", product._id).eq("bodegaId", bodegaId))
+        .first();
+      const previousStock = existingInventory?.quantity ?? 0;
+      const seedStock = product.producto.toLowerCase().includes("agua") ? 120 : 120;
+      const newStock = Math.max(previousStock, 0) + seedStock;
+      if (existingInventory) {
+        await ctx.db.patch(existingInventory._id, { quantity: newStock });
+      } else {
+        await ctx.db.insert("inventory", { productId: product._id, bodegaId, quantity: newStock });
+      }
+      await ctx.db.patch(product._id, { stock: (product.stock ?? 0) + seedStock });
+      await ctx.db.insert("inventoryLogs", {
+        productId: product._id,
+        bodegaId,
+        previousStock,
+        quantity: seedStock,
+        newStock,
+        type: "entrada",
+        reason: "Carga operativa oficial para demostración",
+        referenceId: String(routeId),
+        date: new Date().toISOString().slice(0, 10),
+      });
+      inventoryRows.push({ product: product.producto, previousStock, newStock });
+    }
+
+    return {
+      ok: true,
+      vendorEmail,
+      vendorName,
+      userId: String(userId),
+      profileId: String(profileId),
+      routeId: String(routeId),
+      routeName,
+      bodegaId: String(bodegaId),
+      bodegaName,
+      clientIds,
+      inventoryRows,
+    };
+  },
+});
+
+export const debugCurrentMobileUser = query({
+  args: {},
+  handler: async (ctx) => {
+    const resolved = await resolveCurrentStaffUser(ctx);
+    const clientRoutes = resolved.routes || [];
+    const clients = clientRoutes.length === 0
+      ? []
+      : await ctx.db.query("clients").collect().then((rows) =>
+          rows.filter((client) => client.assignedRouteId && clientRoutes.some((route) => String(route._id) === String(client.assignedRouteId)))
+        );
+
+    const reason =
+      resolved.user
+        ? clientRoutes.length > 0
+          ? null
+          : "No se encontraron rutas con assignedUserId/assignedProfileId para el usuario resuelto."
+        : "No se pudo resolver un usuario interno a partir de authUserId o email.";
+
+    return {
+      authUserId: resolved.authUserId,
+      authEmail: resolved.email || null,
+      resolvedUser: resolved.user ? {
+        _id: String(resolved.user._id),
+        email: resolved.user.email || null,
+        name: resolved.user.name || null,
+        profileId: resolved.user.profileId ? String(resolved.user.profileId) : null,
+        allowedWarehouseIds: (resolved.user.allowedWarehouseIds || []).map(String),
+      } : null,
+      profile: resolved.profile ? {
+        _id: String(resolved.profile._id),
+        fullName: resolved.profile.fullName || null,
+        assignedBodegaId: resolved.profile.assignedBodegaId ? String(resolved.profile.assignedBodegaId) : null,
+        userId: resolved.profile.userId ? String(resolved.profile.userId) : null,
+        status: resolved.profile.status || null,
+        group: resolved.profile.group || null,
+      } : null,
+      bodegaId: resolved.operationalBodegaId ? String(resolved.operationalBodegaId) : null,
+      routesMatched: clientRoutes.map((route) => ({
+        _id: String(route._id),
+        name: route.name,
+        assignedUserId: route.assignedUserId ? String(route.assignedUserId) : null,
+        assignedProfileId: route.assignedProfileId ? String(route.assignedProfileId) : null,
+      })),
+      clientsMatched: clients.map((client) => ({
+        _id: String(client._id),
+        commercialName: client.commercialName,
+        assignedRouteId: client.assignedRouteId ? String(client.assignedRouteId) : null,
+      })),
+      reason,
+    };
+  },
+});
+
+export const updateOfficialAcapulcoClientToLaNao = mutation({
+  args: {},
+  handler: async (ctx) => {
+    await assertProdMaintenanceAccess(ctx);
+
+    const routeName = "Ruta Acapulco Centro";
+    const vendorEmail = "venta.acapulco@supra.local";
+    const target = await ctx.db
+      .query("clients")
+      .withIndex("by_commercialName", (q) => q.eq("commercialName", "Abarrotes Zócalo"))
+      .first();
+    if (!target) {
+      throw new Error("No se encontró un cliente oficial de Acapulco para actualizar.");
+    }
+
+    const route = await ctx.db
+      .query("routes")
+      .withIndex("by_name", (q) => q.eq("name", routeName))
+      .first();
+    if (!route) {
+      throw new Error("No se encontró la Ruta Acapulco Centro.");
+    }
+
+    const patch: Record<string, unknown> = {
+      commercialName: "Abarrotes La Nao",
+      buyerName: "Abarrotes La Nao",
+      responsable: "Abarrotes La Nao",
+      businessName: "Abarrotes La Nao",
+      mapsUrl: "https://maps.google.com/?q=16.86461,-99.87677",
+      stateId: "12",
+      stateName: "Guerrero",
+      municipalityId: "001",
+      municipalityName: "Acapulco de Juárez",
+      townId: "acapulco-centro-nao",
+      townName: "Acapulco Centro",
+      lat: 16.86461,
+      lng: -99.87677,
+      assignedRouteId: route._id,
+      assignedRouteName: routeName,
+      visitFrequency: "Semanal",
+      requiresInvoice: true,
+      tipoEntrega: "Ruta",
+      diaEntrega: "Lunes",
+    };
+
+    await ctx.db.patch(target._id, patch);
+
+    return {
+      ok: true,
+      clientId: String(target._id),
+      clientName: "Abarrotes La Nao",
+      routeId: String(route._id),
+      routeName,
+      vendorEmail,
+    };
+  },
+});
+
+export const seedOfficialCentralDemo = mutation({
+  args: {},
+  handler: async (ctx) => {
+    await assertProdMaintenanceAccess(ctx);
+
+    const bodegaName = "Bodega Central";
+    const routeName = "Ruta Centro";
+    const vendorEmail = "vendedor1@supra.local";
+    const vendorName = "Vendedor Central";
+    const vendorPassword = "Supra2026!";
+    const clientNames = [
+      "Abarrotes Daniel",
+      "Miscelánea Centro",
+      "Tienda Jardín",
+      "Mini Súper Colima",
+      "Papelería Libertad",
+    ];
+    const productNames = ["Agua 600ml", "Refresco Cola 355ml"];
+
+    const bodega = await ctx.db.query("bodegas").withIndex("by_name", (q) => q.eq("name", bodegaName)).first();
+    const bodegaId = bodega?._id ?? await ctx.db.insert("bodegas", {
+      name: bodegaName,
+      description: "Bodega operativa oficial para la demostración comercial central",
+      address: "Colima Centro",
+      manager: vendorName,
+      isActive: true,
+    });
+    if (bodega) {
+      await ctx.db.patch(bodega._id, {
+        isActive: true,
+        manager: vendorName,
+        description: "Bodega operativa oficial para la demostración comercial central",
+      });
+    }
+
+    const sellerRole = await ctx.db.query("roles").withIndex("by_name", (q) => q.eq("name", "Vendedor")).first();
+    const roleId = sellerRole?._id ?? await ctx.db.insert("roles", {
+      name: "Vendedor",
+      description: "Operación comercial y ventas.",
+      permissions: DEFAULT_PERMISSIONS_BY_ROLE.Vendedor,
+    });
+
+    let user = await ctx.db.query("users").withIndex("by_email", (q) => q.eq("email", vendorEmail)).first();
+    const userId = user?._id ?? await ctx.db.insert("users", {
+      name: vendorName,
+      email: vendorEmail,
+      role: "Vendedor",
+      roleId,
+      isActive: true,
+      allowedWarehouseIds: [bodegaId],
+    });
+    if (user) {
+      await ctx.db.patch(user._id, {
+        name: vendorName,
+        role: "Vendedor",
+        roleId,
+        isActive: true,
+        allowedWarehouseIds: [bodegaId],
+      });
+    }
+
+    await ensurePasswordAccountForUser(ctx, { userId, email: vendorEmail, password: vendorPassword });
+
+    let profile = await ctx.db.query("profiles").withIndex("by_userId", (q) => q.eq("userId", userId)).first();
+    const profileId = profile?._id ?? await ctx.db.insert("profiles", {
+      fullName: vendorName,
+      userId,
+      status: "Activo",
+      isEmployee: true,
+      group: "Ventas",
+      workplaceType: "Ruta",
+      assignedBodegaId: bodegaId,
+    });
+    if (profile) {
+      await ctx.db.patch(profile._id, {
+        fullName: vendorName,
+        status: "Activo",
+        isEmployee: true,
+        group: "Ventas",
+        workplaceType: "Ruta",
+        assignedBodegaId: bodegaId,
+      });
+    }
+    await ctx.db.patch(userId, { profileId, allowedWarehouseIds: [bodegaId], isActive: true });
+
+    const route = await ctx.db.query("routes").withIndex("by_name", (q) => q.eq("name", routeName)).first();
+    const todayDay = todayWeekdayCode();
+    const routeId = route?._id ?? await ctx.db.insert("routes", {
+      name: routeName,
+      destination: "Colima Centro",
+      deliveryType: "envio",
+      routeType: "Interna",
+      assignedUserId: userId,
+      assignedProfileId: profileId,
+      operationDays: [todayDay, "L", "M", "X", "J", "V", "S"],
+      loadDay: todayDay,
+      isActive: true,
+      requireGpsValidation: false,
+      gpsRadiusLimit: 1000,
+      allowLocationUpdate: true,
+      requireVisitOrder: false,
+      allowNoSaleCheckIn: true,
+      requireMinVisitTime: false,
+      minVisitTimeMinutes: 0,
+    });
+    if (route) {
+      await ctx.db.patch(route._id, {
+        assignedUserId: userId,
+        assignedProfileId: profileId,
+        isActive: true,
+        operationDays: Array.from(new Set([...(route.operationDays || []), todayDay])),
+        loadDay: todayDay,
+      });
+    }
+
+    const clientsInput = clientNames.map((commercialName, index) => ({
+      commercialName,
+      buyerName: commercialName,
+      businessName: `${commercialName} S.A. de C.V.`,
+      rfc: `V1C0L${index + 1}0101AA`,
+      mapsUrl: "https://maps.google.com",
+      stateId: "06",
+      stateName: "Colima",
+      municipalityId: "001",
+      municipalityName: "Colima",
+      townId: `colima-centro-${index + 1}`,
+      townName: "Colima Centro",
+      creditLimit: 5000 + index * 500,
+      creditDays: 15,
+      visitOrder: index + 1,
+    }));
+    const clientIds: string[] = [];
+    for (const input of clientsInput) {
+      const existing = await ctx.db.query("clients").withIndex("by_commercialName", (q) => q.eq("commercialName", input.commercialName)).first();
+      if (existing) {
+        const patch: Record<string, unknown> = {
+          assignedRouteId: routeId,
+          assignedRouteName: routeName,
+          requiresInvoice: true,
+          visitFrequency: "Semanal",
+        };
+        await ctx.db.patch(existing._id, patch);
+        clientIds.push(String(existing._id));
+      } else {
+        const id = await ctx.db.insert("clients", {
+          clientType: "commercial",
+          requiresInvoice: true,
+          ...input,
+          assignedRouteId: routeId,
+          assignedRouteName: routeName,
+          visitFrequency: "Semanal",
+        });
+        clientIds.push(String(id));
+      }
+    }
+
+    const allProducts = await ctx.db.query("products").collect();
+    const inventoryRows: Array<Record<string, unknown>> = [];
+    for (const productName of productNames) {
+      const product = allProducts.find((item) =>
+        item.producto.toLowerCase().includes(productName.toLowerCase()) ||
+        item.sku.toLowerCase().includes(productName.toLowerCase()) ||
+        item.codigo.toLowerCase().includes(productName.toLowerCase())
+      );
+      if (!product) continue;
+      const existingInventory = await ctx.db
+        .query("inventory")
+        .withIndex("by_product_bodega", (q) => q.eq("productId", product._id).eq("bodegaId", bodegaId))
+        .first();
+      const previousStock = existingInventory?.quantity ?? 0;
+      const seedStock = 200;
+      const newStock = Math.max(previousStock, 0) + seedStock;
+      if (existingInventory) await ctx.db.patch(existingInventory._id, { quantity: newStock });
+      else await ctx.db.insert("inventory", { productId: product._id, bodegaId, quantity: newStock });
+      await ctx.db.patch(product._id, { stock: (product.stock ?? 0) + seedStock });
+      await ctx.db.insert("inventoryLogs", {
+        productId: product._id,
+        bodegaId,
+        previousStock,
+        quantity: seedStock,
+        newStock,
+        type: "entrada",
+        reason: "Carga operativa oficial central",
+        referenceId: String(routeId),
+        date: new Date().toISOString().slice(0, 10),
+      });
+      inventoryRows.push({ product: product.producto, previousStock, newStock });
+    }
+
+    let journey = await ctx.db.query("journeys").withIndex("by_profile_date", (q) => q.eq("profileId", profileId).eq("date", getOperationalDate())).first();
+    if (!journey) {
+      const journeyId = await ctx.db.insert("journeys", {
+        profileId,
+        date: getOperationalDate(),
+        startKm: 0,
+        startLat: 19.2433,
+        startLng: -103.7247,
+        unit: "CENTRO-DEMO",
+        licensePlate: "CENTRO-DEMO",
+        startTime: Date.now(),
+        status: "active",
+      });
+      journey = await ctx.db.get(journeyId);
+    } else if (journey.status !== "active" || journey.startKm !== 0) {
+      await ctx.db.patch(journey._id, { status: "active", startKm: 0 });
+    }
+
+    await ensureOfficialDemoSales(ctx, {}, {
+      bodegaId: bodegaId as Id<"bodegas">,
+      profileId: profileId as Id<"profiles">,
+      routeId: routeId as Id<"routes">,
+      clientIds,
+      vendorName,
+      routeName,
+    });
+
+    return {
+      ok: true,
+      userId: String(userId),
+      profileId: String(profileId),
+      bodegaId: String(bodegaId),
+      routeId: String(routeId),
+      clientIds,
+      inventoryRows,
+      vendorEmail,
+      vendorPassword,
+    };
   },
 });

@@ -1,6 +1,6 @@
 import { mutation } from "../_generated/server";
 import { v } from "convex/values";
-import { hasPermission, isAdmin, requireIdentity, requirePermission } from "../common/utils";
+import { hasPermission, isAdmin, requireIdentity, requirePermission, resolveCurrentStaffUser } from "../common/utils";
 import { Id } from "../_generated/dataModel";
 import type { MutationCtx } from "../_generated/server";
 import {
@@ -389,5 +389,40 @@ export const updateVisitOrder = mutation({
     for (let i = 0; i < args.orderedIds.length; i++) {
       await ctx.db.patch(args.orderedIds[i], { visitOrder: i + 1 });
     }
+  },
+});
+
+export const updateGps = mutation({
+  args: {
+    id: v.id("clients"),
+    lat: v.number(),
+    lng: v.number(),
+    reason: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const currentUser = await resolveCurrentStaffUser(ctx);
+    if (!currentUser.user) {
+      throw new Error("No autenticado");
+    }
+    await requirePermission(
+      ctx,
+      "customers:allow_update_gps",
+      "Acceso denegado: no puedes actualizar la ubicación del cliente."
+    );
+
+    const client = await ctx.db.get(args.id);
+    if (!client) {
+      throw new Error("Cliente no encontrado");
+    }
+
+    await assertCustomerOwnershipIfRestricted(ctx, client);
+
+    await ctx.db.patch(args.id, {
+      lat: args.lat,
+      lng: args.lng,
+      mapsUrl: client.mapsUrl || `https://www.google.com/maps?q=${args.lat},${args.lng}`,
+    });
+
+    return args.id;
   },
 });

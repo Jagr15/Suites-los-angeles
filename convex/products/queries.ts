@@ -77,8 +77,11 @@ export const listForCurrentUser = query({
       if (!currentUser) return [];
 
       const isAdminOrWarehouse = currentUser.user.role?.toLowerCase?.().includes("admin") || currentUser.user.role?.toLowerCase?.().includes("bodega");
+      const bodegaProfile: any = currentUser.user.profileId
+        ? await ctx.db.get(currentUser.user.profileId)
+        : null;
       const bodegaId = currentUser.user.profileId
-        ? (await ctx.db.get(currentUser.user.profileId))?.assignedBodegaId
+        ? bodegaProfile?.assignedBodegaId
         : currentUser.user.allowedWarehouseIds?.[0] ?? null;
 
       const products = await ctx.db.query("products").collect();

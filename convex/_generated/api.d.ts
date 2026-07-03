@@ -12,6 +12,7 @@ import type * as assets_mutations from "../assets/mutations.js";
 import type * as assets_queries from "../assets/queries.js";
 import type * as audit_queries from "../audit/queries.js";
 import type * as auth from "../auth.js";
+import type * as bodega_transactions_expenses from "../bodega_transactions/expenses.js";
 import type * as bodega_transactions_mutations from "../bodega_transactions/mutations.js";
 import type * as bodega_transactions_queries from "../bodega_transactions/queries.js";
 import type * as bodegas_mutations from "../bodegas/mutations.js";
@@ -32,11 +33,14 @@ import type * as http from "../http.js";
 import type * as inventory_mutations from "../inventory/mutations.js";
 import type * as inventory_queries from "../inventory/queries.js";
 import type * as inventoryLogs_queries from "../inventoryLogs/queries.js";
+import type * as journeys_mutations from "../journeys/mutations.js";
 import type * as journeys_queries from "../journeys/queries.js";
 import type * as loans_functions from "../loans/functions.js";
 import type * as maintenance from "../maintenance.js";
 import type * as maintenance_import from "../maintenance/import.js";
 import type * as maintenance_pricingQa from "../maintenance/pricingQa.js";
+import type * as payments_mutations from "../payments/mutations.js";
+import type * as payments_queries from "../payments/queries.js";
 import type * as pricing_customer_levels from "../pricing/customer_levels.js";
 import type * as pricing_mutations from "../pricing/mutations.js";
 import type * as pricing_queries from "../pricing/queries.js";
@@ -49,6 +53,7 @@ import type * as profiles_queries from "../profiles/queries.js";
 import type * as purchase_budgets_queries from "../purchase_budgets/queries.js";
 import type * as purchases_mutations from "../purchases/mutations.js";
 import type * as purchases_queries from "../purchases/queries.js";
+import type * as reports_queries from "../reports/queries.js";
 import type * as roles_mutations from "../roles/mutations.js";
 import type * as roles_queries from "../roles/queries.js";
 import type * as routes_mutations from "../routes/mutations.js";
@@ -56,6 +61,7 @@ import type * as routes_queries from "../routes/queries.js";
 import type * as salidas_mutations from "../salidas/mutations.js";
 import type * as salidas_queries from "../salidas/queries.js";
 import type * as seed from "../seed.js";
+import type * as shared_operationalDate from "../shared/operationalDate.js";
 import type * as staff_mutations from "../staff/mutations.js";
 import type * as staff_queries from "../staff/queries.js";
 import type * as supplierTransactions_mutations from "../supplierTransactions/mutations.js";
@@ -66,6 +72,8 @@ import type * as users_mutations from "../users/mutations.js";
 import type * as users_queries from "../users/queries.js";
 import type * as vehicles_mutations from "../vehicles/mutations.js";
 import type * as vehicles_queries from "../vehicles/queries.js";
+import type * as visits_mutations from "../visits/mutations.js";
+import type * as visits_queries from "../visits/queries.js";
 
 import type {
   ApiFromModules,
@@ -78,6 +86,7 @@ declare const fullApi: ApiFromModules<{
   "assets/queries": typeof assets_queries;
   "audit/queries": typeof audit_queries;
   auth: typeof auth;
+  "bodega_transactions/expenses": typeof bodega_transactions_expenses;
   "bodega_transactions/mutations": typeof bodega_transactions_mutations;
   "bodega_transactions/queries": typeof bodega_transactions_queries;
   "bodegas/mutations": typeof bodegas_mutations;
@@ -98,11 +107,14 @@ declare const fullApi: ApiFromModules<{
   "inventory/mutations": typeof inventory_mutations;
   "inventory/queries": typeof inventory_queries;
   "inventoryLogs/queries": typeof inventoryLogs_queries;
+  "journeys/mutations": typeof journeys_mutations;
   "journeys/queries": typeof journeys_queries;
   "loans/functions": typeof loans_functions;
   maintenance: typeof maintenance;
   "maintenance/import": typeof maintenance_import;
   "maintenance/pricingQa": typeof maintenance_pricingQa;
+  "payments/mutations": typeof payments_mutations;
+  "payments/queries": typeof payments_queries;
   "pricing/customer_levels": typeof pricing_customer_levels;
   "pricing/mutations": typeof pricing_mutations;
   "pricing/queries": typeof pricing_queries;
@@ -115,6 +127,7 @@ declare const fullApi: ApiFromModules<{
   "purchase_budgets/queries": typeof purchase_budgets_queries;
   "purchases/mutations": typeof purchases_mutations;
   "purchases/queries": typeof purchases_queries;
+  "reports/queries": typeof reports_queries;
   "roles/mutations": typeof roles_mutations;
   "roles/queries": typeof roles_queries;
   "routes/mutations": typeof routes_mutations;
@@ -122,6 +135,7 @@ declare const fullApi: ApiFromModules<{
   "salidas/mutations": typeof salidas_mutations;
   "salidas/queries": typeof salidas_queries;
   seed: typeof seed;
+  "shared/operationalDate": typeof shared_operationalDate;
   "staff/mutations": typeof staff_mutations;
   "staff/queries": typeof staff_queries;
   "supplierTransactions/mutations": typeof supplierTransactions_mutations;
@@ -132,6 +146,8 @@ declare const fullApi: ApiFromModules<{
   "users/queries": typeof users_queries;
   "vehicles/mutations": typeof vehicles_mutations;
   "vehicles/queries": typeof vehicles_queries;
+  "visits/mutations": typeof visits_mutations;
+  "visits/queries": typeof visits_queries;
 }>;
 
 /**

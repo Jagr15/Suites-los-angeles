@@ -1,7 +1,7 @@
 import { mutation } from "../_generated/server";
 import { v } from "convex/values";
 import { bodegaIngresosFields, bodegaEgresosFields } from "./schema";
-import { hasPermission, isAdmin, requireIdentity, requirePermission, requireWarehouseAccess } from "../common/utils";
+import { hasPermission, isAdmin, requireIdentity, requirePermission, requireWarehouseAccess, resolveCurrentStaffUser } from "../common/utils";
 import { ensureWarehouseMovementSequence, getNextWarehouseMovementFolio } from "../common/warehouseFolios";
 
 function getTodayISO() {
@@ -64,30 +64,46 @@ export const removeCategory = mutation({
 });
 
 export const createIngreso = mutation({
-  args: bodegaIngresosFields,
+  args: {
+    ...bodegaIngresosFields,
+    category: v.optional(v.string()),
+    description: v.optional(v.string()),
+    evidenceUrl: v.optional(v.string()),
+    operationalDate: v.optional(v.string()),
+  },
   handler: async (ctx, args) => {
-    await requireIdentity(ctx);
-    await requirePermission(
-      ctx,
-      "warehouse_money:allow_income",
-      "Acceso denegado: no puedes registrar ingresos de bodega."
-    );
-    if (!args.bodegaId) {
-      throw new Error("Debes seleccionar una bodega para registrar el ingreso.");
-    }
+    const currentUser = await resolveCurrentStaffUser(ctx);
+    if (!currentUser.user) throw new Error("No autenticado");
+    if (!args.bodegaId) throw new Error("Debes seleccionar una bodega para registrar el ingreso.");
     await requireWarehouseAccess(ctx, args.bodegaId);
     const generatedFolio = await getNextWarehouseMovementFolio(ctx, args.bodegaId, "ingreso");
-    const isAdministrator = await isAdmin(ctx);
-    if (!isAdministrator) {
-      const restrictDateEdit = await hasPermission(ctx, "warehouse_money:restrict_date_edit");
-      if (restrictDateEdit && args.date !== getTodayISO()) {
-        throw new Error("Acceso denegado: no puedes modificar la fecha en ingresos de bodega.");
-      }
-    }
+    const responsibleId = args.responsibleId ?? currentUser.user.profileId ?? undefined;
+    const responsibleName = args.responsibleName ?? currentUser.user.name ?? currentUser.email ?? "Usuario";
+    const categoryName = args.category?.trim();
+    const categoryId = categoryName
+      ? await ctx.db
+          .query("bodega_categorias")
+          .withIndex("by_type", (q) => q.eq("type", "ingreso"))
+          .filter((q) => q.eq(q.field("name"), categoryName))
+          .unique()
+          .then((existing) => existing?._id ?? ctx.db.insert("bodega_categorias", { name: categoryName, type: "ingreso", isActive: true }))
+      : args.categoryId;
+    if (!categoryId) throw new Error("La categoría es obligatoria");
     const id = await ctx.db.insert("bodega_ingresos", {
-      ...args,
+      bodegaId: args.bodegaId,
+      amount: args.amount,
+      categoryId,
+      subcategoryId: args.subcategoryId,
+      date: args.operationalDate?.trim() || args.date,
+      responsibleId,
+      responsibleName,
+      responsibleGroup: args.responsibleGroup,
+      clientName: args.clientName,
+      evidenceStorageId: args.evidenceStorageId,
+      notes: args.notes ?? args.description,
       folio: args.folio || generatedFolio.folio,
       folioNumber: args.folioNumber || generatedFolio.folioNumber,
+      status: "pending",
     });
     await applyLinkedBodegaBalance(ctx, args.bodegaId, args.amount);
     return id;
@@ -95,34 +111,46 @@ export const createIngreso = mutation({
 });
 
 export const createEgreso = mutation({
-  args: bodegaEgresosFields,
+  args: {
+    ...bodegaEgresosFields,
+    category: v.optional(v.string()),
+    description: v.optional(v.string()),
+    evidenceUrl: v.optional(v.string()),
+    operationalDate: v.optional(v.string()),
+  },
   handler: async (ctx, args) => {
-    await requireIdentity(ctx);
-    await requirePermission(
-      ctx,
-      "warehouse_money:allow_expense",
-      "Acceso denegado: no puedes registrar egresos de bodega."
-    );
-    if (!args.bodegaId) {
-      throw new Error("Debes seleccionar una bodega para registrar el egreso.");
-    }
+    const currentUser = await resolveCurrentStaffUser(ctx);
+    if (!currentUser.user) throw new Error("No autenticado");
+    if (!args.bodegaId) throw new Error("Debes seleccionar una bodega para registrar el egreso.");
     await requireWarehouseAccess(ctx, args.bodegaId);
     const generatedFolio = await getNextWarehouseMovementFolio(ctx, args.bodegaId, "egreso");
-    const isAdministrator = await isAdmin(ctx);
-    if (!isAdministrator) {
-      const restrictDateEdit = await hasPermission(ctx, "warehouse_money:restrict_date_edit");
-      if (restrictDateEdit && args.date !== getTodayISO()) {
-        throw new Error("Acceso denegado: no puedes modificar la fecha en egresos de bodega.");
-      }
-      const requireEvidence = await hasPermission(ctx, "evidence:require_photos_for_entries_expenses");
-      if (requireEvidence && !args.evidenceStorageId) {
-        throw new Error("Acceso denegado: se requiere evidencia fotográfica para registrar egresos.");
-      }
-    }
+    const responsibleId = args.responsibleId ?? currentUser.user.profileId ?? undefined;
+    const responsibleName = args.responsibleName ?? currentUser.user.name ?? currentUser.email ?? "Usuario";
+    const categoryName = args.category?.trim();
+    const categoryId = categoryName
+      ? await ctx.db
+          .query("bodega_categorias")
+          .withIndex("by_type", (q) => q.eq("type", "egreso"))
+          .filter((q) => q.eq(q.field("name"), categoryName))
+          .unique()
+          .then((existing) => existing?._id ?? ctx.db.insert("bodega_categorias", { name: categoryName, type: "egreso", isActive: true }))
+      : args.categoryId;
+    if (!categoryId) throw new Error("La categoría es obligatoria");
     const id = await ctx.db.insert("bodega_egresos", {
-      ...args,
+      bodegaId: args.bodegaId,
+      amount: args.amount,
+      categoryId,
+      subcategoryId: args.subcategoryId,
+      date: args.operationalDate?.trim() || args.date,
+      responsibleId,
+      responsibleName,
+      responsibleGroup: args.responsibleGroup,
+      provider: args.provider,
+      evidenceStorageId: args.evidenceStorageId,
+      notes: args.notes ?? args.description,
       folio: args.folio || generatedFolio.folio,
       folioNumber: args.folioNumber || generatedFolio.folioNumber,
+      status: "pending",
     });
     await applyLinkedBodegaBalance(ctx, args.bodegaId, -args.amount);
     return id;

@@ -42,7 +42,7 @@ export const listAccessible = query({
       const allowedIds = await getAccessibleWarehouseIds(ctx);
       if (allowedIds.length === 0) return [];
       const all = await ctx.db.query("bodegas").collect();
-      const allowedSet = new Set(allowedIds.map((id) => String(id)));
+      const allowedSet = new Set(allowedIds.map((id: string) => String(id)));
       return all.filter((b) => allowedSet.has(String(b._id)));
     } catch (error) {
       console.error("bodegas.listAccessible failed", {

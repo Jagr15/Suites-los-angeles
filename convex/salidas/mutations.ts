@@ -214,7 +214,8 @@ export const completePosSale = mutation({
       }
     }
 
-    const bodegaId = args.bodegaId ?? profile.assignedBodegaId ?? undefined;
+    const profileDoc: any = profile;
+    const bodegaId = args.bodegaId ?? profileDoc.assignedBodegaId ?? undefined;
     if (!bodegaId) throw new Error("No hay bodega asignada para esta operación");
     await requireWarehouseAccess(ctx, bodegaId);
 

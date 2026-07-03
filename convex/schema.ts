@@ -19,6 +19,9 @@ import { creditsTable } from "./credits/schema";
 import { financeAccountsTable } from "./finance_accounts/schema";
 import { productCategoriesTable, productSubcategoriesTable } from "./product_categories/schema";
 import { salidasTable } from "./salidas/schema";
+import { saleItemsTable } from "./sales/schema";
+import { paymentsTable } from "./payments/schema";
+import { visitsTable } from "./visits/schema";
 import {
   pricingCustomerLevelsTable,
   pricingProductTiersTable,
@@ -138,6 +141,8 @@ export default defineSchema({
   // Tabla de Productos
   products: productsTable,
   purchase_items: purchaseItemsTable,
+  sale_items: saleItemsTable,
+  payments: paymentsTable,
   supplierTransactions: supplierTransactionsTable,
   inventoryLogs: inventoryLogsTable,
   inventory: inventoryTable,
@@ -179,6 +184,7 @@ export default defineSchema({
 
   // Tabla de Salidas (Cargas/Ventas)
   salidas: salidasTable,
+  visits: visitsTable,
 
   // Secuencias consecutivas de folios y contadores del sistema
   sequences: defineTable({

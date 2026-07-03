@@ -1,7 +1,7 @@
 import { query } from "../_generated/server";
 import { v } from "convex/values";
-import { getAuthUserId } from "@convex-dev/auth/server";
 import { requireAdmin, requireIdentity } from "../common/utils";
+import { resolveCurrentStaffUser } from "../common/utils";
 
 /**
  * Lista todos los perfiles de recursos humanos.
@@ -81,40 +81,13 @@ export const listActiveForSelection = query({
 export const getCurrentProfile = query({
   args: {},
   handler: async (ctx) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) return null;
-
-    const email = identity.email?.trim().toLowerCase() || "";
-    let user = null;
-
-    if (email) {
-      const usersByEmail = await ctx.db
-        .query("users")
-        .withIndex("by_email", (q) => q.eq("email", email))
-        .collect();
-      user = usersByEmail[0] ?? null;
-    }
-
-    if (!user) {
-      const authUserId = await getAuthUserId(ctx);
-      if (authUserId) {
-        try {
-          user = await ctx.db.get(authUserId);
-        } catch {
-          user = null;
-        }
-      }
-    }
-
-    if (!user) return null;
-    if (!user.profileId) return null;
-
-    const profile = await ctx.db.get(user.profileId);
+    const resolved = await resolveCurrentStaffUser(ctx);
+    const profile = resolved.profile;
     if (!profile) return null;
 
     return {
       ...profile,
-      user,
+      user: resolved.user,
     };
   },
 });
