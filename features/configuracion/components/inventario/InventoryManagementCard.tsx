@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import { useState, useMemo } from "react";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import {
@@ -17,6 +17,7 @@ import {
   TableBody,
   TableRow,
   TableCell,
+  Pagination,
   addToast,
   Tabs,
   Tab,
@@ -37,12 +38,17 @@ import {
   QueueListIcon,
   CheckCircleIcon,
 } from "@heroicons/react/24/outline";
-import type { Id } from "@/convex/_generated/dataModel";
+import type { Doc, Id } from "@/convex/_generated/dataModel";
+
+type ProductDoc = Doc<"products">;
+type InventoryDoc = Doc<"inventory">;
 
 export function InventoryManagementCard() {
   const [selectedBodegaId, setSelectedBodegaId] = useState<string>("");
   const [filterValue, setFilterValue] = useState("");
   const [activeSubTab, setActiveSubTab] = useState("stock");
+  const [stockPage, setStockPage] = useState(1);
+  const [stockRowsPerPage, setStockRowsPerPage] = useState(15);
   
   // Modal states for manual adjustment
   const { isOpen, onOpen, onOpenChange, onClose } = useDisclosure();
@@ -53,26 +59,28 @@ export function InventoryManagementCard() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Queries
-  const bodegas = useQuery(api.bodegas.queries.list) || [];
+  const bodegasQuery = useQuery(api.bodegas.queries.list);
+  const bodegas = useMemo(() => bodegasQuery ?? [], [bodegasQuery]);
   const activeBodegas = useMemo(() => bodegas.filter(b => b.isActive), [bodegas]);
-  
-  // Set default bodega when loaded
-  React.useEffect(() => {
-    if (activeBodegas.length > 0 && !selectedBodegaId) {
-      setSelectedBodegaId(String(activeBodegas[0]._id));
-    }
-  }, [activeBodegas, selectedBodegaId]);
 
-  const products = (useQuery(api.products.queries.list) || []) as any[];
-  const inventoryRows = useQuery(
+  const effectiveBodegaId = selectedBodegaId || String(activeBodegas[0]?._id || "");
+
+  const productsQuery = useQuery(api.products.queries.list);
+  const products = useMemo(() => (productsQuery ?? []) as ProductDoc[], [productsQuery]);
+  const inventoryRowsQuery = useQuery(
     api.inventory.queries.listByBodega,
-    selectedBodegaId ? { bodegaId: selectedBodegaId as Id<"bodegas"> } : "skip"
-  ) || [];
+    effectiveBodegaId ? { bodegaId: effectiveBodegaId as Id<"bodegas"> } : "skip"
+  );
+  const inventoryRows = useMemo(
+    () => (inventoryRowsQuery ?? []) as InventoryDoc[],
+    [inventoryRowsQuery]
+  );
   
-  const movementLogs = useQuery(
+  const movementLogsQuery = useQuery(
     api.inventoryLogs.queries.listByBodega,
-    selectedBodegaId ? { bodegaId: selectedBodegaId as Id<"bodegas"> } : "skip"
-  ) || [];
+    effectiveBodegaId ? { bodegaId: effectiveBodegaId as Id<"bodegas"> } : "skip"
+  );
+  const movementLogs = useMemo(() => movementLogsQuery ?? [], [movementLogsQuery]);
 
   // Mutation
   const adjustInventory = useMutation(api.inventory.mutations.adjust);
@@ -85,7 +93,7 @@ export function InventoryManagementCard() {
   // Combined stock list
   const stockList = useMemo(() => {
     if (products.length === 0) return [];
-    return products.map((p: any) => {
+    return products.map((p) => {
       const stock = stockMap.get(String(p._id)) ?? 0;
       return {
         id: String(p._id),
@@ -110,6 +118,18 @@ export function InventoryManagementCard() {
     );
   }, [stockList, filterValue]);
 
+  const stockTotalRows = filteredStockItems.length;
+  const stockTotalPages = Math.max(1, Math.ceil(stockTotalRows / stockRowsPerPage));
+  const currentStockPage = Math.min(stockPage, stockTotalPages);
+
+  const paginatedStockItems = useMemo(() => {
+    const start = (currentStockPage - 1) * stockRowsPerPage;
+    return filteredStockItems.slice(start, start + stockRowsPerPage);
+  }, [filteredStockItems, currentStockPage, stockRowsPerPage]);
+
+  const stockStartItem = stockTotalRows === 0 ? 0 : (currentStockPage - 1) * stockRowsPerPage + 1;
+  const stockEndItem = stockTotalRows === 0 ? 0 : Math.min(currentStockPage * stockRowsPerPage, stockTotalRows);
+
   // Selected Product for adjustment previous stock lookup
   const selectedProductPreviousStock = useMemo(() => {
     if (!selectedProductId) return 0;
@@ -117,7 +137,7 @@ export function InventoryManagementCard() {
   }, [selectedProductId, stockMap]);
 
   const handleAdjustStock = async () => {
-    if (!selectedBodegaId || !selectedProductId || newStock === "") return;
+    if (!effectiveBodegaId || !selectedProductId || newStock === "") return;
     const finalNewStock = parseFloat(newStock);
     if (isNaN(finalNewStock)) return;
 
@@ -125,7 +145,7 @@ export function InventoryManagementCard() {
     try {
       const delta = finalNewStock - selectedProductPreviousStock;
       await adjustInventory({
-        bodegaId: selectedBodegaId as Id<"bodegas">,
+        bodegaId: effectiveBodegaId as Id<"bodegas">,
         items: [
           {
             productId: selectedProductId as Id<"products">,
@@ -175,7 +195,7 @@ export function InventoryManagementCard() {
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-3">
-            {selectedBodegaId && (
+            {effectiveBodegaId && (
               <Button
                 color="primary"
                 radius="full"
@@ -194,8 +214,11 @@ export function InventoryManagementCard() {
             <Select
               label="Bodega / Almacén"
               size="sm"
-              selectedKeys={selectedBodegaId ? [selectedBodegaId] : []}
-              onSelectionChange={(keys) => setSelectedBodegaId(String(Array.from(keys)[0] || ""))}
+              selectedKeys={effectiveBodegaId ? [effectiveBodegaId] : []}
+              onSelectionChange={(keys) => {
+                setSelectedBodegaId(String(Array.from(keys)[0] || ""));
+                setStockPage(1);
+              }}
               classNames={{
                 trigger: "bg-white/5 border border-white/10 hover:bg-white/10 text-white",
                 label: "text-white/50",
@@ -264,23 +287,30 @@ export function InventoryManagementCard() {
               />
             </div>
 
-            <div className="overflow-hidden rounded-2xl border border-white/10">
-              <Table aria-label="Tabla de existencias en almacén" removeWrapper className="bg-transparent text-white">
+            <div className="overflow-hidden rounded-2xl border border-white/10 bg-neutral-950/40 shadow-[0_20px_60px_rgba(0,0,0,0.22)] backdrop-blur-sm">
+              <Table
+                aria-label="Tabla de existencias en almacén"
+                removeWrapper
+                className="bg-transparent text-white"
+                classNames={{
+                  wrapper: "bg-transparent p-0",
+                }}
+              >
                 <TableHeader>
-                  <TableColumn className="bg-neutral-800 text-white/60">Código</TableColumn>
-                  <TableColumn className="bg-neutral-800 text-white/60">Producto</TableColumn>
-                  <TableColumn className="bg-neutral-800 text-white/60">Categoría</TableColumn>
-                  <TableColumn className="bg-neutral-800 text-white/60 text-right">Costo</TableColumn>
-                  <TableColumn className="bg-neutral-800 text-white/60 text-right">Venta (T1)</TableColumn>
-                  <TableColumn className="bg-neutral-800 text-white/60 text-center">Stock Actual</TableColumn>
+                  <TableColumn className="bg-slate-950/95 text-[10px] uppercase tracking-[0.22em] text-slate-400">Código</TableColumn>
+                  <TableColumn className="bg-slate-950/95 text-[10px] uppercase tracking-[0.22em] text-slate-400">Producto</TableColumn>
+                  <TableColumn className="bg-slate-950/95 text-[10px] uppercase tracking-[0.22em] text-slate-400">Categoría</TableColumn>
+                  <TableColumn className="bg-slate-950/95 text-[10px] uppercase tracking-[0.22em] text-slate-400 text-right">Costo</TableColumn>
+                  <TableColumn className="bg-slate-950/95 text-[10px] uppercase tracking-[0.22em] text-slate-400 text-right">Venta (T1)</TableColumn>
+                  <TableColumn className="bg-slate-950/95 text-[10px] uppercase tracking-[0.22em] text-slate-400 text-center">Stock Actual</TableColumn>
                 </TableHeader>
-                <TableBody items={filteredStockItems} emptyContent="No hay productos en esta bodega.">
+                <TableBody items={paginatedStockItems} emptyContent="No hay productos en esta bodega.">
                   {(item) => (
-                    <TableRow key={item.id} className="border-b border-white/5 hover:bg-white/5">
-                      <TableCell className="font-mono text-xs text-white/50">{item.sku}</TableCell>
-                      <TableCell className="font-semibold">{item.producto}</TableCell>
-                      <TableCell className="text-white/60">{item.categoria}</TableCell>
-                      <TableCell className="text-right font-mono text-white/60">${parseFloat(item.costo).toFixed(2)}</TableCell>
+                    <TableRow key={item.id} className="border-b border-white/5 bg-white/[0.02] hover:bg-sky-500/5 data-[odd=true]:bg-white/[0.04]">
+                      <TableCell className="font-mono text-xs text-slate-400">{item.sku}</TableCell>
+                      <TableCell className="font-semibold text-slate-100">{item.producto}</TableCell>
+                      <TableCell className="text-slate-300">{item.categoria}</TableCell>
+                      <TableCell className="text-right font-mono text-slate-300">${parseFloat(item.costo).toFixed(2)}</TableCell>
                       <TableCell className="text-right font-semibold text-emerald-400 font-mono">${parseFloat(item.venta).toFixed(2)}</TableCell>
                       <TableCell className="text-center font-bold text-sm">
                         <span className={item.stock <= 10 ? "text-red-400" : item.stock <= 30 ? "text-orange-400" : "text-green-400"}>
@@ -291,6 +321,58 @@ export function InventoryManagementCard() {
                   )}
                 </TableBody>
               </Table>
+            </div>
+
+            <div className="flex flex-col gap-3 border-t border-white/10 pt-4 lg:flex-row lg:items-center lg:justify-between">
+              <div className="flex flex-col gap-1">
+                <p className="text-sm font-semibold text-slate-100">
+                  {stockTotalRows} productos encontrados
+                </p>
+                <p className="text-xs text-slate-400">
+                  Mostrando {stockStartItem}-{stockEndItem} de {stockTotalRows}
+                </p>
+              </div>
+
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                <div className="w-full sm:w-40">
+                  <Select
+                    label="Mostrar"
+                    size="sm"
+                    selectedKeys={[String(stockRowsPerPage)]}
+                    onSelectionChange={(keys) => {
+                      const next = Number(Array.from(keys)[0]);
+                      if (!Number.isFinite(next)) return;
+                      setStockRowsPerPage(next);
+                      setStockPage(1);
+                    }}
+                    classNames={{
+                      trigger: "bg-slate-950/60 border border-white/10 hover:bg-slate-900/80 text-white shadow-inner shadow-black/20",
+                      label: "text-slate-400",
+                      value: "text-slate-100 font-semibold",
+                    }}
+                  >
+                    {[10, 15].map((option) => (
+                      <SelectItem key={String(option)} textValue={String(option)}>
+                        {option}
+                      </SelectItem>
+                    ))}
+                  </Select>
+                </div>
+
+                {stockTotalPages > 1 && (
+                  <div className="flex justify-end rounded-xl border border-white/10 bg-slate-950/50 p-2 shadow-inner shadow-black/20">
+                    <Pagination
+                      showControls
+                      page={currentStockPage}
+                      total={stockTotalPages}
+                      onChange={setStockPage}
+                      classNames={{
+                        cursor: "bg-primary font-semibold shadow-lg shadow-primary/20",
+                      }}
+                    />
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         ) : (
